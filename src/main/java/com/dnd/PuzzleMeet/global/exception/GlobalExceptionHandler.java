@@ -59,9 +59,8 @@ public class GlobalExceptionHandler {
   public ResponseEntity<ApiResult<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
     Class<?> requiredType = e.getRequiredType();
     log.warn(
-        "[타입 불일치] name={}, value={}, requiredType={}",
+        "[타입 불일치] name={}, requiredType={}",
         e.getName(),
-        e.getValue(),
         requiredType != null ? requiredType.getSimpleName() : "unknown");
     return createErrorResponse(ErrorCode.INVALID_TYPE_VALUE);
   }
@@ -120,11 +119,7 @@ public class GlobalExceptionHandler {
 
   private String extractBindingErrors(BindingResult bindingResult) {
     return bindingResult.getFieldErrors().stream()
-        .map(
-            error ->
-                "%s=%s (%s)"
-                    .formatted(
-                        error.getField(), error.getRejectedValue(), error.getDefaultMessage()))
+        .map(error -> "%s (%s)".formatted(error.getField(), error.getDefaultMessage()))
         .collect(Collectors.joining(", "));
   }
 
