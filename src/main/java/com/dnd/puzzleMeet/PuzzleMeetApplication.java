@@ -1,4 +1,4 @@
-package com.dnd.PuzzleMeet;
+package com.dnd.puzzleMeet;
 
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;

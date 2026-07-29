@@ -1,6 +1,6 @@
-package com.dnd.PuzzleMeet.health;
+package com.dnd.puzzleMeet.health;
 
-import com.dnd.PuzzleMeet.global.response.ApiResult;
+import com.dnd.puzzleMeet.global.response.ApiResult;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;

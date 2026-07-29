@@ -1,7 +1,7 @@
-package com.dnd.PuzzleMeet.global.exception;
+package com.dnd.puzzleMeet.global.exception;
 
-import com.dnd.PuzzleMeet.global.response.ApiResult;
-import com.dnd.PuzzleMeet.global.response.ErrorCode;
+import com.dnd.puzzleMeet.global.response.ApiResult;
+import com.dnd.puzzleMeet.global.response.ErrorCode;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
