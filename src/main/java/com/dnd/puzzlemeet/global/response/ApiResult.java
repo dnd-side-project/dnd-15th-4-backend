@@ -1,4 +1,4 @@
-package com.dnd.puzzleMeet.global.response;
+package com.dnd.puzzlemeet.global.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
