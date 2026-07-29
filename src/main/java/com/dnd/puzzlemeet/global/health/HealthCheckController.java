@@ -1,4 +1,4 @@
-package com.dnd.puzzlemeet.health;
+package com.dnd.puzzlemeet.global.health;
 
 import com.dnd.puzzlemeet.global.response.ApiResult;
 import io.swagger.v3.oas.annotations.Operation;
