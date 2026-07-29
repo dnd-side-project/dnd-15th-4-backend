@@ -1,4 +1,4 @@
-package com.dnd.PuzzleMeet.global.response;
+package com.dnd.puzzlemeet.global.response;
 
 import lombok.Getter;
 import lombok.RequiredArgsConstructor;

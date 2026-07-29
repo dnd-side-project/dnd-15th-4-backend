@@ -1,6 +1,6 @@
-package com.dnd.PuzzleMeet.global.exception;
+package com.dnd.puzzlemeet.global.exception;
 
-import com.dnd.PuzzleMeet.global.response.ErrorCode;
+import com.dnd.puzzlemeet.global.response.ErrorCode;
 import lombok.Getter;
 
 @Getter
