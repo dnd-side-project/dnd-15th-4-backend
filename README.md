@@ -10,7 +10,7 @@
 | 데이터베이스 | MySQL |
 | API 문서 | springdoc-openapi 3.0.3 (Swagger UI) |
 | 코드 포맷 | Spotless + google-java-format 1.22.0 |
-| 배포 | GitHub Actions → Docker Hub → EC2 (arm64) |
+| 배포 | GitHub Actions → GHCR → EC2 (arm64) |
 
 ## 실행 방법
 
@@ -23,10 +23,34 @@
 
 `installGitHooks`는 `core.hooksPath`를 `.githooks`로 바꿔 커밋할 때 `spotlessCheck`가 돌게 한다.
 
+`bootRun` 전에 로컬 MySQL 접속 정보를 환경변수로 넣는다. 셋 다 필수다.
+
+| 환경변수 | 예 |
+|---|---|
+| `DB_URL` | `jdbc:mysql://localhost:3306/puzzlemeet` |
+| `DB_USERNAME` | `root` |
+| `DB_PASSWORD` | |
+
+빠뜨리면 `${DB_URL}`이 문자열 그대로 바인딩돼
+`Failed to determine a suitable driver class`로 기동에 실패한다.
+드라이버가 없을 때와 메시지가 같으므로 환경변수부터 확인한다.
+
+테이블은 `ddl-auto: update`가 엔티티를 보고 만든다.
+스키마 관리 방식과 Flyway 도입 시점은 [docs/entity.md](docs/entity.md)에 있다.
+
 기동하면 두 곳으로 확인한다.
 
 - 헬스체크: `GET http://localhost:8080/health`
 - API 문서: `http://localhost:8080/swagger-ui.html`
+
+### 테스트
+
+```bash
+./gradlew test
+```
+
+컨텍스트 로딩 테스트가 Testcontainers로 MySQL 컨테이너를 띄우므로 Docker가 실행 중이어야 한다.
+테스트는 컨테이너 접속 정보를 쓰므로 위 환경변수가 필요 없다.
 
 ### 커밋 전
 
