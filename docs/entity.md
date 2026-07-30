@@ -72,8 +72,8 @@ ERD상 모든 자식 테이블이 이미 FK를 갖고 있어서 양방향은 추
 - `@EnableJpaAuditing`은 `global/config/JpaAuditingConfig` **한 곳에만** 둔다
 - **첫 엔티티를 만드는 PR에서 함께 만든다**
 - 상속 대상은 ERD상 `created_at`과 `updated_at`을 **둘 다** 가진
-  `users` / `meeting` / `meeting_member` **3개뿐**이다.
-  `created_at`만 있는 `member_image` / `puzzle_page`는 상속하지 않는다
+  `users` / `meetings` / `meeting_members` **3개뿐**이다.
+  `created_at`만 있는 `member_images` / `puzzle_pages`는 상속하지 않는다
 
 **왜 첫 PR에서 함께 만드나**
 

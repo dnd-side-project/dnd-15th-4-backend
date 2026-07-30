@@ -52,8 +52,8 @@
 
 ## DB
 
-- 테이블명은 `snake_case` + **단수**로 쓴다.
-  예외는 예약어를 피하기 위한 `users` 하나뿐이고, 엔티티는 `User` + `@Table(name = "users")`로 쓴다
+- 테이블명은 `snake_case` + **복수**로 쓴다. 엔티티 클래스명은 단수, 테이블명은 복수다.
+  예: `User` + `@Table(name = "users")`, `MeetingMember` + `@Table(name = "meeting_members")`
 - **컬럼 규칙은 Flyway 마이그레이션 SQL에만 적는다.** 여기에 중복해서 적지 않는다
 
 첫 마이그레이션(V1)이 머지되기 전까지만 아래를 적용한다.

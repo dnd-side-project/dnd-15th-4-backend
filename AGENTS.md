@@ -29,11 +29,14 @@ Java 21 / Spring Boot 4.0.7 / Spring Framework 7 / MySQL.
 ### 2. Spring Boot 3 예제를 그대로 옮기지 않는다
 
 - 의존성·패키지는 Boot 4 기준으로 쓴다. `spring-boot-starter-webmvc`(`-web` 아님),
-  Jackson은 `tools.jackson.*`(`com.fasterxml` 아님), `@WebMvcTest`·`MockMvc`는
-  `spring-boot-webmvc-test`를 따로 추가한다. 틀리면 빌드가 잡는다
-- 빌드와 테스트가 못 잡는 것 하나 — **Jackson 3는 enum을 `name()`이 아니라 `toString()`으로
-  직렬화한다.** API에 노출되는 enum에 `toString()`을 오버라이드하지 않는다.
-  표시용 문자열이 필요하면 별도 필드로 둔다
+  Jackson은 `tools.jackson.*`(`com.fasterxml` 아님). 이 둘은 틀리면 빌드가 잡는다
+- `@WebMvcTest`·`MockMvc`는 `spring-boot-starter-webmvc-test`를 따로 추가한다.
+  `starter`가 빠진 `spring-boot-webmvc-test`도 BOM에 있어서 버전 없이 해결되고
+  `@WebMvcTest`까지 컴파일되므로, 이름을 틀려도 빌드가 잡지 못한다.
+  대신 `spring-boot-starter-jackson-test`·`spring-boot-resttestclient`가 딸려오지 않는다
+- **Jackson 3는 enum을 `name()`이 아니라 `toString()`으로 직렬화한다.**
+  API에 노출되는 enum에 `toString()`을 오버라이드하지 않는다.
+  표시용 문자열이 필요하면 별도 필드로 둔다. 이것도 빌드와 테스트가 잡지 못한다
 
 ### 3. 에러는 `throw ApiException.of(ErrorCode.XXX)`로 던진다
 
