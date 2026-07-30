@@ -54,11 +54,11 @@
 
 - 테이블명은 `snake_case` + **복수**로 쓴다. 엔티티 클래스명은 단수, 테이블명은 복수다.
   예: `User` + `@Table(name = "users")`, `MeetingMember` + `@Table(name = "meeting_members")`
-- **컬럼 규칙은 Flyway 마이그레이션 SQL에만 적는다.** 여기에 중복해서 적지 않는다
+- 컬럼명은 PK는 `id` / FK는 `<참조테이블>_id` / 시각은 `*_at` / boolean은 `is_*`로 쓴다
 
-첫 마이그레이션(V1)이 머지되기 전까지만 아래를 적용한다.
-PK는 `id` / FK는 `<참조테이블>_id` / 시각은 `*_at` / boolean은 `is_*`.
-V1을 머지하는 PR에서 이 단서 문장을 지운다.
+**컬럼 규칙이 여기 적혀 있는 것은 아직 마이그레이션 SQL이 없기 때문이다.**
+Flyway는 릴리스 때 도입한다 (`docs/entity.md`).
+도입하는 PR에서 이 규칙을 V1 SQL로 옮기고 여기서는 지운다. 두 곳에 남겨두지 않는다.
 
 ## 테스트
 
