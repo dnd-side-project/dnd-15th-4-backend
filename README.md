@@ -1,5 +1,8 @@
 # PuzzleMeet Backend
 
+약속 장소까지 각자 얼마나 걸리는지 공유하고, 도착한 사람의 퍼즐 조각을 공개하는
+모임 서비스의 백엔드입니다.
+
 ## 기술 스택
 
 | 구분 | 사용 기술 |
@@ -14,6 +17,12 @@
 
 ## 실행 방법
 
+### 환경 설정
+
+- JDK 21
+- 로컬 MySQL 
+- Docker 
+
 ### 실행
 
 ```bash
@@ -21,27 +30,19 @@
 ./gradlew bootRun
 ```
 
-`installGitHooks`는 `core.hooksPath`를 `.githooks`로 바꿔 커밋할 때 `spotlessCheck`가 돌게 한다.
+`installGitHooks`는 `core.hooksPath`를 `.githooks`로 바꿔 커밋할 때 `spotlessCheck`가 돌게 합니다.
 
-`bootRun` 전에 로컬 MySQL 접속 정보를 환경변수로 넣는다. 셋 다 필수다.
+`bootRun` 전에 MySQL 접속 정보를 환경변수로 넣습니다. 셋 다 필수입니다.
 
-| 환경변수 | 예 |
-|---|---|
-| `DB_URL` | `jdbc:mysql://localhost:3306/puzzlemeet` |
-| `DB_USERNAME` | `root` |
-| `DB_PASSWORD` | |
+```bash
+cp .env.example .env
+```
 
-빠뜨리면 `${DB_URL}`이 문자열 그대로 바인딩돼
-`Failed to determine a suitable driver class`로 기동에 실패한다.
-드라이버가 없을 때와 메시지가 같으므로 환경변수부터 확인한다.
 
-테이블은 `ddl-auto: update`가 엔티티를 보고 만든다.
-스키마 관리 방식과 Flyway 도입 시점은 [docs/entity.md](docs/entity.md)에 있다.
-
-기동하면 두 곳으로 확인한다.
+### 기동 확인
 
 - 헬스체크: `GET http://localhost:8080/health`
-- API 문서: `http://localhost:8080/swagger-ui.html`
+- API 문서: http://localhost:8080/swagger-ui.html
 
 ### 테스트
 
@@ -49,20 +50,10 @@
 ./gradlew test
 ```
 
-컨텍스트 로딩 테스트가 Testcontainers로 MySQL 컨테이너를 띄우므로 Docker가 실행 중이어야 한다.
-테스트는 컨테이너 접속 정보를 쓰므로 위 환경변수가 필요 없다.
-
 ### 커밋 전
 
 ```bash
 ./gradlew spotlessApply
 ```
 
-pre-commit hook은 `spotlessCheck`로 검사만 하고 자동 수정은 하지 않는다.
-포맷이 어긋나면 커밋이 막히므로 미리 맞춰 둔다.
-
-## 규약 문서
-
-- 브랜치·커밋·PR 규칙: [docs/git.md](docs/git.md)
-- 코드 규약은 `docs/` 아래에 있다. 어떤 작업에 어떤 문서를 읽는지는
-  [CLAUDE.md](CLAUDE.md)의 표를 따른다
+pre-commit hook은 `spotlessCheck`로 검사만 하고 자동 수정은 하지 않습니다.
