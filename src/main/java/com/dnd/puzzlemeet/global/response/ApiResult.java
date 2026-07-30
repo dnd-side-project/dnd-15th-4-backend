@@ -10,19 +10,19 @@ import org.springframework.http.ResponseEntity;
 public class ApiResult<T> {
 
   @Schema(description = "HTTP 상태 코드", example = "200")
-  private HttpStatus status;
+  private final int status;
 
   @Schema(description = "커스텀 코드", example = "API_SUCCESS")
-  private String code;
+  private final String code;
 
-  @Schema(description = "응답 메시지", example = "API_SUCCESS")
-  private String message;
+  @Schema(description = "응답 메시지", example = "요청이 성공적으로 처리되었습니다.")
+  private final String message;
 
   @Schema(description = "응답 데이터", nullable = true)
-  private T data;
+  private final T data;
 
-  private ApiResult(HttpStatus status, String code, String message, T data) {
-    this.status = status;
+  private ApiResult(HttpStatus httpStatus, String code, String message, T data) {
+    this.status = httpStatus.value();
     this.code = code;
     this.message = message;
     this.data = data;
@@ -39,8 +39,10 @@ public class ApiResult<T> {
     return ResponseEntity.status(successCode.getHttpStatus()).body(body);
   }
 
-  public static <T> ApiResult<T> fail(ErrorCode errorCode) {
-    return new ApiResult<>(
-        errorCode.getHttpStatus(), errorCode.getCode(), errorCode.getMessage(), null);
+  public static ResponseEntity<ApiResult<Void>> fail(ErrorCode errorCode) {
+    ApiResult<Void> body =
+        new ApiResult<>(
+            errorCode.getHttpStatus(), errorCode.getCode(), errorCode.getMessage(), null);
+    return ResponseEntity.status(errorCode.getHttpStatus()).body(body);
   }
 }
