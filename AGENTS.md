@@ -9,6 +9,7 @@ Java 21 / Spring Boot 4.0.7 / Spring Framework 7 / MySQL.
 | 엔티티·리포지토리 작성 | `docs/entity.md` |
 | 요청·응답 DTO 작성 | `docs/dto.md` |
 | 에러 코드 추가·예외 처리 | `docs/error-code.md` |
+| 컨트롤러에 Swagger 어노테이션 붙이기 | `docs/swagger.md` |
 | 로그 남기기 | `docs/logging.md` |
 | 클래스·메서드·API 경로·테스트 이름 짓기, 패키지 구조 | `docs/naming.md` |
 | 브랜치 만들기·커밋 메시지 쓰기·PR 올리기 | `docs/git.md` |

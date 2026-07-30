@@ -11,6 +11,8 @@
 2. 기존 enum 본체는 `CommonErrorCode implements ErrorCode`로 바꾼다.
    호출부는 `grep -rn "ErrorCode\." src/`로 전부 확인한 뒤 치환한다
 3. 도메인별로 `<도메인>ErrorCode implements ErrorCode`를 `domain.<도메인>.exception`에 만든다
+4. `global.annotation`의 `@ApiErrorCodeExample`·`@ApiErrorCodeExamples`를 같은 PR에서 바꾼다.
+   인터페이스는 어노테이션 요소 타입이 될 수 없어서 그대로 두면 컴파일되지 않는다 (`swagger.md`)
 
 인터페이스와 `CommonErrorCode`는 지금 enum이 있는 `global.response`에 그대로 둔다.
 
