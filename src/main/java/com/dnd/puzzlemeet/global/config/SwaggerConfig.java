@@ -93,7 +93,8 @@ public class SwaggerConfig {
 
   private MediaType toMediaType(List<ErrorCode> errorCodes) {
     MediaType mediaType = new MediaType();
-    errorCodes.forEach(errorCode -> mediaType.addExamples(errorCode.getCode(), toExample(errorCode)));
+    errorCodes.forEach(
+        errorCode -> mediaType.addExamples(errorCode.getCode(), toExample(errorCode)));
     return mediaType;
   }
 
