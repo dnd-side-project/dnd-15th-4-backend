@@ -12,7 +12,7 @@ ERD 없이 그대로 따른다.
 | `@Entity` | **클래스 레벨 `@Builder`** |
 | `@Getter` | `@Setter` `@Data` `@ToString` `@EqualsAndHashCode` `@NonNull` |
 | `@NoArgsConstructor(access = AccessLevel.PROTECTED)` | |
-| `@Table(name = "<테이블명>")` — snake_case 단수 | |
+| `@Table(name = "<테이블명>")` — snake_case 복수 | |
 
 오른쪽 열의 lombok 애노테이션은 `lombok.config`가 컴파일 에러로 막는다.
 
