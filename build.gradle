@@ -51,6 +51,12 @@ tasks.named('test') {
 	useJUnitPlatform()
 }
 
+// build를 돌리면 실행 가능한 jar와 -plain.jar가 같이 생긴다.
+// Dockerfile의 COPY build/libs/*.jar가 두 개를 잡아 실패하므로, 쓰지 않는 plain jar를 끈다.
+tasks.named('jar') {
+	enabled = false
+}
+
 // git hook
 tasks.register('installGitHooks', Exec) {
 	group = 'git hooks'
