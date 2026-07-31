@@ -4,20 +4,21 @@ on:
   push:
     branches: [ develop ]
 
-# 배포는 취소하지 않고 순서대로 처리한다.
 concurrency:
   group: cd-develop
   cancel-in-progress: false
 
 env:
   IMAGE_NAME: ghcr.io/${{ github.repository }}
-  CONTAINER_NAME: puzzlemeet
-  APP_PORT: 8080
+  DEPLOY_DIR: puzzlemeet
 
 jobs:
   deploy:
     name: build-and-deploy
     runs-on: ubuntu-latest
+    environment:
+      name: develop
+      url: ${{ vars.SERVICE_URL }}
     permissions:
       contents: read
       packages: write
@@ -35,7 +36,6 @@ jobs:
       - name: Gradle 설치
         uses: gradle/actions/setup-gradle@v6
 
-      # build는 테스트와 spotlessCheck까지 실행한다.
       - name: 빌드 및 테스트
         run: ./gradlew clean build
 
@@ -49,8 +49,6 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ github.token }}
 
-      # Dockerfile에 RUN이 없어 QEMU 없이 arm64 이미지를 만들 수 있다.
-      # RUN을 추가하면 docker/setup-qemu-action이 함께 필요하다.
       - name: 이미지 빌드 및 푸시
         uses: docker/build-push-action@v7
         with:
@@ -58,67 +56,70 @@ jobs:
           platforms: linux/arm64
           push: true
           tags: ${{ env.IMAGE_NAME }}:develop
-          # 이 라벨이 있어야 패키지가 레포에 연결되어 권한을 상속받는다.
           labels: |
             org.opencontainers.image.source=${{ github.server_url }}/${{ github.repository }}
+
+      - name: 배포 파일 전송
+        uses: appleboy/scp-action@v1
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ${{ secrets.EC2_USER }}
+          key: ${{ secrets.EC2_SSH_KEY }}
+          source: docker-compose.yml,nginx/templates/default.conf.template
+          target: ~/${{ env.DEPLOY_DIR }}
+          overwrite: true
 
       - name: EC2 배포 및 헬스체크
         uses: appleboy/ssh-action@v1
         env:
           IMAGE: ${{ env.IMAGE_NAME }}:develop
-          CONTAINER: ${{ env.CONTAINER_NAME }}
-          PORT: ${{ env.APP_PORT }}
+          DEPLOY_DIR: ${{ env.DEPLOY_DIR }}
           REGISTRY_USER: ${{ github.actor }}
           REGISTRY_TOKEN: ${{ github.token }}
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ${{ secrets.EC2_USER }}
           key: ${{ secrets.EC2_SSH_KEY }}
-          envs: IMAGE,CONTAINER,PORT,REGISTRY_USER,REGISTRY_TOKEN
+          envs: IMAGE,DEPLOY_DIR,REGISTRY_USER,REGISTRY_TOKEN
           script_stop: true
           script: |
             set -e
+            export IMAGE
 
-            # 런타임 설정은 EC2의 이 파일에서 읽는다. 없으면 컨테이너를 건드리기 전에 멈춘다.
-            ENV_FILE="$HOME/puzzlemeet.env"
-            if [ ! -f "$ENV_FILE" ]; then
-              echo "환경변수 파일이 없습니다: $ENV_FILE"
+            cd "$HOME/$DEPLOY_DIR"
+
+            if ! docker compose version > /dev/null 2>&1; then
+              echo "docker compose 플러그인이 없습니다 (docker-compose-plugin 설치 필요)"
               exit 1
             fi
 
+            if [ ! -f puzzlemeet.env ]; then
+              echo "환경변수 파일이 없습니다: $HOME/$DEPLOY_DIR/puzzlemeet.env"
+              exit 1
+            fi
+
+            DOMAIN="$(grep -E '^DOMAIN=' puzzlemeet.env | cut -d= -f2-)"
+            if [ -z "$DOMAIN" ]; then
+              echo "puzzlemeet.env에 DOMAIN이 없습니다"
+              exit 1
+            fi
+            export DOMAIN
+
             echo "$REGISTRY_TOKEN" | docker login ghcr.io -u "$REGISTRY_USER" --password-stdin
-            docker pull "$IMAGE"
+            docker compose pull
             docker logout ghcr.io
 
-            # pull이 끝난 뒤에 기존 컨테이너를 내린다.
-            docker rm -f "$CONTAINER" 2>/dev/null || true
-            
-            # 이 값이 Dockerfile의 MaxRAMPercentage=65가 계산하는 기준이 된다.
-            # memory-swap을 같은 값으로 두면 스왑을 쓰지 않는다.
-            # 컨테이너 로그는 10MB씩 3개까지만 보관한다.
-            docker run -d \
-              --name "$CONTAINER" \
-              --restart unless-stopped \
-              -p "$PORT:8080" \
-              --env-file "$ENV_FILE" \
-              --memory 700m \
-              --memory-swap 700m \
-              --log-opt max-size=10m \
-              --log-opt max-file=3 \
-              "$IMAGE"
+            docker compose up -d
 
-            # 2초 간격으로 최대 120초 동안 확인하고, 통과하면 즉시 종료한다.
             for i in $(seq 1 60); do
-              if curl -fsS "http://localhost:$PORT/health" > /dev/null 2>&1; then
+              if curl -fsS --resolve "$DOMAIN:443:127.0.0.1" "https://$DOMAIN/health" > /dev/null 2>&1; then
                 echo "헬스체크 통과 (${i}회째)"
-                # dangling 이미지만 정리한다. -a를 쓰면 이전 버전까지 지워져 수동 복구가 막힌다.
                 docker image prune -f || true
                 exit 0
               fi
               sleep 2
             done
 
-            # 롤백하지 않는다. 로그를 남기고 워크플로를 실패시킨다.
             echo "헬스체크 실패 - 최근 로그 100줄"
-            docker logs --tail 100 "$CONTAINER" || true
+            docker compose logs --tail 100 app nginx || true
             exit 1
