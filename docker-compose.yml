@@ -1,0 +1,67 @@
+services:
+  app:
+    image: ${IMAGE:-ghcr.io/dnd-side-project/dnd-15th-4-backend:develop}
+    container_name: puzzlemeet
+    restart: unless-stopped
+    env_file: ./puzzlemeet.env
+    expose:
+      - "8080"
+    mem_limit: 700m
+    memswap_limit: 700m
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - puzzlemeet
+
+  nginx:
+    image: nginx:1.29-alpine
+    container_name: puzzlemeet-nginx
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      DOMAIN: ${DOMAIN:?puzzlemeet.env에 DOMAIN이 필요하다}
+    volumes:
+      - ./nginx/templates:/etc/nginx/templates:ro
+      - certbot-conf:/etc/letsencrypt:ro
+      - certbot-www:/var/www/certbot:ro
+    command: /bin/sh -c 'while :; do sleep 24h & wait $${!}; nginx -s reload; done & exec /docker-entrypoint.sh nginx -g "daemon off;"'
+    depends_on:
+      app:
+        condition: service_started
+        restart: true
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - puzzlemeet
+
+  certbot:
+    image: certbot/certbot:v5.7.0
+    container_name: puzzlemeet-certbot
+    restart: unless-stopped
+    volumes:
+      - certbot-conf:/etc/letsencrypt
+      - certbot-www:/var/www/certbot
+    entrypoint: /bin/sh -c 'trap exit TERM; while :; do certbot renew; sleep 12h & wait $${!}; done'
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+    networks:
+      - puzzlemeet
+
+volumes:
+  certbot-conf:
+  certbot-www:
+
+networks:
+  puzzlemeet:
+    driver: bridge
