@@ -58,6 +58,28 @@ services:
     networks:
       - puzzlemeet
 
+  newrelic-infra:
+    image: newrelic/infrastructure:latest
+    container_name: puzzlemeet-newrelic-infra
+    restart: unless-stopped
+    mem_limit: 150m
+    memswap_limit: 150m
+    privileged: true
+    cap_add:
+      - SYS_PTRACE
+    network_mode: host
+    pid: host
+    cgroup: host
+    env_file: ./puzzlemeet.env
+    volumes:
+      - "/:/host:ro"
+      - "/var/run/docker.sock:/var/run/docker.sock"
+    logging:
+      driver: json-file
+      options:
+        max-size: 10m
+        max-file: "3"
+
 volumes:
   certbot-conf:
   certbot-www:
