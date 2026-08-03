@@ -32,14 +32,14 @@
 
 `installGitHooks`는 `core.hooksPath`를 `.githooks`로 바꿔 커밋할 때 `spotlessCheck`가 돌게 합니다.
 
-`bootRun` 전에 MySQL 접속 정보를 환경변수로 넣습니다. 셋 다 필수입니다.
+`bootRun` 실행 전에 환경변수 작성
 
 ```bash
 cp .env.example .env
 ```
 
 
-### 기동 확인
+### 확인
 
 - 헬스체크: `GET http://localhost:8080/health`
 - API 문서: http://localhost:8080/swagger-ui.html
