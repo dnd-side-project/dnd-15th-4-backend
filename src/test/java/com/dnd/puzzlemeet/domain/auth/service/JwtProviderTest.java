@@ -43,9 +43,6 @@ class JwtProviderTest {
   @Test
   @DisplayName("만료된 토큰은 거절된다")
   void expiredTokenIsRejected() {
-    // NimbusJwtEncoder는 발급 시점에 exp가 iat보다 뒤인지만 확인하고, 실제 만료 여부는 decode() 시점에
-    // JwtTimestampValidator(기본 60초 clock skew 허용)가 판정한다. "이미 만료된 토큰"을 만들려면 iat·exp를
-    // 둘 다 과거로 두되 서로의 순서는 지키고, exp를 clock skew보다 충분히 이전으로 잡아야 한다.
     SecretKeySpec secretKey =
         new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
     JwtEncoder jwtEncoder = new NimbusJwtEncoder(new ImmutableSecret<>(secretKey));

@@ -147,16 +147,10 @@ public class AuthService {
     return new TokenPair(accessToken, refreshToken);
   }
 
-  /**
-   * typ 클레임이 "access"인, 즉 재발급에 쓸 수 없는 토큰을 최대한 빨리 걸러낸다. 서명 오류·만료로 디코드 자체가 실패하는 경우는 여기서 판단하지 않고 아래 DB
-   * 기반 검증(존재 여부·expiresAt)에 맡긴다 — refresh token의 exp 클레임과 DB의 expires_at은 발급 시점에 같은 값으로 설정되므로, 두
-   * 신호가 갈리지 않는다.
-   */
   private void rejectIfNotRefreshToken(String token) {
     try {
       jwtProvider.validateRefreshToken(token);
     } catch (JwtException e) {
-      // 서명 오류·만료는 DB 조회 결과(없음/만료)로 최종 판정한다
     }
   }
 
