@@ -1,0 +1,12 @@
+jwt:
+  secret: test-jwt-secret-key-for-unit-tests-please-ignore
+
+kakao:
+  client-id: test-kakao-client-id
+  redirect-uri: http://localhost:8080/api/v1/auth/kakao/callback
+
+frontend:
+  login-redirect-uri: http://localhost:3000/login/callback
+
+cors:
+  allowed-origins: http://localhost:3000

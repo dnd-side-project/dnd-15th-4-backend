@@ -12,3 +12,22 @@ spring:
 
 server:
   forward-headers-strategy: framework
+
+jwt:
+  secret: ${JWT_SECRET}
+  access-token-expiry: 30m
+  refresh-token-expiry: 14d
+
+kakao:
+  client-id: ${KAKAO_CLIENT_ID}
+  client-secret: ${KAKAO_CLIENT_SECRET:}
+  redirect-uri: ${KAKAO_REDIRECT_URI}
+  authorize-uri: https://kauth.kakao.com/oauth/authorize
+  token-uri: https://kauth.kakao.com/oauth/token
+  user-info-uri: https://kapi.kakao.com/v2/user/me
+
+frontend:
+  login-redirect-uri: ${FRONTEND_LOGIN_REDIRECT_URI}
+
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS}

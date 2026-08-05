@@ -8,6 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.http.converter.HttpMessageNotReadableException;
 import org.springframework.validation.BindException;
 import org.springframework.validation.BindingResult;
+import org.springframework.web.HttpMediaTypeNotSupportedException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingRequestHeaderException;
@@ -94,6 +95,17 @@ public class GlobalExceptionHandler {
       HttpRequestMethodNotSupportedException e) {
     log.warn("[허용되지 않은 메서드] method={}, supported={}", e.getMethod(), e.getSupportedHttpMethods());
     return ApiResult.fail(ErrorCode.METHOD_NOT_ALLOWED);
+  }
+
+  // 지원하지 않는 Content-Type
+  @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
+  public ResponseEntity<ApiResult<Void>> handleMediaTypeNotSupported(
+      HttpMediaTypeNotSupportedException e) {
+    log.warn(
+        "[지원하지 않는 Content-Type] contentType={}, supported={}",
+        e.getContentType(),
+        e.getSupportedMediaTypes());
+    return ApiResult.fail(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
   }
 
   // 매핑되는 핸들러/리소스 없음 (404)
