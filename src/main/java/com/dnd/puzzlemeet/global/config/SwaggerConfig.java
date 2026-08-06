@@ -56,15 +56,11 @@ public class SwaggerConfig {
 
       ApiErrorCodeExample single = handlerMethod.getMethodAnnotation(ApiErrorCodeExample.class);
       if (single != null) {
-        generateErrorCodeResponseExample(operation, single.value());
+        generateErrorCodeResponseExample(operation, new ErrorCode[] {single.value()});
       }
 
       return operation;
     };
-  }
-
-  private void generateErrorCodeResponseExample(Operation operation, ErrorCode errorCode) {
-    generateErrorCodeResponseExample(operation, new ErrorCode[] {errorCode});
   }
 
   private void generateErrorCodeResponseExample(Operation operation, ErrorCode[] errorCodes) {
