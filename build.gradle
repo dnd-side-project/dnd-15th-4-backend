@@ -53,6 +53,7 @@ dependencies {
 	testImplementation 'org.springframework.boot:spring-boot-testcontainers'
 	testImplementation 'org.testcontainers:testcontainers-mysql'
 	testRuntimeOnly 'org.junit.platform:junit-platform-launcher'
+	implementation 'io.awspring.cloud:spring-cloud-aws-starter-s3:4.0.2'
 }
 
 tasks.named('test') {
