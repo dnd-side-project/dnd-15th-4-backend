@@ -2,9 +2,11 @@ package com.dnd.puzzlemeet.domain.meeting.service;
 
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
+import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
@@ -16,7 +18,11 @@ import com.dnd.puzzlemeet.global.response.ErrorCode;
 import com.dnd.puzzlemeet.global.s3.AmazonS3Manager;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
+import java.util.Comparator;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
+import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
@@ -36,6 +42,18 @@ public class MeetingService {
       "https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/puzzles/_+(9)+4.png";
 
   private static final SecureRandom RANDOM = new SecureRandom();
+
+  private static final Comparator<Meeting> MEETING_LIST_ORDER =
+      (m1, m2) -> {
+        boolean completed1 = m1.getStatus() == MeetingStatus.COMPLETED;
+        boolean completed2 = m2.getStatus() == MeetingStatus.COMPLETED;
+        if (completed1 != completed2) {
+          return completed1 ? 1 : -1;
+        }
+        return completed1
+            ? m2.getMeetingAt().compareTo(m1.getMeetingAt())
+            : m1.getMeetingAt().compareTo(m2.getMeetingAt());
+      };
 
   private final MeetingRepository meetingRepository;
   private final MeetingMemberRepository meetingMemberRepository;
@@ -73,6 +91,27 @@ public class MeetingService {
     memberImageRepository.save(new MemberImage(hostMember, imageUrl, !hasImage));
 
     return MeetingCreateResponse.from(meeting);
+  }
+
+  @Transactional(readOnly = true)
+  public List<MeetingListResponse> getMeetings(Long userId, MeetingStatus status) {
+    List<Meeting> meetings =
+        meetingRepository.findAllByParticipantUserIdAndStatus(userId, status).stream()
+            .sorted(MEETING_LIST_ORDER)
+            .toList();
+
+    if (meetings.isEmpty()) {
+      return List.of();
+    }
+
+    List<Long> meetingIds = meetings.stream().map(Meeting::getId).toList();
+    Map<Long, List<MeetingMember>> membersByMeetingId =
+        meetingMemberRepository.findAllByMeetingIdInFetchUser(meetingIds).stream()
+            .collect(Collectors.groupingBy(mm -> mm.getMeeting().getId()));
+
+    return meetings.stream()
+        .map(meeting -> MeetingListResponse.from(meeting, membersByMeetingId.get(meeting.getId())))
+        .toList();
   }
 
   private String uploadMemberImage(MultipartFile image) {
