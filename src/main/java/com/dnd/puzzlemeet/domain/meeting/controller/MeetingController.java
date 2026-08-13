@@ -20,6 +20,7 @@ import lombok.RequiredArgsConstructor;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
+import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -59,6 +60,20 @@ public class MeetingController {
       @Parameter(description = "약속 상태", example = "waiting") @PathVariable(required = false)
           String status) {
     return ApiResult.success(meetingService.getMeetings(principal.id(), resolveStatus(status)));
+  }
+
+  @Operation(summary = "약속 삭제", description = "방장이 대기 중인 약속을 삭제한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.AUTH_FORBIDDEN,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.MEETING_NOT_WAITING
+  })
+  @DeleteMapping("/{meetingId}")
+  public ResponseEntity<ApiResult<Void>> deleteMeeting(
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long meetingId) {
+    meetingService.cancelMeeting(principal.id(), meetingId);
+    return ApiResult.success(null);
   }
 
   private MeetingStatus resolveStatus(String rawStatus) {

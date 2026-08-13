@@ -114,6 +114,24 @@ public class MeetingService {
         .toList();
   }
 
+  @Transactional
+  public void cancelMeeting(Long userId, Long meetingId) {
+    Meeting meeting =
+        meetingRepository
+            .findById(meetingId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
+
+    if (!meeting.getHostUser().getId().equals(userId)) {
+      throw ApiException.of(ErrorCode.AUTH_FORBIDDEN);
+    }
+
+    if (meeting.getStatus() != MeetingStatus.WAITING) {
+      throw ApiException.of(ErrorCode.MEETING_NOT_WAITING);
+    }
+
+    meeting.cancel();
+  }
+
   private String uploadMemberImage(MultipartFile image) {
     String keyName = amazonS3Manager.generatePuzzleKeyName(UUID.randomUUID());
     return amazonS3Manager.uploadFile(keyName, image);
