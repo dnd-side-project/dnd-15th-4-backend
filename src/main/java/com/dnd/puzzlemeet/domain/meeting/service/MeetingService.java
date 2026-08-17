@@ -291,6 +291,16 @@ public class MeetingService {
   }
 
   @Transactional
+  public void completeExpiredMeetings() {
+    List<Meeting> expiredMeetings = meetingRepository.findAllExpired(LocalDateTime.now());
+    expiredMeetings.forEach(Meeting::complete);
+
+    if (!expiredMeetings.isEmpty()) {
+      log.info("[약속 자동 종료] count={}", expiredMeetings.size());
+    }
+  }
+
+  @Transactional
   public void cancelMeeting(Long userId, Long meetingId) {
     Meeting meeting =
         meetingRepository

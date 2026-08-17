@@ -2,6 +2,7 @@ package com.dnd.puzzlemeet.domain.meeting.repository;
 
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -26,4 +27,13 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
       """)
   List<Meeting> findAllByParticipantUserIdAndStatus(
       @Param("userId") Long userId, @Param("status") MeetingStatus status);
+
+  @Query(
+      """
+      select m from Meeting m
+      where m.status <> com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus.CANCELED
+        and m.status <> com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus.COMPLETED
+        and m.meetingAt <= :now
+      """)
+  List<Meeting> findAllExpired(@Param("now") LocalDateTime now);
 }
