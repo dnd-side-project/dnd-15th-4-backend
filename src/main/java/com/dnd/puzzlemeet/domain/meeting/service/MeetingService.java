@@ -5,6 +5,8 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
@@ -90,6 +92,23 @@ public class MeetingService {
     registerMember(meeting, host, MeetingMemberRole.HOST, request.nickname(), image);
 
     return MeetingCreateResponse.from(meeting);
+  }
+
+  @Transactional(readOnly = true)
+  public MeetingPreviewResponse previewMeeting(MeetingPreviewRequest request) {
+    Meeting meeting =
+        meetingRepository
+            .findByInviteCode(request.inviteCode())
+            .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_INVITE_CODE_INVALID));
+
+    if (meeting.getStatus() != MeetingStatus.WAITING) {
+      throw ApiException.of(ErrorCode.MEETING_INVITE_CODE_INVALID);
+    }
+
+    List<MeetingMember> members =
+        meetingMemberRepository.findAllByMeetingIdInFetchUser(List.of(meeting.getId()));
+
+    return MeetingPreviewResponse.from(meeting, members);
   }
 
   @Transactional

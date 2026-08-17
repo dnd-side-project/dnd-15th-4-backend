@@ -5,6 +5,8 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
 import com.dnd.puzzlemeet.domain.meeting.service.MeetingService;
@@ -52,6 +54,18 @@ public class MeetingController {
           MultipartFile image) {
     return ApiResult.success(
         SuccessCode.CREATED, meetingService.createMeeting(principal.id(), request, image));
+  }
+
+  @Operation(summary = "초대 코드로 약속 조회", description = "초대 코드로 약속 정보를 조회한다. 참여하기 전 미리 보기용으로 사용된다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.INVALID_INPUT_VALUE,
+    ErrorCode.MEETING_INVITE_CODE_INVALID
+  })
+  @PostMapping("/preview")
+  public ResponseEntity<ApiResult<MeetingPreviewResponse>> previewMeeting(
+      @Valid @RequestBody MeetingPreviewRequest request) {
+    return ApiResult.success(meetingService.previewMeeting(request));
   }
 
   @Operation(summary = "초대 코드로 약속 참여", description = "초대 코드로 대기 중인 약속에 참여자로 등록된다.")
