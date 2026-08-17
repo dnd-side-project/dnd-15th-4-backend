@@ -1,4 +1,4 @@
-package com.dnd.puzzlemeet.domain.reaction.entity;
+package com.dnd.puzzlemeet.domain.meeting.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;

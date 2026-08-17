@@ -47,6 +47,8 @@ public enum ErrorCode {
   MEETING_NOT_FOUND(HttpStatus.NOT_FOUND, "MEETING_NOT_FOUND", "존재하지 않는 약속입니다."),
   MEETING_INVITE_CODE_INVALID(
       HttpStatus.NOT_FOUND, "MEETING_INVITE_CODE_INVALID", "유효하지 않은 초대 코드입니다."),
+  REACTION_PRESET_NOT_FOUND(
+      HttpStatus.NOT_FOUND, "REACTION_PRESET_NOT_FOUND", "존재하지 않거나 비활성화된 리액션 프리셋입니다."),
 
   // 405 Method Not Allowed
   METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", "허용되지 않은 HTTP 메서드입니다."),

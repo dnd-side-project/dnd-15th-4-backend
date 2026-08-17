@@ -1,6 +1,5 @@
-package com.dnd.puzzlemeet.domain.reaction.entity;
+package com.dnd.puzzlemeet.domain.meeting.entity;
 
-import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
 import jakarta.persistence.FetchType;
