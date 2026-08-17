@@ -12,15 +12,18 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
+import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberStatus;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
 import com.dnd.puzzlemeet.domain.meeting.entity.ReactionMessage;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.ReactionMessageRepository;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
+import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzleCollection;
 import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzlePage;
 import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzlePiece;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
+import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzleCollectionRepository;
 import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzlePageRepository;
 import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzlePieceRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
@@ -30,7 +33,10 @@ import com.dnd.puzzlemeet.global.response.ErrorCode;
 import com.dnd.puzzlemeet.global.s3.AmazonS3Manager;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
+import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -55,6 +61,7 @@ public class MeetingService {
   private static final String DEFAULT_MEMBER_IMAGE_URL =
       "https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/puzzles/_+(9)+4.png";
   private static final int RECENT_QUICK_MESSAGE_LIMIT = 20;
+  private static final int PUZZLE_GROUP_SIZE = 4;
 
   private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -77,6 +84,7 @@ public class MeetingService {
   private final AmazonS3Manager amazonS3Manager;
   private final PuzzlePageRepository puzzlePageRepository;
   private final PuzzlePieceRepository puzzlePieceRepository;
+  private final PuzzleCollectionRepository puzzleCollectionRepository;
   private final ReactionMessageRepository reactionMessageRepository;
 
   @Transactional
@@ -290,14 +298,110 @@ public class MeetingService {
         puzzleImageUrl, page.getId(), page.getPageNumber(), members);
   }
 
+  private boolean isPuzzleCompleted(List<PuzzlePiece> pieces) {
+    List<PuzzlePiece> assignedPieces =
+        pieces.stream().filter(piece -> piece.getMeetingMember() != null).toList();
+
+    return !assignedPieces.isEmpty()
+        && assignedPieces.stream()
+            .allMatch(piece -> piece.getMeetingMember().getStatus() == MeetingMemberStatus.ARRIVED);
+  }
+
+  @Transactional
+  public void startTodaysMeetings() {
+    LocalDate today = LocalDate.now();
+    List<Meeting> meetings =
+        meetingRepository.findAllStartingBetween(
+            today.atStartOfDay(), today.plusDays(1).atStartOfDay());
+
+    meetings.forEach(
+        meeting -> {
+          meeting.start();
+          assignPuzzleGroups(meeting);
+        });
+
+    if (!meetings.isEmpty()) {
+      log.info("[약속 자동 시작] count={}", meetings.size());
+    }
+  }
+
+  private void assignPuzzleGroups(Meeting meeting) {
+    List<MemberImage> memberImages = memberImageRepository.findAllByMeetingId(meeting.getId());
+    if (memberImages.isEmpty()) {
+      return;
+    }
+
+    List<MemberImage> shuffledImages = new ArrayList<>(memberImages);
+    Collections.shuffle(shuffledImages, RANDOM);
+
+    int pageNumber = 1;
+    for (int i = 0; i < shuffledImages.size(); i += PUZZLE_GROUP_SIZE) {
+      List<MemberImage> group =
+          shuffledImages.subList(i, Math.min(i + PUZZLE_GROUP_SIZE, shuffledImages.size()));
+
+      PuzzlePage page = new PuzzlePage(meeting, pageNumber++);
+      puzzlePageRepository.save(page);
+
+      for (int pieceIndex = 0; pieceIndex < PUZZLE_GROUP_SIZE; pieceIndex++) {
+        MeetingMember assignedMember =
+            pieceIndex < group.size() ? group.get(pieceIndex).getMeetingMember() : null;
+        puzzlePieceRepository.save(new PuzzlePiece(page, assignedMember, (byte) (pieceIndex + 1)));
+      }
+    }
+  }
+
   @Transactional
   public void completeExpiredMeetings() {
     List<Meeting> expiredMeetings = meetingRepository.findAllExpired(LocalDateTime.now());
     expiredMeetings.forEach(Meeting::complete);
+    expiredMeetings.forEach(this::collectCompletedPuzzles);
 
     if (!expiredMeetings.isEmpty()) {
       log.info("[약속 자동 종료] count={}", expiredMeetings.size());
     }
+  }
+
+  private void collectCompletedPuzzles(Meeting meeting) {
+    List<PuzzlePage> puzzlePages =
+        puzzlePageRepository.findAllByMeetingIdOrderByPageNumberAsc(meeting.getId());
+    if (puzzlePages.isEmpty()) {
+      return;
+    }
+
+    List<Long> puzzlePageIds = puzzlePages.stream().map(PuzzlePage::getId).toList();
+    Map<Long, List<PuzzlePiece>> puzzlePiecesByPageId =
+        puzzlePieceRepository.findAllByPuzzlePageIdInFetchMember(puzzlePageIds).stream()
+            .collect(Collectors.groupingBy(piece -> piece.getPuzzlePage().getId()));
+
+    List<PuzzlePage> completedPages =
+        puzzlePages.stream()
+            .filter(
+                page ->
+                    isPuzzleCompleted(puzzlePiecesByPageId.getOrDefault(page.getId(), List.of())))
+            .filter(page -> page.getRepresentativeMemberImage() != null)
+            .toList();
+
+    if (completedPages.isEmpty()) {
+      return;
+    }
+
+    List<User> participants =
+        meetingMemberRepository.findAllByMeetingIdInFetchUser(List.of(meeting.getId())).stream()
+            .map(MeetingMember::getUser)
+            .toList();
+
+    List<PuzzleCollection> collections =
+        completedPages.stream()
+            .flatMap(
+                page ->
+                    participants.stream()
+                        .map(
+                            user ->
+                                new PuzzleCollection(
+                                    user, page, page.getRepresentativeMemberImage().getImageUrl())))
+            .toList();
+
+    puzzleCollectionRepository.saveAll(collections);
   }
 
   @Transactional

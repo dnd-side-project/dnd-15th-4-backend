@@ -20,6 +20,7 @@ import com.dnd.puzzlemeet.domain.meeting.repository.ReactionMessageRepository;
 import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzlePage;
 import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzlePiece;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
+import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzleCollectionRepository;
 import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzlePageRepository;
 import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzlePieceRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
@@ -50,6 +51,7 @@ class MeetingServiceTest {
   @Mock private AmazonS3Manager amazonS3Manager;
   @Mock private PuzzlePageRepository puzzlePageRepository;
   @Mock private PuzzlePieceRepository puzzlePieceRepository;
+  @Mock private PuzzleCollectionRepository puzzleCollectionRepository;
   @Mock private ReactionMessageRepository reactionMessageRepository;
 
   private MeetingService meetingService;
@@ -65,6 +67,7 @@ class MeetingServiceTest {
             amazonS3Manager,
             puzzlePageRepository,
             puzzlePieceRepository,
+            puzzleCollectionRepository,
             reactionMessageRepository);
   }
 

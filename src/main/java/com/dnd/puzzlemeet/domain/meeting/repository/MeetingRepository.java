@@ -36,4 +36,14 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
         and m.meetingAt <= :now
       """)
   List<Meeting> findAllExpired(@Param("now") LocalDateTime now);
+
+  @Query(
+      """
+      select m from Meeting m
+      where m.status = com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus.WAITING
+        and m.meetingAt >= :startOfDay
+        and m.meetingAt < :endOfDay
+      """)
+  List<Meeting> findAllStartingBetween(
+      @Param("startOfDay") LocalDateTime startOfDay, @Param("endOfDay") LocalDateTime endOfDay);
 }
