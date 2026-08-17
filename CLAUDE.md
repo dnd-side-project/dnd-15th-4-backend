@@ -19,15 +19,7 @@ Java 21 / Spring Boot 4.0.7 / Spring Framework 7 / MySQL.
 
 ## 항상 적용
 
-### 1. 참여자의 실시간 위치 좌표를 남기지 않는다
-
-- 엔티티·응답 DTO·로그 어디에도 남기지 않는다. 디버깅 편의를 이유로도 예외를 두지 않는다
-- 요청을 처리하는 동안 지도 API 호출에만 쓰고 버린다. DB에는 계산 결과인 소요시간만 저장한다
-- `meeting`의 목적지 좌표만 예외다. 지도에 핀을 찍어야 하므로 정상 저장 대상이다
-- 참여자 위치(현재 위치·출발지)를 받는 요청 record는 `toString()`을 오버라이드해서
-  좌표를 마스킹한다. 방법과 예외는 `docs/dto.md`
-
-### 2. Spring Boot 3 예제를 그대로 옮기지 않는다
+### 1. Spring Boot 3 예제를 그대로 옮기지 않는다
 
 - 의존성·패키지는 Boot 4 기준으로 쓴다. `spring-boot-starter-webmvc`(`-web` 아님),
   Jackson은 `tools.jackson.*`(`com.fasterxml` 아님). 이 둘은 틀리면 빌드가 잡는다
@@ -39,13 +31,13 @@ Java 21 / Spring Boot 4.0.7 / Spring Framework 7 / MySQL.
   API에 노출되는 enum에 `toString()`을 오버라이드하지 않는다.
   표시용 문자열이 필요하면 별도 필드로 둔다. 이것도 빌드와 테스트가 잡지 못한다
 
-### 3. 에러는 `throw ApiException.of(ErrorCode.XXX)`로 던진다
+### 2. 에러는 `throw ApiException.of(ErrorCode.XXX)`로 던진다
 
 - `GlobalExceptionHandler`가 로깅과 에러 응답 조립을 책임진다.
   컨트롤러에서 `ApiResult.fail(...)`을 직접 반환하지 않는다
 - `success(...)`와 `fail(...)`은 둘 다 `ResponseEntity`를 반환한다. 다시 감싸지 않는다
 
-### 4. 원격에 올리기 전에 사람에게 확인받는다
+### 3. 원격에 올리기 전에 사람에게 확인받는다
 
 - 로컬 커밋까지는 확인 없이 진행한다. `git push`·`gh pr create`·`gh pr ready`·`gh pr merge`는
   실행 전에 사람에게 확인받는다
