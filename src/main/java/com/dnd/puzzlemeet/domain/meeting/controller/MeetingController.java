@@ -32,6 +32,7 @@ import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
 import org.springframework.web.multipart.MultipartFile;
@@ -90,10 +91,10 @@ public class MeetingController {
       description =
           "로그인한 사용자가 참여 중인 약속 목록을 조회한다. 상태(waiting, in-progress, completed)를 지정하지 않으면 전체를 조회한다.")
   @ApiErrorCodeExamples({ErrorCode.AUTH_TOKEN_INVALID, ErrorCode.INVALID_INPUT_VALUE})
-  @GetMapping({"", "/{status}"})
+  @GetMapping
   public ResponseEntity<ApiResult<List<MeetingListResponse>>> getMeetings(
       @AuthenticationPrincipal UserPrincipal principal,
-      @Parameter(description = "약속 상태", example = "waiting") @PathVariable(required = false)
+      @Parameter(description = "약속 상태", example = "waiting") @RequestParam(required = false)
           String status) {
     return ApiResult.success(meetingService.getMeetings(principal.id(), resolveStatus(status)));
   }
