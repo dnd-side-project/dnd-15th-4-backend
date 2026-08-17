@@ -48,7 +48,7 @@ public class MeetingController {
   public ResponseEntity<ApiResult<MeetingCreateResponse>> createMeeting(
       @AuthenticationPrincipal UserPrincipal principal,
       @Valid @RequestPart("request") MeetingCreateRequest request,
-      @Parameter(description = "약속 대표 이미지") @RequestPart(value = "image", required = false)
+      @Parameter(description = "약속 퍼즐 이미지") @RequestPart(value = "image", required = false)
           MultipartFile image) {
     return ApiResult.success(
         SuccessCode.CREATED, meetingService.createMeeting(principal.id(), request, image));
