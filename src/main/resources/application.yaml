@@ -9,6 +9,13 @@ spring:
     hibernate:
       ddl-auto: update
     open-in-view: false
+  cloud:
+    aws:
+      region:
+        static: ap-northeast-2
+      credentials:
+        access-key: ${AWS_ACCESS_KEY_ID}
+        secret-key: ${AWS_SECRET_ACCESS_KEY}
 
 server:
   forward-headers-strategy: framework
@@ -31,3 +38,8 @@ frontend:
 
 cors:
   allowed-origins: ${CORS_ALLOWED_ORIGINS}
+
+app:
+  s3:
+    bucket: puzzle-meet-s3
+    puzzle-path: puzzles

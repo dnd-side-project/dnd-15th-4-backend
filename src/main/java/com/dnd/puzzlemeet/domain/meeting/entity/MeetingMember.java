@@ -13,6 +13,7 @@ import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
@@ -59,6 +60,12 @@ public class MeetingMember extends BaseTimeEntity {
 
   private LocalDateTime durationCalculatedAt;
 
+  @Column(precision = 10, scale = 7)
+  private BigDecimal currentLatitude;
+
+  @Column(precision = 10, scale = 7)
+  private BigDecimal currentLongitude;
+
   @Column(nullable = false, length = 30)
   private String nickname;
 
@@ -90,5 +97,10 @@ public class MeetingMember extends BaseTimeEntity {
   public void arrive() {
     this.status = MeetingMemberStatus.ARRIVED;
     this.arrivedAt = LocalDateTime.now();
+  }
+
+  public void updateCurrentLocation(BigDecimal currentLatitude, BigDecimal currentLongitude) {
+    this.currentLatitude = currentLatitude;
+    this.currentLongitude = currentLongitude;
   }
 }
