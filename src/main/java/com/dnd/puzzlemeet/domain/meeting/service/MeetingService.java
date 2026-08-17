@@ -2,6 +2,8 @@ package com.dnd.puzzlemeet.domain.meeting.service;
 
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
@@ -85,15 +87,35 @@ public class MeetingService {
             request.memo());
     meetingRepository.save(meeting);
 
-    String nickname = request.nickname() != null ? request.nickname() : host.getNickname();
-    MeetingMember hostMember = new MeetingMember(meeting, host, MeetingMemberRole.HOST, nickname);
-    meetingMemberRepository.save(hostMember);
-
-    boolean hasImage = image != null && !image.isEmpty();
-    String imageUrl = hasImage ? uploadMemberImage(image) : DEFAULT_MEMBER_IMAGE_URL;
-    memberImageRepository.save(new MemberImage(hostMember, imageUrl, !hasImage));
+    registerMember(meeting, host, MeetingMemberRole.HOST, request.nickname(), image);
 
     return MeetingCreateResponse.from(meeting);
+  }
+
+  @Transactional
+  public MeetingJoinResponse joinMeeting(
+      Long userId, MeetingJoinRequest request, MultipartFile image) {
+    User user =
+        userRepository
+            .findById(userId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.USER_NOT_FOUND));
+
+    Meeting meeting =
+        meetingRepository
+            .findByInviteCode(request.inviteCode())
+            .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_INVITE_CODE_INVALID));
+
+    if (meeting.getStatus() != MeetingStatus.WAITING) {
+      throw ApiException.of(ErrorCode.MEETING_NOT_JOINABLE);
+    }
+
+    if (meetingMemberRepository.existsByMeetingIdAndUserId(meeting.getId(), userId)) {
+      throw ApiException.of(ErrorCode.MEETING_MEMBER_ALREADY_JOINED);
+    }
+
+    registerMember(meeting, user, MeetingMemberRole.GUEST, request.nickname(), image);
+
+    return MeetingJoinResponse.from(meeting);
   }
 
   @Transactional(readOnly = true)
@@ -170,6 +192,17 @@ public class MeetingService {
     }
 
     meeting.cancel();
+  }
+
+  private void registerMember(
+      Meeting meeting, User user, MeetingMemberRole role, String nickname, MultipartFile image) {
+    String resolvedNickname = nickname != null ? nickname : user.getNickname();
+    MeetingMember member = new MeetingMember(meeting, user, role, resolvedNickname);
+    meetingMemberRepository.save(member);
+
+    boolean hasImage = image != null && !image.isEmpty();
+    String imageUrl = hasImage ? uploadMemberImage(image) : DEFAULT_MEMBER_IMAGE_URL;
+    memberImageRepository.save(new MemberImage(member, imageUrl, !hasImage));
   }
 
   private String uploadMemberImage(MultipartFile image) {

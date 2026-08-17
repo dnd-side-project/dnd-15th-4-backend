@@ -2,6 +2,8 @@ package com.dnd.puzzlemeet.domain.meeting.controller;
 
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
@@ -50,6 +52,23 @@ public class MeetingController {
           MultipartFile image) {
     return ApiResult.success(
         SuccessCode.CREATED, meetingService.createMeeting(principal.id(), request, image));
+  }
+
+  @Operation(summary = "초대 코드로 약속 참여", description = "초대 코드로 대기 중인 약속에 참여자로 등록된다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.INVALID_INPUT_VALUE,
+    ErrorCode.MEETING_INVITE_CODE_INVALID,
+    ErrorCode.MEETING_NOT_JOINABLE,
+    ErrorCode.MEETING_MEMBER_ALREADY_JOINED
+  })
+  @PostMapping(path = "/join", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  public ResponseEntity<ApiResult<MeetingJoinResponse>> joinMeeting(
+      @AuthenticationPrincipal UserPrincipal principal,
+      @Valid @RequestPart("request") MeetingJoinRequest request,
+      @Parameter(description = "약속방 퍼즐 이미지") @RequestPart(value = "image", required = false)
+          MultipartFile image) {
+    return ApiResult.success(meetingService.joinMeeting(principal.id(), request, image));
   }
 
   @Operation(

@@ -8,6 +8,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface MeetingMemberRepository extends JpaRepository<MeetingMember, Long> {
 
+  boolean existsByMeetingIdAndUserId(Long meetingId, Long userId);
+
   @Query(
       """
       select mm from MeetingMember mm
