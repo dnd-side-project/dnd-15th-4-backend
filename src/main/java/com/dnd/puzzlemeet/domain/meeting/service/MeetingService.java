@@ -8,6 +8,7 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingResultResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
@@ -33,6 +34,7 @@ import com.dnd.puzzlemeet.global.response.ErrorCode;
 import com.dnd.puzzlemeet.global.s3.AmazonS3Manager;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
@@ -40,6 +42,7 @@ import java.util.Collections;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -305,6 +308,80 @@ public class MeetingService {
     return !assignedPieces.isEmpty()
         && assignedPieces.stream()
             .allMatch(piece -> piece.getMeetingMember().getStatus() == MeetingMemberStatus.ARRIVED);
+  }
+
+  @Transactional(readOnly = true)
+  public MeetingResultResponse getMeetingResult(Long userId, Long meetingId) {
+    Meeting meeting =
+        meetingRepository
+            .findById(meetingId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
+
+    if (!meetingMemberRepository.existsByMeetingIdAndUserId(meetingId, userId)) {
+      throw ApiException.of(ErrorCode.AUTH_FORBIDDEN);
+    }
+
+    if (meeting.getStatus() != MeetingStatus.COMPLETED) {
+      throw ApiException.of(ErrorCode.MEETING_NOT_COMPLETED);
+    }
+
+    List<MeetingMember> members =
+        meetingMemberRepository.findAllByMeetingIdInFetchUser(List.of(meetingId));
+
+    List<MeetingResultResponse.RankingEntry> rankings =
+        members.stream()
+            .map(member -> toRankingEntry(member, meeting.getMeetingAt()))
+            .sorted(
+                Comparator.comparing(MeetingResultResponse.RankingEntry::late)
+                    .thenComparing(
+                        MeetingResultResponse.RankingEntry::arrivedAt,
+                        Comparator.nullsLast(Comparator.naturalOrder())))
+            .toList();
+
+    LocalDateTime myDepartedAt =
+        members.stream()
+            .filter(member -> member.getUser().getId().equals(userId))
+            .findFirst()
+            .map(MeetingMember::getDepartedAt)
+            .orElse(null);
+
+    List<PuzzlePage> puzzlePages =
+        puzzlePageRepository.findAllByMeetingIdOrderByPageNumberAsc(meetingId);
+    List<Long> puzzlePageIds = puzzlePages.stream().map(PuzzlePage::getId).toList();
+    Map<Long, List<PuzzlePiece>> puzzlePiecesByPageId =
+        puzzlePageIds.isEmpty()
+            ? Map.of()
+            : puzzlePieceRepository.findAllByPuzzlePageIdInFetchMember(puzzlePageIds).stream()
+                .collect(Collectors.groupingBy(piece -> piece.getPuzzlePage().getId()));
+
+    List<MeetingResultResponse.PuzzleFeedItem> puzzleFeed =
+        puzzlePages.stream()
+            .filter(
+                page ->
+                    isPuzzleCompleted(puzzlePiecesByPageId.getOrDefault(page.getId(), List.of())))
+            .map(PuzzlePage::getRepresentativeMemberImage)
+            .filter(Objects::nonNull)
+            .map(MeetingResultResponse.PuzzleFeedItem::from)
+            .toList();
+
+    return new MeetingResultResponse(puzzleFeed, rankings, myDepartedAt);
+  }
+
+  private MeetingResultResponse.RankingEntry toRankingEntry(
+      MeetingMember member, LocalDateTime meetingAt) {
+    boolean arrived = member.getStatus() == MeetingMemberStatus.ARRIVED;
+    LocalDateTime arrivedAt = member.getArrivedAt();
+    boolean late = !arrived || arrivedAt.isAfter(meetingAt);
+    Long earlyArrivalMinutes = late ? null : Duration.between(arrivedAt, meetingAt).toMinutes();
+
+    return new MeetingResultResponse.RankingEntry(
+        member.getUser().getId(),
+        member.getNickname(),
+        member.getUser().getProfileImageUrl(),
+        arrived,
+        arrivedAt,
+        earlyArrivalMinutes,
+        late);
   }
 
   @Transactional

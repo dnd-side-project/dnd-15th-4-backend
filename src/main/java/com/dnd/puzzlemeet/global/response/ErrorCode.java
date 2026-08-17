@@ -21,6 +21,7 @@ public enum ErrorCode {
   MEETING_MEMBER_ALREADY_JOINED(
       HttpStatus.BAD_REQUEST, "MEETING_MEMBER_ALREADY_JOINED", "이미 참여한 약속입니다."),
   MEETING_NOT_STARTED(HttpStatus.BAD_REQUEST, "MEETING_NOT_STARTED", "아직 시작되지 않은 약속입니다."),
+  MEETING_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "MEETING_NOT_COMPLETED", "완료된 약속만 결과를 조회할 수 있습니다."),
 
   // 401 Unauthorized
   AUTH_KAKAO_UNAUTHORIZED(

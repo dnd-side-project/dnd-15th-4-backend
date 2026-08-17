@@ -9,6 +9,7 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberLocationUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingResultResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
 import com.dnd.puzzlemeet.domain.meeting.service.MeetingService;
@@ -162,6 +163,19 @@ public class MeetingController {
   public ResponseEntity<ApiResult<MeetingInProgressResponse>> getMeetingInProgress(
       @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long meetingId) {
     return ApiResult.success(meetingService.getMeetingInProgress(principal.id(), meetingId));
+  }
+
+  @Operation(summary = "약속 결과 조회", description = "완료된 약속방의 결과(퍼즐 피드, 도착 랭킹, 본인 출발 시각)를 조회한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.AUTH_FORBIDDEN,
+    ErrorCode.MEETING_NOT_COMPLETED
+  })
+  @GetMapping("/{meetingId}/result")
+  public ResponseEntity<ApiResult<MeetingResultResponse>> getMeetingResult(
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long meetingId) {
+    return ApiResult.success(meetingService.getMeetingResult(principal.id(), meetingId));
   }
 
   private MeetingStatus resolveStatus(String rawStatus) {
