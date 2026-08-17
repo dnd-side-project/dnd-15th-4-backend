@@ -2,6 +2,7 @@ package com.dnd.puzzlemeet.domain.meeting.controller;
 
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
@@ -148,6 +149,19 @@ public class MeetingController {
       @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long meetingId) {
     meetingService.cancelMeeting(principal.id(), meetingId);
     return ApiResult.success(null);
+  }
+
+  @Operation(summary = "진행 중인 약속 데이터 조회", description = "진행 중인 약속방의 데이터를 조회한다. 1분 간격으로 polling 한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.AUTH_FORBIDDEN,
+    ErrorCode.MEETING_NOT_STARTED
+  })
+  @GetMapping("/{meetingId}/in-progress")
+  public ResponseEntity<ApiResult<MeetingInProgressResponse>> getMeetingInProgress(
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long meetingId) {
+    return ApiResult.success(meetingService.getMeetingInProgress(principal.id(), meetingId));
   }
 
   private MeetingStatus resolveStatus(String rawStatus) {

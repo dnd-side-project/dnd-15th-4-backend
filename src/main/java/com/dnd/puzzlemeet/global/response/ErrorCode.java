@@ -20,6 +20,7 @@ public enum ErrorCode {
   MEETING_NOT_JOINABLE(HttpStatus.BAD_REQUEST, "MEETING_NOT_JOINABLE", "대기 중인 약속에만 참여할 수 있습니다."),
   MEETING_MEMBER_ALREADY_JOINED(
       HttpStatus.BAD_REQUEST, "MEETING_MEMBER_ALREADY_JOINED", "이미 참여한 약속입니다."),
+  MEETING_NOT_STARTED(HttpStatus.BAD_REQUEST, "MEETING_NOT_STARTED", "아직 시작되지 않은 약속입니다."),
 
   // 401 Unauthorized
   AUTH_KAKAO_UNAUTHORIZED(

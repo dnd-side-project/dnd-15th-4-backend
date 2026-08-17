@@ -2,6 +2,7 @@ package com.dnd.puzzlemeet.domain.meeting.service;
 
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
@@ -12,10 +13,16 @@ import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
+import com.dnd.puzzlemeet.domain.meeting.entity.ReactionMessage;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
+import com.dnd.puzzlemeet.domain.meeting.repository.ReactionMessageRepository;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
+import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzlePage;
+import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzlePiece;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
+import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzlePageRepository;
+import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzlePieceRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
 import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
 import com.dnd.puzzlemeet.global.exception.ApiException;
@@ -31,6 +38,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.multipart.MultipartFile;
@@ -46,6 +54,7 @@ public class MeetingService {
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
   private static final String DEFAULT_MEMBER_IMAGE_URL =
       "https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/puzzles/_+(9)+4.png";
+  private static final int RECENT_QUICK_MESSAGE_LIMIT = 20;
 
   private static final SecureRandom RANDOM = new SecureRandom();
 
@@ -66,6 +75,9 @@ public class MeetingService {
   private final MemberImageRepository memberImageRepository;
   private final UserRepository userRepository;
   private final AmazonS3Manager amazonS3Manager;
+  private final PuzzlePageRepository puzzlePageRepository;
+  private final PuzzlePieceRepository puzzlePieceRepository;
+  private final ReactionMessageRepository reactionMessageRepository;
 
   @Transactional
   public MeetingCreateResponse createMeeting(
@@ -208,6 +220,74 @@ public class MeetingService {
             .orElseThrow(() -> ApiException.of(ErrorCode.AUTH_FORBIDDEN));
 
     member.updateCurrentLocation(BigDecimal.valueOf(latitude), BigDecimal.valueOf(longitude));
+  }
+
+  @Transactional(readOnly = true)
+  public MeetingInProgressResponse getMeetingInProgress(Long userId, Long meetingId) {
+    Meeting meeting =
+        meetingRepository
+            .findById(meetingId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
+
+    if (!meetingMemberRepository.existsByMeetingIdAndUserId(meetingId, userId)) {
+      throw ApiException.of(ErrorCode.AUTH_FORBIDDEN);
+    }
+
+    if (meeting.getStatus() == MeetingStatus.WAITING) {
+      throw ApiException.of(ErrorCode.MEETING_NOT_STARTED);
+    }
+
+    List<PuzzlePage> puzzlePages =
+        puzzlePageRepository.findAllByMeetingIdOrderByPageNumberAsc(meetingId);
+    List<Long> puzzlePageIds = puzzlePages.stream().map(PuzzlePage::getId).toList();
+    Map<Long, List<PuzzlePiece>> puzzlePiecesByPageId =
+        puzzlePageIds.isEmpty()
+            ? Map.of()
+            : puzzlePieceRepository.findAllByPuzzlePageIdInFetchMember(puzzlePageIds).stream()
+                .collect(Collectors.groupingBy(piece -> piece.getPuzzlePage().getId()));
+
+    List<MeetingInProgressResponse.PuzzleGroup> puzzleGroups =
+        puzzlePages.stream()
+            .map(
+                page ->
+                    toPuzzleGroup(page, puzzlePiecesByPageId.getOrDefault(page.getId(), List.of())))
+            .toList();
+
+    List<ReactionMessage> recentMessages =
+        reactionMessageRepository.findRecentByMeetingId(
+            meetingId, PageRequest.of(0, RECENT_QUICK_MESSAGE_LIMIT));
+    List<MeetingInProgressResponse.QuickMessage> quickMessages =
+        recentMessages.reversed().stream()
+            .map(
+                message ->
+                    new MeetingInProgressResponse.QuickMessage(
+                        message.getId(), message.getContent()))
+            .toList();
+
+    return new MeetingInProgressResponse(
+        puzzleGroups, quickMessages, meeting.getStatus() == MeetingStatus.COMPLETED);
+  }
+
+  private MeetingInProgressResponse.PuzzleGroup toPuzzleGroup(
+      PuzzlePage page, List<PuzzlePiece> pieces) {
+    String puzzleImageUrl =
+        page.getRepresentativeMemberImage() != null
+            ? page.getRepresentativeMemberImage().getImageUrl()
+            : DEFAULT_MEMBER_IMAGE_URL;
+
+    List<MeetingInProgressResponse.Participant> members =
+        pieces.stream()
+            .map(
+                piece ->
+                    piece.getMeetingMember() != null
+                        ? MeetingInProgressResponse.Participant.from(
+                            piece.getMeetingMember(), piece.getPieceIndex(), piece.isRevealed())
+                        : MeetingInProgressResponse.Participant.empty(
+                            piece.getPieceIndex(), piece.isRevealed()))
+            .toList();
+
+    return new MeetingInProgressResponse.PuzzleGroup(
+        puzzleImageUrl, page.getId(), page.getPageNumber(), members);
   }
 
   @Transactional
