@@ -26,7 +26,7 @@ import org.springframework.web.bind.annotation.RestController;
 
 @Tag(name = "퀵 메시지", description = "퀵 메시지 API")
 @RestController
-@RequestMapping("/api/v1")
+@RequestMapping("/api/v1/meetings")
 @RequiredArgsConstructor
 public class ReactionMessageController {
 
@@ -41,7 +41,7 @@ public class ReactionMessageController {
     ErrorCode.AUTH_FORBIDDEN,
     ErrorCode.REACTION_PRESET_NOT_FOUND
   })
-  @PostMapping("/meetings/{meetingId}/reaction-messages")
+  @PostMapping("/{meetingId}/reaction-messages")
   public ResponseEntity<ApiResult<Void>> sendReactionMessage(
       @AuthenticationPrincipal UserPrincipal principal,
       @PathVariable Long meetingId,
