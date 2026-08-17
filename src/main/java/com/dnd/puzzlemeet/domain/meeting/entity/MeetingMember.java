@@ -66,6 +66,8 @@ public class MeetingMember extends BaseTimeEntity {
   @Column(precision = 10, scale = 7)
   private BigDecimal currentLongitude;
 
+  private LocalDateTime locationUpdatedAt;
+
   @Column(nullable = false, length = 30)
   private String nickname;
 
@@ -102,5 +104,6 @@ public class MeetingMember extends BaseTimeEntity {
   public void updateCurrentLocation(BigDecimal currentLatitude, BigDecimal currentLongitude) {
     this.currentLatitude = currentLatitude;
     this.currentLongitude = currentLongitude;
+    this.locationUpdatedAt = LocalDateTime.now();
   }
 }

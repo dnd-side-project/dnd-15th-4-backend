@@ -5,6 +5,7 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberLocationUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
@@ -115,6 +116,23 @@ public class MeetingController {
       @PathVariable Long meetingId,
       @Valid @RequestBody MeetingUpdateRequest request) {
     meetingService.updateMeeting(principal.id(), meetingId, request);
+    return ApiResult.success(null);
+  }
+
+  @Operation(summary = "참여자 현재 위치 갱신", description = "약속 참여자가 자신의 현재 위치를 갱신한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.INVALID_INPUT_VALUE,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.AUTH_FORBIDDEN
+  })
+  @PatchMapping("/{meetingId}/members/location")
+  public ResponseEntity<ApiResult<Void>> updateCurrentLocation(
+      @AuthenticationPrincipal UserPrincipal principal,
+      @PathVariable Long meetingId,
+      @Valid @RequestBody MeetingMemberLocationUpdateRequest request) {
+    meetingService.updateCurrentLocation(
+        principal.id(), meetingId, request.latitude(), request.longitude());
     return ApiResult.success(null);
   }
 

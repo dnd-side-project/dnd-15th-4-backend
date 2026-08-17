@@ -196,6 +196,21 @@ public class MeetingService {
   }
 
   @Transactional
+  public void updateCurrentLocation(
+      Long userId, Long meetingId, double latitude, double longitude) {
+    meetingRepository
+        .findById(meetingId)
+        .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
+
+    MeetingMember member =
+        meetingMemberRepository
+            .findByMeetingIdAndUserId(meetingId, userId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.AUTH_FORBIDDEN));
+
+    member.updateCurrentLocation(BigDecimal.valueOf(latitude), BigDecimal.valueOf(longitude));
+  }
+
+  @Transactional
   public void cancelMeeting(Long userId, Long meetingId) {
     Meeting meeting =
         meetingRepository
