@@ -76,7 +76,7 @@ public class MeetingController {
     ErrorCode.MEETING_NOT_JOINABLE,
     ErrorCode.MEETING_MEMBER_ALREADY_JOINED
   })
-  @PostMapping(path = "/join", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+  @PostMapping(path = "/members", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public ResponseEntity<ApiResult<MeetingJoinResponse>> joinMeeting(
       @AuthenticationPrincipal UserPrincipal principal,
       @Valid @RequestPart("request") MeetingJoinRequest request,
