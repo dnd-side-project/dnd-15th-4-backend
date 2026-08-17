@@ -3,6 +3,7 @@ package com.dnd.puzzlemeet.domain.meeting.service;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
@@ -18,6 +19,7 @@ import com.dnd.puzzlemeet.global.response.ErrorCode;
 import com.dnd.puzzlemeet.global.s3.AmazonS3Manager;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
+import java.time.LocalDateTime;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -112,6 +114,42 @@ public class MeetingService {
     return meetings.stream()
         .map(meeting -> MeetingListResponse.from(meeting, membersByMeetingId.get(meeting.getId())))
         .toList();
+  }
+
+  @Transactional
+  public void updateMeeting(Long userId, Long meetingId, MeetingUpdateRequest request) {
+    Meeting meeting =
+        meetingRepository
+            .findById(meetingId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
+
+    if (!meeting.getHostUser().getId().equals(userId)) {
+      throw ApiException.of(ErrorCode.AUTH_FORBIDDEN);
+    }
+
+    if (meeting.getStatus() != MeetingStatus.WAITING) {
+      throw ApiException.of(ErrorCode.MEETING_NOT_WAITING);
+    }
+
+    if ((request.latitude() == null) != (request.longitude() == null)) {
+      throw ApiException.of(ErrorCode.INVALID_INPUT_VALUE);
+    }
+
+    String title = request.title() != null ? request.title() : meeting.getTitle();
+    LocalDateTime meetingAt =
+        request.dateTime() != null ? request.dateTime() : meeting.getMeetingAt();
+    String destination =
+        request.destination() != null ? request.destination() : meeting.getDestinationName();
+    BigDecimal latitude =
+        request.latitude() != null
+            ? BigDecimal.valueOf(request.latitude())
+            : meeting.getDestinationLatitude();
+    BigDecimal longitude =
+        request.longitude() != null
+            ? BigDecimal.valueOf(request.longitude())
+            : meeting.getDestinationLongitude();
+
+    meeting.updateDetails(title, meetingAt, destination, latitude, longitude);
   }
 
   @Transactional

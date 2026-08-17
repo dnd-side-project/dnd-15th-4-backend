@@ -3,6 +3,7 @@ package com.dnd.puzzlemeet.domain.meeting.controller;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
 import com.dnd.puzzlemeet.domain.meeting.service.MeetingService;
 import com.dnd.puzzlemeet.global.annotation.ApiErrorCodeExamples;
@@ -22,8 +23,10 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestPart;
 import org.springframework.web.bind.annotation.RestController;
@@ -60,6 +63,25 @@ public class MeetingController {
       @Parameter(description = "약속 상태", example = "waiting") @PathVariable(required = false)
           String status) {
     return ApiResult.success(meetingService.getMeetings(principal.id(), resolveStatus(status)));
+  }
+
+  @Operation(
+      summary = "약속 수정",
+      description = "방장이 대기 중인 약속의 정보를 수정한다. 요청에 넣은 필드만 반영되고, 넣지 않은 필드는 기존 값을 유지한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.INVALID_INPUT_VALUE,
+    ErrorCode.AUTH_FORBIDDEN,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.MEETING_NOT_WAITING
+  })
+  @PatchMapping("/{meetingId}")
+  public ResponseEntity<ApiResult<Void>> updateMeeting(
+      @AuthenticationPrincipal UserPrincipal principal,
+      @PathVariable Long meetingId,
+      @Valid @RequestBody MeetingUpdateRequest request) {
+    meetingService.updateMeeting(principal.id(), meetingId, request);
+    return ApiResult.success(null);
   }
 
   @Operation(summary = "약속 삭제", description = "방장이 대기 중인 약속을 삭제한다.")

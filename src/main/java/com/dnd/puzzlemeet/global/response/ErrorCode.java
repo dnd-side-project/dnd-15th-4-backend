@@ -16,7 +16,7 @@ public enum ErrorCode {
       HttpStatus.BAD_REQUEST, "MISSING_REQUEST_PARAMETER", "필수 요청 파라미터가 누락되었습니다."),
   MISSING_REQUEST_HEADER(HttpStatus.BAD_REQUEST, "MISSING_REQUEST_HEADER", "필수 요청 헤더가 누락되었습니다."),
   MALFORMED_REQUEST_BODY(HttpStatus.BAD_REQUEST, "MALFORMED_REQUEST_BODY", "요청 본문을 읽을 수 없습니다."),
-  MEETING_NOT_WAITING(HttpStatus.BAD_REQUEST, "MEETING_NOT_WAITING", "대기 중인 약속만 삭제할 수 있습니다."),
+  MEETING_NOT_WAITING(HttpStatus.BAD_REQUEST, "MEETING_NOT_WAITING", "대기 중인 약속만 수정하거나 삭제할 수 있습니다."),
 
   // 401 Unauthorized
   AUTH_KAKAO_UNAUTHORIZED(

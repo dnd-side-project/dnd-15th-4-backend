@@ -83,6 +83,19 @@ public class Meeting extends BaseTimeEntity {
     this.status = MeetingStatus.WAITING;
   }
 
+  public void updateDetails(
+      String title,
+      LocalDateTime meetingAt,
+      String destinationName,
+      BigDecimal destinationLatitude,
+      BigDecimal destinationLongitude) {
+    this.title = title;
+    this.meetingAt = meetingAt;
+    this.destinationName = destinationName;
+    this.destinationLatitude = destinationLatitude;
+    this.destinationLongitude = destinationLongitude;
+  }
+
   public void start() {
     this.status = MeetingStatus.IN_PROGRESS;
   }
