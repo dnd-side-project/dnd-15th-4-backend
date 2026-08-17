@@ -81,7 +81,8 @@ public class MeetingService {
             BigDecimal.valueOf(request.latitude()),
             BigDecimal.valueOf(request.longitude()),
             ARRIVAL_RADIUS_M,
-            generateInviteCode());
+            generateInviteCode(),
+            request.memo());
     meetingRepository.save(meeting);
 
     String nickname = request.nickname() != null ? request.nickname() : host.getNickname();
@@ -148,8 +149,9 @@ public class MeetingService {
         request.longitude() != null
             ? BigDecimal.valueOf(request.longitude())
             : meeting.getDestinationLongitude();
+    String memo = request.memo() != null ? request.memo() : meeting.getMemo();
 
-    meeting.updateDetails(title, meetingAt, destination, latitude, longitude);
+    meeting.updateDetails(title, meetingAt, destination, latitude, longitude, memo);
   }
 
   @Transactional

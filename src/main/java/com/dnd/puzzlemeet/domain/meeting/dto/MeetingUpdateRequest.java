@@ -41,4 +41,11 @@ public record MeetingUpdateRequest(
             nullable = true)
         @DecimalMin("-180")
         @DecimalMax("180")
-        Double longitude) {}
+        Double longitude,
+    @Schema(
+            description = "약속 메모. 값을 보내지 않으면 기존 값을 유지한다",
+            example = "돗자리 챙기기",
+            maxLength = 12,
+            nullable = true)
+        @Size(max = 12)
+        String memo) {}

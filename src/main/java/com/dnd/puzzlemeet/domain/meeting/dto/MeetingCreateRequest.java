@@ -42,8 +42,8 @@ public record MeetingCreateRequest(
         @DecimalMin("-180")
         @DecimalMax("180")
         double longitude,
-    @Schema(description = "약속 메모", example = "돗자리와 간식 준비하기", maxLength = 500, nullable = true)
-        @Size(max = 500)
+    @Schema(description = "약속 메모", example = "돗자리 챙기기", maxLength = 12, nullable = true)
+        @Size(max = 12)
         String memo,
     @Schema(
             description = "약속방 내 닉네임. 없으면 기본 닉네임을 쓴다",

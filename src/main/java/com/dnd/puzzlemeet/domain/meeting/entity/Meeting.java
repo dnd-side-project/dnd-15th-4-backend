@@ -57,6 +57,9 @@ public class Meeting extends BaseTimeEntity {
   @Column(nullable = false, length = 20)
   private String inviteCode;
 
+  @Column(length = 12)
+  private String memo;
+
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   private MeetingStatus status;
@@ -70,7 +73,8 @@ public class Meeting extends BaseTimeEntity {
       BigDecimal destinationLatitude,
       BigDecimal destinationLongitude,
       int arrivalRadiusM,
-      String inviteCode) {
+      String inviteCode,
+      String memo) {
     this.hostUser = hostUser;
     this.title = title;
     this.meetingAt = meetingAt;
@@ -80,6 +84,7 @@ public class Meeting extends BaseTimeEntity {
     this.destinationLongitude = destinationLongitude;
     this.arrivalRadiusM = arrivalRadiusM;
     this.inviteCode = inviteCode;
+    this.memo = memo;
     this.status = MeetingStatus.WAITING;
   }
 
@@ -88,12 +93,14 @@ public class Meeting extends BaseTimeEntity {
       LocalDateTime meetingAt,
       String destinationName,
       BigDecimal destinationLatitude,
-      BigDecimal destinationLongitude) {
+      BigDecimal destinationLongitude,
+      String memo) {
     this.title = title;
     this.meetingAt = meetingAt;
     this.destinationName = destinationName;
     this.destinationLatitude = destinationLatitude;
     this.destinationLongitude = destinationLongitude;
+    this.memo = memo;
   }
 
   public void start() {
