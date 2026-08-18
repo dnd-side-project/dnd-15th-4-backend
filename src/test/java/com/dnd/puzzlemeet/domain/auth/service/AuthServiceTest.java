@@ -31,6 +31,7 @@ import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.security.oauth2.jose.jws.MacAlgorithm;
@@ -97,12 +98,15 @@ class AuthServiceTest {
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
 
-    verify(userRepository).save(any(User.class));
+    ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).save(userCaptor.capture());
+    assertThat(userCaptor.getValue().getNickname()).isEqualTo("효창");
+    assertThat(userCaptor.getValue().getProfileImageUrl()).isEqualTo("https://img.kakao.com/a.jpg");
   }
 
   @Test
-  @DisplayName("이미 가입한 카카오 계정은 새 행을 만들지 않고 프로필만 갱신한다")
-  void existingUserOnlyUpdatesProfile() {
+  @DisplayName("이미 가입한 카카오 계정은 닉네임을 유지하고 프로필 이미지만 갱신한다")
+  void existingUserKeepsNicknameAndUpdatesProfileImage() {
     User existingUser = new User(100L, "이전닉네임", "https://img.kakao.com/old.jpg");
     given(kakaoTokenClient.exchangeAuthorizationCode(AUTHORIZATION_CODE))
         .willReturn(KAKAO_ACCESS_TOKEN);
@@ -113,7 +117,7 @@ class AuthServiceTest {
     authService.loginWithKakao(AUTHORIZATION_CODE);
 
     verify(userRepository, never()).save(any(User.class));
-    assertThat(existingUser.getNickname()).isEqualTo("새닉네임");
+    assertThat(existingUser.getNickname()).isEqualTo("이전닉네임");
     assertThat(existingUser.getProfileImageUrl()).isEqualTo("https://img.kakao.com/new.jpg");
   }
 
