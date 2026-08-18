@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.BDDMockito.given;
 
 import com.dnd.puzzlemeet.domain.user.dto.UserMeResponse;
+import com.dnd.puzzlemeet.domain.user.dto.UserUpdateRequest;
 import com.dnd.puzzlemeet.domain.user.entity.User;
 import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
 import com.dnd.puzzlemeet.global.exception.ApiException;
@@ -52,5 +53,19 @@ class UserServiceTest {
     ApiException exception = assertThrows(ApiException.class, () -> userService.getMe(1L));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
+  }
+
+  @Test
+  @DisplayName("존재하는 사용자의 닉네임을 수정하면 변경된 프로필 정보를 돌려준다")
+  void updatesNicknameWhenUserFound() {
+    User user = new User(100L, "효창", "https://img.kakao.com/a.jpg");
+    ReflectionTestUtils.setField(user, "id", 1L);
+    given(userRepository.findById(1L)).willReturn(Optional.of(user));
+
+    UserMeResponse response = userService.updateMe(1L, new UserUpdateRequest("새닉네임"));
+
+    assertThat(user.getNickname()).isEqualTo("새닉네임");
+    assertThat(response.nickname()).isEqualTo("새닉네임");
+    assertThat(response.profileImageUrl()).isEqualTo("https://img.kakao.com/a.jpg");
   }
 }

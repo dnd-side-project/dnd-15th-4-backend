@@ -84,7 +84,7 @@ public class AuthService {
             .findByKakaoId(kakaoUser.id())
             .map(
                 existing -> {
-                  existing.updateProfile(nickname, profileImageUrl);
+                  existing.updateProfileImage(profileImageUrl);
                   return existing;
                 })
             .orElseGet(
