@@ -104,6 +104,23 @@ public class MeetingController {
     return ApiResult.success(meetingService.markMemberArrived(principal.id(), meetingId));
   }
 
+  @Operation(summary = "약속방 닉네임 수정", description = "인증된 참여자가 해당 약속방에서 사용할 닉네임을 수정한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.INVALID_INPUT_VALUE,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_ACTIVE
+  })
+  @PatchMapping("/{meetingId}/members/me/nickname")
+  public ResponseEntity<ApiResult<MeetingMemberNicknameUpdateResponse>> updateMemberNickname(
+      @AuthenticationPrincipal UserPrincipal principal,
+      @PathVariable Long meetingId,
+      @Valid @RequestBody MeetingMemberNicknameUpdateRequest request) {
+    return ApiResult.success(
+        meetingService.updateMemberNickname(principal.id(), meetingId, request));
+  }
+
   @Operation(
       summary = "내 약속 목록 조회",
       description =

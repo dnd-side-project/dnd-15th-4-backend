@@ -4,11 +4,15 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.BDDMockito.given;
 
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
+import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberStatus;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
@@ -99,6 +103,63 @@ class MeetingServiceTest {
             () -> meetingService.previewMeeting(new MeetingPreviewRequest("ABCD1234")));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_INVITE_CODE_INVALID);
+  }
+
+  @Test
+  @DisplayName("활성 약속 참여자는 자신의 약속방 닉네임만 수정한다")
+  void updatesNicknameForActiveMeetingMember() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    MeetingMember member =
+        new MeetingMember(meeting, meeting.getHostUser(), MeetingMemberRole.HOST, "이전닉네임");
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+    given(meetingMemberRepository.findByMeetingIdAndUserId(10L, 100L))
+        .willReturn(Optional.of(member));
+
+    MeetingMemberNicknameUpdateResponse response =
+        meetingService.updateMemberNickname(
+            100L, 10L, new MeetingMemberNicknameUpdateRequest("새닉네임"));
+
+    assertThat(member.getNickname()).isEqualTo("새닉네임");
+    assertThat(response.meetingId()).isEqualTo(10L);
+    assertThat(response.nickname()).isEqualTo("새닉네임");
+  }
+
+  @Test
+  @DisplayName("저장된 현재 위치가 목적지 도착 반경 안이면 도착 처리된다")
+  void marksMemberArrivedWithinArrivalRadius() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    MeetingMember member =
+        new MeetingMember(meeting, meeting.getHostUser(), MeetingMemberRole.HOST, "효창");
+    member.updateCurrentLocation(BigDecimal.valueOf(37.5283), BigDecimal.valueOf(126.9320));
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+    given(meetingMemberRepository.findByMeetingIdAndUserId(10L, 100L))
+        .willReturn(Optional.of(member));
+
+    MeetingMemberArrivalResponse response = meetingService.markMemberArrived(100L, 10L);
+
+    assertThat(member.getStatus()).isEqualTo(MeetingMemberStatus.ARRIVED);
+    assertThat(response.meetingId()).isEqualTo(10L);
+    assertThat(response.arrivalTime()).isNotNull();
+  }
+
+  @Test
+  @DisplayName("저장된 현재 위치가 목적지 도착 반경 밖이면 도착 처리에 실패한다")
+  void rejectsArrivalOutsideArrivalRadius() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    MeetingMember member =
+        new MeetingMember(meeting, meeting.getHostUser(), MeetingMemberRole.HOST, "효창");
+    member.updateCurrentLocation(BigDecimal.valueOf(37.6), BigDecimal.valueOf(126.9320));
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+    given(meetingMemberRepository.findByMeetingIdAndUserId(10L, 100L))
+        .willReturn(Optional.of(member));
+
+    ApiException exception =
+        assertThrows(ApiException.class, () -> meetingService.markMemberArrived(100L, 10L));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_ARRIVAL_LOCATION_INVALID);
   }
 
   private Meeting waitingMeeting() {
