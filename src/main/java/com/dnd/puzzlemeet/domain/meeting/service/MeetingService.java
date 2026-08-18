@@ -1,11 +1,16 @@
 package com.dnd.puzzlemeet.domain.meeting.service;
 
+import com.dnd.puzzlemeet.domain.meeting.client.TmapRoute;
+import com.dnd.puzzlemeet.domain.meeting.client.TmapRouteClient;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureCreateRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
@@ -14,9 +19,12 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
+import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRoute;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberStatus;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
+import com.dnd.puzzlemeet.domain.meeting.entity.TransportType;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
+import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRouteRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
@@ -28,6 +36,7 @@ import com.dnd.puzzlemeet.global.s3.AmazonS3Manager;
 import java.math.BigDecimal;
 import java.security.SecureRandom;
 import java.time.LocalDateTime;
+import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
@@ -46,6 +55,9 @@ public class MeetingService {
 
   private static final int ARRIVAL_RADIUS_M = 50;
   private static final double EARTH_RADIUS_M = 6_371_000;
+  private static final double WALKING_SPEED_METERS_PER_SECOND = 4_000.0 / 3_600;
+  private static final int ROUTE_RESEARCH_THRESHOLD_SECONDS = 3_600;
+  private static final double SECONDS_PER_MINUTE = 60.0;
   private static final int INVITE_CODE_LENGTH = 8;
   private static final String INVITE_CODE_CHARS =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -68,9 +80,11 @@ public class MeetingService {
 
   private final MeetingRepository meetingRepository;
   private final MeetingMemberRepository meetingMemberRepository;
+  private final MeetingMemberRouteRepository meetingMemberRouteRepository;
   private final MemberImageRepository memberImageRepository;
   private final UserRepository userRepository;
   private final AmazonS3Manager amazonS3Manager;
+  private final TmapRouteClient tmapRouteClient;
 
   @Transactional
   public MeetingCreateResponse createMeeting(
@@ -251,6 +265,204 @@ public class MeetingService {
     meeting.cancel();
   }
 
+  @Transactional
+  public MeetingMemberDepartureResponse createDeparture(
+      Long userId,
+      Long meetingId,
+      String placeName,
+      double latitude,
+      double longitude,
+      MeetingMemberDepartureCreateRequest.NotificationSettings notificationSettings,
+      MeetingMemberDepartureCreateRequest.NicknameSetting nicknameSetting) {
+    MeetingMember member = getActiveMeetingMember(userId, meetingId);
+    if (member.getDepartureName() != null) {
+      throw ApiException.of(ErrorCode.MEETING_DEPARTURE_ALREADY_SET);
+    }
+
+    applyNicknameSetting(member, nicknameSetting.enabled(), nicknameSetting.nickname());
+    member.updateNotificationSettings(
+        notificationSettings.locationPermission(),
+        notificationSettings.friendArrival(),
+        notificationSettings.chatBubble());
+
+    return applyDeparture(member, placeName, latitude, longitude);
+  }
+
+  @Transactional(readOnly = true)
+  public MeetingMemberDepartureResponse getDeparture(Long userId, Long meetingId) {
+    MeetingMember member = getActiveMeetingMember(userId, meetingId);
+    if (member.getDepartureName() == null) {
+      throw ApiException.of(ErrorCode.MEETING_DEPARTURE_NOT_FOUND);
+    }
+    return MeetingMemberDepartureResponse.of(member, findRoutes(member));
+  }
+
+  @Transactional
+  public MeetingMemberDepartureResponse updateDeparture(
+      Long userId,
+      Long meetingId,
+      String placeName,
+      Double latitude,
+      Double longitude,
+      MeetingMemberDepartureUpdateRequest.NotificationSettings notificationSettings,
+      MeetingMemberDepartureUpdateRequest.NicknameSetting nicknameSetting) {
+    MeetingMember member = getActiveMeetingMember(userId, meetingId);
+    if (member.getDepartureName() == null) {
+      throw ApiException.of(ErrorCode.MEETING_DEPARTURE_NOT_FOUND);
+    }
+
+    if (nicknameSetting != null) {
+      applyNicknameSetting(member, nicknameSetting.enabled(), nicknameSetting.nickname());
+    }
+    if (notificationSettings != null) {
+      member.updateNotificationSettings(
+          notificationSettings.locationPermission(),
+          notificationSettings.friendArrival(),
+          notificationSettings.chatBubble());
+    }
+    if (placeName != null) {
+      return applyDeparture(member, placeName, latitude, longitude);
+    }
+
+    return MeetingMemberDepartureResponse.of(member, findRoutes(member));
+  }
+
+  private MeetingMemberDepartureResponse applyDeparture(
+      MeetingMember member, String placeName, double latitude, double longitude) {
+    Meeting meeting = member.getMeeting();
+    TmapRoute route = resolveRoute(meeting, latitude, longitude);
+
+    member.updateDeparture(placeName, BigDecimal.valueOf(latitude), BigDecimal.valueOf(longitude));
+    member.updateEstimatedDuration(route.totalTimeSeconds());
+    TmapRoute.Leg mainLeg = mainTransportLeg(route);
+    member.updateTransport(mainLeg.transportType(), mainLeg.routeName());
+
+    meetingMemberRouteRepository.deleteAllByMeetingMemberId(member.getId());
+    return MeetingMemberDepartureResponse.of(member, saveRoutes(member, placeName, route));
+  }
+
+  private TmapRoute resolveRoute(Meeting meeting, double latitude, double longitude) {
+    double destinationLatitude = meeting.getDestinationLatitude().doubleValue();
+    double destinationLongitude = meeting.getDestinationLongitude().doubleValue();
+    LocalDateTime now = LocalDateTime.now();
+    LocalDateTime meetingAt = meeting.getMeetingAt();
+    LocalDateTime arrivalBasedDepartAt = meetingAt.isAfter(now) ? meetingAt : null;
+
+    TmapRoute estimatedRoute =
+        tmapRouteClient
+            .findTransitRoute(
+                latitude,
+                longitude,
+                destinationLatitude,
+                destinationLongitude,
+                arrivalBasedDepartAt)
+            .orElse(null);
+    if (estimatedRoute == null) {
+      return walkingRoute(meeting, latitude, longitude);
+    }
+    if (arrivalBasedDepartAt == null) {
+      return estimatedRoute;
+    }
+
+    if (estimatedRoute.totalTimeSeconds() < ROUTE_RESEARCH_THRESHOLD_SECONDS) {
+      return estimatedRoute;
+    }
+
+    LocalDateTime departAt = meetingAt.minusSeconds(estimatedRoute.totalTimeSeconds());
+    return tmapRouteClient
+        .findTransitRoute(
+            latitude,
+            longitude,
+            destinationLatitude,
+            destinationLongitude,
+            departAt.isAfter(now) ? departAt : null)
+        .orElse(estimatedRoute);
+  }
+
+  private void applyNicknameSetting(MeetingMember member, boolean enabled, String nickname) {
+    if (!enabled) {
+      member.resetNicknameToDefault(member.getUser().getNickname());
+      return;
+    }
+    if (nickname == null || nickname.isBlank()) {
+      throw ApiException.of(ErrorCode.INVALID_INPUT_VALUE);
+    }
+    member.changeNickname(nickname);
+  }
+
+  private TmapRoute walkingRoute(Meeting meeting, double latitude, double longitude) {
+    double distanceM =
+        distanceMeters(
+            BigDecimal.valueOf(latitude),
+            BigDecimal.valueOf(longitude),
+            meeting.getDestinationLatitude(),
+            meeting.getDestinationLongitude());
+    int totalTimeSeconds = (int) Math.round(distanceM / WALKING_SPEED_METERS_PER_SECOND);
+    return new TmapRoute(
+        totalTimeSeconds,
+        List.of(
+            new TmapRoute.Leg(
+                TransportType.WALK,
+                null,
+                null,
+                meeting.getDestinationName(),
+                totalTimeSeconds,
+                0)));
+  }
+
+  private List<MeetingMemberRoute> saveRoutes(
+      MeetingMember member, String departurePlaceName, TmapRoute route) {
+    List<TmapRoute.Leg> legs = route.legs();
+    List<MeetingMemberRoute> routes = new ArrayList<>(legs.size());
+    for (int index = 0; index < legs.size(); index++) {
+      TmapRoute.Leg leg = legs.get(index);
+      routes.add(
+          new MeetingMemberRoute(
+              member,
+              index + 1,
+              routeContent(leg, index == 0, departurePlaceName),
+              leg.transportType(),
+              transportContent(leg),
+              toMinutes(leg.sectionTimeSeconds())));
+    }
+    return meetingMemberRouteRepository.saveAll(routes);
+  }
+
+  private List<MeetingMemberRoute> findRoutes(MeetingMember member) {
+    return meetingMemberRouteRepository.findAllByMeetingMemberIdOrderByRouteIndexAsc(
+        member.getId());
+  }
+
+  private String routeContent(TmapRoute.Leg leg, boolean first, String departurePlaceName) {
+    if (leg.transportType() == TransportType.WALK) {
+      if (first) {
+        return departurePlaceName;
+      }
+      return leg.startName() != null ? leg.startName() : leg.endName();
+    }
+    return leg.startName() + " " + leg.routeName() + " 승차";
+  }
+
+  private String transportContent(TmapRoute.Leg leg) {
+    return switch (leg.transportType()) {
+      case WALK -> "도보";
+      case SUBWAY -> leg.stationCount() + "개 역 이동";
+      case BUS -> leg.stationCount() + "개 정류장 이동";
+      case ETC -> leg.routeName() != null ? leg.routeName() : "이동";
+    };
+  }
+
+  private TmapRoute.Leg mainTransportLeg(TmapRoute route) {
+    return route.legs().stream()
+        .filter(leg -> leg.transportType() != TransportType.WALK)
+        .findFirst()
+        .orElse(route.legs().getFirst());
+  }
+
+  private int toMinutes(int seconds) {
+    return (int) Math.round(seconds / SECONDS_PER_MINUTE);
+  }
+
   private void registerMember(
       Meeting meeting, User user, MeetingMemberRole role, String nickname, MultipartFile image) {
     String resolvedNickname = nickname != null ? nickname : user.getNickname();
@@ -283,20 +495,30 @@ public class MeetingService {
       BigDecimal destinationLatitude,
       BigDecimal destinationLongitude,
       int arrivalRadiusM) {
+    return distanceMeters(
+            currentLatitude, currentLongitude, destinationLatitude, destinationLongitude)
+        <= arrivalRadiusM;
+  }
+
+  private double distanceMeters(
+      BigDecimal fromLatitude,
+      BigDecimal fromLongitude,
+      BigDecimal toLatitude,
+      BigDecimal toLongitude) {
     double latitudeDifference =
-        Math.toRadians(destinationLatitude.doubleValue() - currentLatitude.doubleValue());
+        Math.toRadians(toLatitude.doubleValue() - fromLatitude.doubleValue());
     double longitudeDifference =
-        Math.toRadians(destinationLongitude.doubleValue() - currentLongitude.doubleValue());
-    double currentLatitudeRadians = Math.toRadians(currentLatitude.doubleValue());
-    double destinationLatitudeRadians = Math.toRadians(destinationLatitude.doubleValue());
+        Math.toRadians(toLongitude.doubleValue() - fromLongitude.doubleValue());
+    double fromLatitudeRadians = Math.toRadians(fromLatitude.doubleValue());
+    double toLatitudeRadians = Math.toRadians(toLatitude.doubleValue());
 
     double haversine =
         Math.pow(Math.sin(latitudeDifference / 2), 2)
-            + Math.cos(currentLatitudeRadians)
-                * Math.cos(destinationLatitudeRadians)
+            + Math.cos(fromLatitudeRadians)
+                * Math.cos(toLatitudeRadians)
                 * Math.pow(Math.sin(longitudeDifference / 2), 2);
     double centralAngle = 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
-    return EARTH_RADIUS_M * centralAngle <= arrivalRadiusM;
+    return EARTH_RADIUS_M * centralAngle;
   }
 
   private String uploadMemberImage(MultipartFile image) {
