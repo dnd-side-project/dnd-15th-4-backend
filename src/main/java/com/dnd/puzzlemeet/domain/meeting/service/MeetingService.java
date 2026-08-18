@@ -5,12 +5,16 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
+import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberStatus;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
@@ -41,6 +45,7 @@ import org.springframework.web.multipart.MultipartFile;
 public class MeetingService {
 
   private static final int ARRIVAL_RADIUS_M = 50;
+  private static final double EARTH_RADIUS_M = 6_371_000;
   private static final int INVITE_CODE_LENGTH = 8;
   private static final String INVITE_CODE_CHARS =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -137,6 +142,39 @@ public class MeetingService {
     return MeetingJoinResponse.from(meeting);
   }
 
+  @Transactional
+  public MeetingMemberNicknameUpdateResponse updateMemberNickname(
+      Long userId, Long meetingId, MeetingMemberNicknameUpdateRequest request) {
+    MeetingMember member = getActiveMeetingMember(userId, meetingId);
+    member.changeNickname(request.nickname());
+    return MeetingMemberNicknameUpdateResponse.from(member);
+  }
+
+  @Transactional
+  public MeetingMemberArrivalResponse markMemberArrived(Long userId, Long meetingId) {
+    MeetingMember member = getActiveMeetingMember(userId, meetingId);
+    if (member.getStatus() == MeetingMemberStatus.ARRIVED) {
+      return MeetingMemberArrivalResponse.from(member);
+    }
+
+    if (member.getCurrentLatitude() == null || member.getCurrentLongitude() == null) {
+      throw ApiException.of(ErrorCode.MEETING_ARRIVAL_LOCATION_INVALID);
+    }
+
+    Meeting meeting = member.getMeeting();
+    if (!isWithinArrivalRadius(
+        member.getCurrentLatitude(),
+        member.getCurrentLongitude(),
+        meeting.getDestinationLatitude(),
+        meeting.getDestinationLongitude(),
+        meeting.getArrivalRadiusM())) {
+      throw ApiException.of(ErrorCode.MEETING_ARRIVAL_LOCATION_INVALID);
+    }
+
+    member.arrive();
+    return MeetingMemberArrivalResponse.from(member);
+  }
+
   @Transactional(readOnly = true)
   public List<MeetingListResponse> getMeetings(Long userId, MeetingStatus status) {
     List<Meeting> meetings =
@@ -222,6 +260,43 @@ public class MeetingService {
     boolean hasImage = image != null && !image.isEmpty();
     String imageUrl = hasImage ? uploadMemberImage(image) : DEFAULT_MEMBER_IMAGE_URL;
     memberImageRepository.save(new MemberImage(member, imageUrl, !hasImage));
+  }
+
+  private MeetingMember getActiveMeetingMember(Long userId, Long meetingId) {
+    Meeting meeting =
+        meetingRepository
+            .findById(meetingId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
+    if (meeting.getStatus() != MeetingStatus.WAITING
+        && meeting.getStatus() != MeetingStatus.IN_PROGRESS) {
+      throw ApiException.of(ErrorCode.MEETING_MEMBER_NOT_ACTIVE);
+    }
+
+    return meetingMemberRepository
+        .findByMeetingIdAndUserId(meetingId, userId)
+        .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_MEMBER_NOT_FOUND));
+  }
+
+  private boolean isWithinArrivalRadius(
+      BigDecimal currentLatitude,
+      BigDecimal currentLongitude,
+      BigDecimal destinationLatitude,
+      BigDecimal destinationLongitude,
+      int arrivalRadiusM) {
+    double latitudeDifference =
+        Math.toRadians(destinationLatitude.doubleValue() - currentLatitude.doubleValue());
+    double longitudeDifference =
+        Math.toRadians(destinationLongitude.doubleValue() - currentLongitude.doubleValue());
+    double currentLatitudeRadians = Math.toRadians(currentLatitude.doubleValue());
+    double destinationLatitudeRadians = Math.toRadians(destinationLatitude.doubleValue());
+
+    double haversine =
+        Math.pow(Math.sin(latitudeDifference / 2), 2)
+            + Math.cos(currentLatitudeRadians)
+                * Math.cos(destinationLatitudeRadians)
+                * Math.pow(Math.sin(longitudeDifference / 2), 2);
+    double centralAngle = 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+    return EARTH_RADIUS_M * centralAngle <= arrivalRadiusM;
   }
 
   private String uploadMemberImage(MultipartFile image) {

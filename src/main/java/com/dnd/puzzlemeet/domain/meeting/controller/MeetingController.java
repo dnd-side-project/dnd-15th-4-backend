@@ -5,6 +5,9 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
@@ -30,6 +33,7 @@ import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PatchMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
@@ -84,6 +88,37 @@ public class MeetingController {
       @Parameter(description = "약속방 퍼즐 이미지") @RequestPart(value = "image", required = false)
           MultipartFile image) {
     return ApiResult.success(meetingService.joinMeeting(principal.id(), request, image));
+  }
+
+  @Operation(summary = "도착 완료", description = "저장된 현재 위치가 목적지 도착 반경 안이면 도착 처리한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_ACTIVE,
+    ErrorCode.MEETING_ARRIVAL_LOCATION_INVALID
+  })
+  @PutMapping("/{meetingId}/members/me/arrival")
+  public ResponseEntity<ApiResult<MeetingMemberArrivalResponse>> markMemberArrived(
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long meetingId) {
+    return ApiResult.success(meetingService.markMemberArrived(principal.id(), meetingId));
+  }
+
+  @Operation(summary = "약속방 닉네임 수정", description = "인증된 참여자가 해당 약속방에서 사용할 닉네임을 수정한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.INVALID_INPUT_VALUE,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_ACTIVE
+  })
+  @PatchMapping("/{meetingId}/members/me/nickname")
+  public ResponseEntity<ApiResult<MeetingMemberNicknameUpdateResponse>> updateMemberNickname(
+      @AuthenticationPrincipal UserPrincipal principal,
+      @PathVariable Long meetingId,
+      @Valid @RequestBody MeetingMemberNicknameUpdateRequest request) {
+    return ApiResult.success(
+        meetingService.updateMemberNickname(principal.id(), meetingId, request));
   }
 
   @Operation(

@@ -20,6 +20,8 @@ public enum ErrorCode {
   MEETING_NOT_JOINABLE(HttpStatus.BAD_REQUEST, "MEETING_NOT_JOINABLE", "대기 중인 약속에만 참여할 수 있습니다."),
   MEETING_MEMBER_ALREADY_JOINED(
       HttpStatus.BAD_REQUEST, "MEETING_MEMBER_ALREADY_JOINED", "이미 참여한 약속입니다."),
+  MEETING_ARRIVAL_LOCATION_INVALID(
+      HttpStatus.BAD_REQUEST, "MEETING_ARRIVAL_LOCATION_INVALID", "현재 위치가 약속 장소 도착 반경 밖입니다."),
 
   // 401 Unauthorized
   AUTH_KAKAO_UNAUTHORIZED(
@@ -47,9 +49,15 @@ public enum ErrorCode {
   MEETING_NOT_FOUND(HttpStatus.NOT_FOUND, "MEETING_NOT_FOUND", "존재하지 않는 약속입니다."),
   MEETING_INVITE_CODE_INVALID(
       HttpStatus.NOT_FOUND, "MEETING_INVITE_CODE_INVALID", "유효하지 않은 초대 코드입니다."),
+  MEETING_MEMBER_NOT_FOUND(
+      HttpStatus.NOT_FOUND, "MEETING_MEMBER_NOT_FOUND", "약속 참여자 정보를 찾을 수 없습니다."),
 
   // 405 Method Not Allowed
   METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", "허용되지 않은 HTTP 메서드입니다."),
+
+  // 409 Conflict
+  MEETING_MEMBER_NOT_ACTIVE(
+      HttpStatus.CONFLICT, "MEETING_MEMBER_NOT_ACTIVE", "활성 상태의 약속 참여자만 요청할 수 있습니다."),
 
   // 415 Unsupported Media Type
   UNSUPPORTED_MEDIA_TYPE(
