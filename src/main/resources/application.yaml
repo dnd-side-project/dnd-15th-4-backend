@@ -33,6 +33,10 @@ kakao:
   token-uri: https://kauth.kakao.com/oauth/token
   user-info-uri: https://kapi.kakao.com/v2/user/me
 
+tmap:
+  app-key: ${TMAP_APP_KEY}
+  transit-route-uri: https://apis.openapi.sk.com/transit/routes
+
 frontend:
   login-redirect-uri: ${FRONTEND_LOGIN_REDIRECT_URI}
 

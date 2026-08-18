@@ -69,6 +69,27 @@ public class MeetingMember extends BaseTimeEntity {
   @Column(nullable = false, length = 50)
   private String nickname;
 
+  @Column(nullable = false)
+  private boolean isCustomNickname;
+
+  @Column(length = 100)
+  private String departureName;
+
+  @Column(precision = 10, scale = 7)
+  private BigDecimal departureLatitude;
+
+  @Column(precision = 10, scale = 7)
+  private BigDecimal departureLongitude;
+
+  @Column(nullable = false)
+  private boolean isLocationNotificationEnabled;
+
+  @Column(nullable = false)
+  private boolean isFriendArrivalNotificationEnabled;
+
+  @Column(nullable = false)
+  private boolean isChatBubbleNotificationEnabled;
+
   public MeetingMember(Meeting meeting, User user, MeetingMemberRole role, String nickname) {
     this.meeting = meeting;
     this.user = user;
@@ -101,10 +122,32 @@ public class MeetingMember extends BaseTimeEntity {
 
   public void changeNickname(String nickname) {
     this.nickname = nickname;
+    this.isCustomNickname = true;
+  }
+
+  public void resetNicknameToDefault(String defaultNickname) {
+    this.nickname = defaultNickname;
+    this.isCustomNickname = false;
   }
 
   public void updateCurrentLocation(BigDecimal currentLatitude, BigDecimal currentLongitude) {
     this.currentLatitude = currentLatitude;
     this.currentLongitude = currentLongitude;
+  }
+
+  public void updateDeparture(
+      String departureName, BigDecimal departureLatitude, BigDecimal departureLongitude) {
+    this.departureName = departureName;
+    this.departureLatitude = departureLatitude;
+    this.departureLongitude = departureLongitude;
+  }
+
+  public void updateNotificationSettings(
+      boolean locationNotificationEnabled,
+      boolean friendArrivalNotificationEnabled,
+      boolean chatBubbleNotificationEnabled) {
+    this.isLocationNotificationEnabled = locationNotificationEnabled;
+    this.isFriendArrivalNotificationEnabled = friendArrivalNotificationEnabled;
+    this.isChatBubbleNotificationEnabled = chatBubbleNotificationEnabled;
   }
 }

@@ -6,6 +6,9 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureCreateRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
@@ -119,6 +122,79 @@ public class MeetingController {
       @Valid @RequestBody MeetingMemberNicknameUpdateRequest request) {
     return ApiResult.success(
         meetingService.updateMemberNickname(principal.id(), meetingId, request));
+  }
+
+  @Operation(summary = "출발 설정 등록", description = "인증된 참여자의 출발지·알림 설정·닉네임을 등록하고 이동 경로를 계산해 저장한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.INVALID_INPUT_VALUE,
+    ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_FOUND,
+    ErrorCode.MEETING_DEPARTURE_ALREADY_SET,
+    ErrorCode.MEETING_MEMBER_NOT_ACTIVE,
+    ErrorCode.MEETING_MAP_UNAVAILABLE
+  })
+  @PostMapping("/{meetingId}/members/me/departure")
+  public ResponseEntity<ApiResult<MeetingMemberDepartureResponse>> createMemberDeparture(
+      @AuthenticationPrincipal UserPrincipal principal,
+      @PathVariable Long meetingId,
+      @Parameter(description = "출발 설정 정보") @Valid @RequestBody
+          MeetingMemberDepartureCreateRequest request) {
+    return ApiResult.success(
+        meetingService.createDeparture(
+            principal.id(),
+            meetingId,
+            request.departure().placeName(),
+            request.departure().latitude(),
+            request.departure().longitude(),
+            request.notificationSettings(),
+            request.nicknameSetting()));
+  }
+
+  @Operation(summary = "출발 설정 조회", description = "인증된 참여자가 등록한 출발 설정과 이동 경로를 조회한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_FOUND,
+    ErrorCode.MEETING_DEPARTURE_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_ACTIVE
+  })
+  @GetMapping("/{meetingId}/members/me/departure")
+  public ResponseEntity<ApiResult<MeetingMemberDepartureResponse>> getMemberDeparture(
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long meetingId) {
+    return ApiResult.success(meetingService.getDeparture(principal.id(), meetingId));
+  }
+
+  @Operation(
+      summary = "출발 설정 수정",
+      description = "요청에 넣은 항목만 반영한다. 출발지를 넣으면 이동 경로를 다시 계산해 기존 경로를 대체한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.INVALID_INPUT_VALUE,
+    ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_FOUND,
+    ErrorCode.MEETING_DEPARTURE_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_ACTIVE,
+    ErrorCode.MEETING_MAP_UNAVAILABLE
+  })
+  @PatchMapping("/{meetingId}/members/me/departure")
+  public ResponseEntity<ApiResult<MeetingMemberDepartureResponse>> updateMemberDeparture(
+      @AuthenticationPrincipal UserPrincipal principal,
+      @PathVariable Long meetingId,
+      @Parameter(description = "수정할 출발 설정 정보") @Valid @RequestBody
+          MeetingMemberDepartureUpdateRequest request) {
+    MeetingMemberDepartureUpdateRequest.Departure departure = request.departure();
+    return ApiResult.success(
+        meetingService.updateDeparture(
+            principal.id(),
+            meetingId,
+            departure != null ? departure.placeName() : null,
+            departure != null ? departure.latitude() : null,
+            departure != null ? departure.longitude() : null,
+            request.notificationSettings(),
+            request.nicknameSetting()));
   }
 
   @Operation(

@@ -22,6 +22,8 @@ public enum ErrorCode {
       HttpStatus.BAD_REQUEST, "MEETING_MEMBER_ALREADY_JOINED", "이미 참여한 약속입니다."),
   MEETING_ARRIVAL_LOCATION_INVALID(
       HttpStatus.BAD_REQUEST, "MEETING_ARRIVAL_LOCATION_INVALID", "현재 위치가 약속 장소 도착 반경 밖입니다."),
+  MEETING_MAP_ROUTE_NOT_FOUND(
+      HttpStatus.BAD_REQUEST, "MEETING_MAP_ROUTE_NOT_FOUND", "출발지에서 약속 장소까지 대중교통 경로를 찾을 수 없습니다."),
 
   // 401 Unauthorized
   AUTH_KAKAO_UNAUTHORIZED(
@@ -51,6 +53,8 @@ public enum ErrorCode {
       HttpStatus.NOT_FOUND, "MEETING_INVITE_CODE_INVALID", "유효하지 않은 초대 코드입니다."),
   MEETING_MEMBER_NOT_FOUND(
       HttpStatus.NOT_FOUND, "MEETING_MEMBER_NOT_FOUND", "약속 참여자 정보를 찾을 수 없습니다."),
+  MEETING_DEPARTURE_NOT_FOUND(
+      HttpStatus.NOT_FOUND, "MEETING_DEPARTURE_NOT_FOUND", "출발 설정을 찾을 수 없습니다."),
 
   // 405 Method Not Allowed
   METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", "허용되지 않은 HTTP 메서드입니다."),
@@ -58,6 +62,8 @@ public enum ErrorCode {
   // 409 Conflict
   MEETING_MEMBER_NOT_ACTIVE(
       HttpStatus.CONFLICT, "MEETING_MEMBER_NOT_ACTIVE", "활성 상태의 약속 참여자만 요청할 수 있습니다."),
+  MEETING_DEPARTURE_ALREADY_SET(
+      HttpStatus.CONFLICT, "MEETING_DEPARTURE_ALREADY_SET", "이미 출발 설정을 완료했습니다."),
 
   // 415 Unsupported Media Type
   UNSUPPORTED_MEDIA_TYPE(
@@ -69,7 +75,8 @@ public enum ErrorCode {
   S3_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "S3_UPLOAD_FAILED", "파일 업로드에 실패했습니다."),
 
   // 502 Bad Gateway
-  AUTH_KAKAO_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "AUTH_KAKAO_UNAVAILABLE", "카카오 서버와 통신할 수 없습니다.");
+  AUTH_KAKAO_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "AUTH_KAKAO_UNAVAILABLE", "카카오 서버와 통신할 수 없습니다."),
+  MEETING_MAP_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "MEETING_MAP_UNAVAILABLE", "지도 서버와 통신할 수 없습니다.");
 
   private final HttpStatus httpStatus;
   private final String code;
