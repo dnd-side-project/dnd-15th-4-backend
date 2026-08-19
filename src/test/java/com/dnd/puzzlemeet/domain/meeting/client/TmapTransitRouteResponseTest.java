@@ -85,6 +85,66 @@ class TmapTransitRouteResponseTest {
   }
 
   @Test
+  @DisplayName("경로의 요금과 환승 횟수, 구간 거리와 좌표가 매핑된다")
+  void fareAndSectionDetailsBindToRecordComponents() {
+    String json =
+        """
+        {
+          "metaData": {
+            "plan": {
+              "itineraries": [
+                {
+                  "fare": {"regular": {"totalFare": 1850, "currency": {"symbol": "₩", "currency": "원"}}},
+                  "totalTime": 3780,
+                  "totalDistance": 27420,
+                  "transferCount": 2,
+                  "pathType": 3,
+                  "legs": [
+                    {
+                      "mode": "WALK",
+                      "sectionTime": 480,
+                      "distance": 420,
+                      "start": {"name": "출발지", "lon": 127.0247, "lat": 37.5045},
+                      "end": {"name": "태릉입구", "lon": 127.0256, "lat": 37.5017}
+                    },
+                    {
+                      "mode": "SUBWAY",
+                      "route": "수도권6호선",
+                      "routeColor": "CD7C2F",
+                      "sectionTime": 1620,
+                      "distance": 27000,
+                      "start": {"name": "태릉입구", "lon": 127.0256, "lat": 37.5017},
+                      "end": {"name": "성수", "lon": 127.0559, "lat": 37.5446}
+                    }
+                  ]
+                }
+              ]
+            }
+          }
+        }
+        """;
+    JsonMapper jsonMapper = JsonMapper.builder().build();
+
+    TmapTransitRouteResponse response = jsonMapper.readValue(json, TmapTransitRouteResponse.class);
+
+    TmapTransitRouteResponse.Itinerary itinerary =
+        response.metaData().plan().itineraries().getFirst();
+    assertThat(itinerary.fare().regular().totalFare()).isEqualTo(1850);
+    assertThat(itinerary.transferCount()).isEqualTo(2);
+    assertThat(itinerary.pathType()).isEqualTo(3);
+
+    TmapTransitRouteResponse.Leg walkLeg = itinerary.legs().getFirst();
+    assertThat(walkLeg.distance()).isEqualTo(420);
+    assertThat(walkLeg.start().lat()).isEqualTo(37.5045);
+    assertThat(walkLeg.start().lon()).isEqualTo(127.0247);
+
+    TmapTransitRouteResponse.Leg subwayLeg = itinerary.legs().get(1);
+    assertThat(subwayLeg.routeColor()).isEqualTo("CD7C2F");
+    assertThat(subwayLeg.distance()).isEqualTo(27000);
+    assertThat(subwayLeg.end().lat()).isEqualTo(37.5446);
+  }
+
+  @Test
   @DisplayName("출발지와 도착지가 너무 가까우면 경로 없이 result 상태만 담겨 온다")
   void tooCloseResponseBindsResultStatus() {
     String json =

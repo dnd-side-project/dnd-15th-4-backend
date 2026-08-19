@@ -2,6 +2,7 @@ package com.dnd.puzzlemeet.domain.meeting.service;
 
 import com.dnd.puzzlemeet.domain.meeting.client.TmapRoute;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapRouteClient;
+import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
@@ -15,6 +16,7 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
@@ -327,6 +329,71 @@ public class MeetingService {
     return MeetingMemberDepartureResponse.of(member, findRoutes(member));
   }
 
+  @Transactional(readOnly = true)
+  public MeetingRouteSearchResponse searchRoutes(
+      Long userId, Long meetingId, double latitude, double longitude) {
+    MeetingMember member = getActiveMeetingMember(userId, meetingId);
+    return MeetingRouteSearchResponse.from(
+        resolveTransitRoutes(member.getMeeting(), latitude, longitude));
+  }
+
+  private List<TmapTransitRoute> resolveTransitRoutes(
+      Meeting meeting, double latitude, double longitude) {
+    double destinationLatitude = meeting.getDestinationLatitude().doubleValue();
+    double destinationLongitude = meeting.getDestinationLongitude().doubleValue();
+    LocalDateTime firstDepartAt = firstQueryDepartAt(meeting);
+
+    List<TmapTransitRoute> routes =
+        tmapRouteClient.findTransitRoutes(
+            latitude, longitude, destinationLatitude, destinationLongitude, firstDepartAt);
+    if (routes.isEmpty()) {
+      return List.of(walkingTransitRoute(meeting, latitude, longitude));
+    }
+
+    int estimatedTimeSeconds = routes.getFirst().totalTimeSeconds();
+    if (!needsReQuery(firstDepartAt, estimatedTimeSeconds)) {
+      return routes;
+    }
+
+    List<TmapTransitRoute> reQueried =
+        tmapRouteClient.findTransitRoutes(
+            latitude,
+            longitude,
+            destinationLatitude,
+            destinationLongitude,
+            reQueryDepartAt(meeting, estimatedTimeSeconds));
+    return reQueried.isEmpty() ? routes : reQueried;
+  }
+
+  private TmapTransitRoute walkingTransitRoute(Meeting meeting, double latitude, double longitude) {
+    double distanceM =
+        distanceMeters(
+            BigDecimal.valueOf(latitude),
+            BigDecimal.valueOf(longitude),
+            meeting.getDestinationLatitude(),
+            meeting.getDestinationLongitude());
+    int totalTimeSeconds = (int) Math.round(distanceM / WALKING_SPEED_METERS_PER_SECOND);
+    return new TmapTransitRoute(
+        totalTimeSeconds,
+        0,
+        0,
+        null,
+        List.of(
+            new TmapTransitRoute.Leg(
+                TransportType.WALK,
+                null,
+                null,
+                totalTimeSeconds,
+                (int) Math.round(distanceM),
+                null,
+                meeting.getDestinationName(),
+                latitude,
+                longitude,
+                meeting.getDestinationLatitude().doubleValue(),
+                meeting.getDestinationLongitude().doubleValue(),
+                List.of())));
+  }
+
   private MeetingMemberDepartureResponse applyDeparture(
       MeetingMember member, String placeName, double latitude, double longitude) {
     Meeting meeting = member.getMeeting();
@@ -344,39 +411,42 @@ public class MeetingService {
   private TmapRoute resolveRoute(Meeting meeting, double latitude, double longitude) {
     double destinationLatitude = meeting.getDestinationLatitude().doubleValue();
     double destinationLongitude = meeting.getDestinationLongitude().doubleValue();
-    LocalDateTime now = LocalDateTime.now();
-    LocalDateTime meetingAt = meeting.getMeetingAt();
-    LocalDateTime arrivalBasedDepartAt = meetingAt.isAfter(now) ? meetingAt : null;
+    LocalDateTime firstDepartAt = firstQueryDepartAt(meeting);
 
     TmapRoute estimatedRoute =
         tmapRouteClient
             .findTransitRoute(
-                latitude,
-                longitude,
-                destinationLatitude,
-                destinationLongitude,
-                arrivalBasedDepartAt)
+                latitude, longitude, destinationLatitude, destinationLongitude, firstDepartAt)
             .orElse(null);
     if (estimatedRoute == null) {
       return walkingRoute(meeting, latitude, longitude);
     }
-    if (arrivalBasedDepartAt == null) {
+    if (!needsReQuery(firstDepartAt, estimatedRoute.totalTimeSeconds())) {
       return estimatedRoute;
     }
 
-    if (estimatedRoute.totalTimeSeconds() < ROUTE_RESEARCH_THRESHOLD_SECONDS) {
-      return estimatedRoute;
-    }
-
-    LocalDateTime departAt = meetingAt.minusSeconds(estimatedRoute.totalTimeSeconds());
     return tmapRouteClient
         .findTransitRoute(
             latitude,
             longitude,
             destinationLatitude,
             destinationLongitude,
-            departAt.isAfter(now) ? departAt : null)
+            reQueryDepartAt(meeting, estimatedRoute.totalTimeSeconds()))
         .orElse(estimatedRoute);
+  }
+
+  private LocalDateTime firstQueryDepartAt(Meeting meeting) {
+    LocalDateTime meetingAt = meeting.getMeetingAt();
+    return meetingAt.isAfter(LocalDateTime.now()) ? meetingAt : null;
+  }
+
+  private boolean needsReQuery(LocalDateTime firstDepartAt, int estimatedTimeSeconds) {
+    return firstDepartAt != null && estimatedTimeSeconds >= ROUTE_RESEARCH_THRESHOLD_SECONDS;
+  }
+
+  private LocalDateTime reQueryDepartAt(Meeting meeting, int estimatedTimeSeconds) {
+    LocalDateTime departAt = meeting.getMeetingAt().minusSeconds(estimatedTimeSeconds);
+    return departAt.isAfter(LocalDateTime.now()) ? departAt : null;
   }
 
   private void applyNicknameSetting(MeetingMember member, boolean enabled, String nickname) {

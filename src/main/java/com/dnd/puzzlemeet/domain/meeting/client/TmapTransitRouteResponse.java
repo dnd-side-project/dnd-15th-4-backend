@@ -8,17 +8,24 @@ public record TmapTransitRouteResponse(MetaData metaData, Result result) {
 
   public record Plan(List<Itinerary> itineraries) {}
 
-  public record Itinerary(int totalTime, List<Leg> legs) {}
+  public record Itinerary(
+      int totalTime, int transferCount, Integer pathType, Fare fare, List<Leg> legs) {}
+
+  public record Fare(Regular regular) {}
+
+  public record Regular(int totalFare) {}
 
   public record Leg(
       String mode,
       String route,
+      String routeColor,
       int sectionTime,
+      int distance,
       Place start,
       Place end,
       PassStopList passStopList) {}
 
-  public record Place(String name) {}
+  public record Place(String name, Double lon, Double lat) {}
 
   public record PassStopList(List<Station> stations) {}
 

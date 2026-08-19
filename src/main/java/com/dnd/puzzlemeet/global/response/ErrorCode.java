@@ -76,7 +76,9 @@ public enum ErrorCode {
 
   // 502 Bad Gateway
   AUTH_KAKAO_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "AUTH_KAKAO_UNAVAILABLE", "카카오 서버와 통신할 수 없습니다."),
-  MEETING_MAP_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "MEETING_MAP_UNAVAILABLE", "지도 서버와 통신할 수 없습니다.");
+  MEETING_MAP_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "MEETING_MAP_UNAVAILABLE", "지도 서버와 통신할 수 없습니다."),
+  PLACE_SEARCH_UNAVAILABLE(
+      HttpStatus.BAD_GATEWAY, "PLACE_SEARCH_UNAVAILABLE", "장소 검색 서버와 통신할 수 없습니다.");
 
   private final HttpStatus httpStatus;
   private final String code;

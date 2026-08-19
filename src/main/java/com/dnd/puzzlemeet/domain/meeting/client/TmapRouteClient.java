@@ -1,6 +1,7 @@
 package com.dnd.puzzlemeet.domain.meeting.client;
 
 import com.dnd.puzzlemeet.domain.meeting.entity.TransportType;
+import com.dnd.puzzlemeet.global.client.TmapProperties;
 import com.dnd.puzzlemeet.global.exception.ApiException;
 import com.dnd.puzzlemeet.global.response.ErrorCode;
 import java.time.LocalDateTime;
@@ -25,6 +26,7 @@ public class TmapRouteClient {
   private static final int READ_TIMEOUT_MILLIS = 5_000;
   private static final String APP_KEY_HEADER = "appKey";
   private static final int RESULT_COUNT = 1;
+  private static final int ROUTE_SEARCH_COUNT = 5;
   private static final int TOO_CLOSE_STATUS = 11;
   private static final DateTimeFormatter SEARCH_DATE_TIME_FORMAT =
       DateTimeFormatter.ofPattern("yyyyMMddHHmm");
@@ -48,6 +50,30 @@ public class TmapRouteClient {
       double endLatitude,
       double endLongitude,
       LocalDateTime departAt) {
+    return requestItineraries(
+            startLatitude, startLongitude, endLatitude, endLongitude, departAt, RESULT_COUNT)
+        .map(itineraries -> toRoute(itineraries.getFirst()));
+  }
+
+  public List<TmapTransitRoute> findTransitRoutes(
+      double startLatitude,
+      double startLongitude,
+      double endLatitude,
+      double endLongitude,
+      LocalDateTime departAt) {
+    return requestItineraries(
+            startLatitude, startLongitude, endLatitude, endLongitude, departAt, ROUTE_SEARCH_COUNT)
+        .map(this::toTransitRoutes)
+        .orElseGet(List::of);
+  }
+
+  private Optional<List<TmapTransitRouteResponse.Itinerary>> requestItineraries(
+      double startLatitude,
+      double startLongitude,
+      double endLatitude,
+      double endLongitude,
+      LocalDateTime departAt,
+      int count) {
     long start = System.currentTimeMillis();
     TmapTransitRouteResponse response;
     try {
@@ -57,7 +83,9 @@ public class TmapRouteClient {
               .uri(transitRouteUri)
               .header(APP_KEY_HEADER, appKey)
               .contentType(MediaType.APPLICATION_JSON)
-              .body(requestBody(startLatitude, startLongitude, endLatitude, endLongitude, departAt))
+              .body(
+                  requestBody(
+                      startLatitude, startLongitude, endLatitude, endLongitude, departAt, count))
               .retrieve()
               .body(TmapTransitRouteResponse.class);
     } catch (HttpStatusCodeException e) {
@@ -86,14 +114,14 @@ public class TmapRouteClient {
       throw ApiException.of(ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND);
     }
 
-    TmapTransitRouteResponse.Itinerary itinerary = firstItinerary(response);
-    if (itinerary == null || itinerary.legs() == null || itinerary.legs().isEmpty()) {
+    List<TmapTransitRouteResponse.Itinerary> itineraries = itineraries(response);
+    if (itineraries.isEmpty() || !hasLegs(itineraries.getFirst())) {
       log.info("[지도 연동] 대중교통 경로 없음, elapsedMs={}", elapsedMs);
       throw ApiException.of(ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND);
     }
 
     log.info("[지도 연동] 대중교통 경로 조회 성공, elapsedMs={}", elapsedMs);
-    return Optional.of(toRoute(itinerary));
+    return Optional.of(itineraries);
   }
 
   private Map<String, Object> requestBody(
@@ -101,7 +129,8 @@ public class TmapRouteClient {
       double startLongitude,
       double endLatitude,
       double endLongitude,
-      LocalDateTime departAt) {
+      LocalDateTime departAt,
+      int count) {
     Map<String, Object> body =
         new HashMap<>(
             Map.of(
@@ -109,7 +138,7 @@ public class TmapRouteClient {
                 "startY", String.valueOf(startLatitude),
                 "endX", String.valueOf(endLongitude),
                 "endY", String.valueOf(endLatitude),
-                "count", RESULT_COUNT,
+                "count", count,
                 "format", "json"));
     if (departAt != null) {
       body.put("searchDttm", departAt.format(SEARCH_DATE_TIME_FORMAT));
@@ -117,15 +146,70 @@ public class TmapRouteClient {
     return body;
   }
 
-  private TmapTransitRouteResponse.Itinerary firstItinerary(TmapTransitRouteResponse response) {
+  private List<TmapTransitRouteResponse.Itinerary> itineraries(TmapTransitRouteResponse response) {
     if (response.metaData() == null || response.metaData().plan() == null) {
-      return null;
+      return List.of();
     }
     List<TmapTransitRouteResponse.Itinerary> itineraries = response.metaData().plan().itineraries();
-    if (itineraries == null || itineraries.isEmpty()) {
-      return null;
+    return itineraries != null ? itineraries : List.of();
+  }
+
+  private boolean hasLegs(TmapTransitRouteResponse.Itinerary itinerary) {
+    return itinerary.legs() != null && !itinerary.legs().isEmpty();
+  }
+
+  private List<TmapTransitRoute> toTransitRoutes(
+      List<TmapTransitRouteResponse.Itinerary> itineraries) {
+    return itineraries.stream().filter(this::hasLegs).map(this::toTransitRoute).toList();
+  }
+
+  private TmapTransitRoute toTransitRoute(TmapTransitRouteResponse.Itinerary itinerary) {
+    return new TmapTransitRoute(
+        itinerary.totalTime(),
+        totalFare(itinerary),
+        itinerary.transferCount(),
+        itinerary.pathType(),
+        itinerary.legs().stream().map(this::toTransitLeg).toList());
+  }
+
+  private int totalFare(TmapTransitRouteResponse.Itinerary itinerary) {
+    if (itinerary.fare() == null || itinerary.fare().regular() == null) {
+      return 0;
     }
-    return itineraries.getFirst();
+    return itinerary.fare().regular().totalFare();
+  }
+
+  private TmapTransitRoute.Leg toTransitLeg(TmapTransitRouteResponse.Leg leg) {
+    return new TmapTransitRoute.Leg(
+        toTransportType(leg.mode()),
+        leg.route(),
+        leg.routeColor(),
+        leg.sectionTime(),
+        leg.distance(),
+        placeName(leg.start()),
+        placeName(leg.end()),
+        latitude(leg.start()),
+        longitude(leg.start()),
+        latitude(leg.end()),
+        longitude(leg.end()),
+        stationNames(leg.passStopList()));
+  }
+
+  private List<String> stationNames(TmapTransitRouteResponse.PassStopList passStopList) {
+    if (passStopList == null || passStopList.stations() == null) {
+      return List.of();
+    }
+    return passStopList.stations().stream()
+        .map(TmapTransitRouteResponse.Station::stationName)
+        .toList();
+  }
+
+  private Double latitude(TmapTransitRouteResponse.Place place) {
+    return place != null ? place.lat() : null;
+  }
+
+  private Double longitude(TmapTransitRouteResponse.Place place) {
+    return place != null ? place.lon() : null;
   }
 
   private TmapRoute toRoute(TmapTransitRouteResponse.Itinerary itinerary) {
