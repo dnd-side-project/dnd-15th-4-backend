@@ -16,6 +16,7 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureUpdateRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberImageUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
@@ -30,6 +31,7 @@ import com.dnd.puzzlemeet.domain.meeting.entity.TransportType;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRouteRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
+import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
 import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
@@ -48,6 +50,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
 
 @ExtendWith(MockitoExtension.class)
@@ -144,6 +147,40 @@ class MeetingServiceTest {
     assertThat(member.getNickname()).isEqualTo("새닉네임");
     assertThat(response.meetingId()).isEqualTo(10L);
     assertThat(response.nickname()).isEqualTo("새닉네임");
+  }
+
+  @Test
+  @DisplayName("참여자 이미지를 교체하면 기존 이미지의 URL이 바뀌고 기본 이미지 표시가 해제된다")
+  void replacesExistingMemberImage() {
+    MeetingMember member = activeMember("효창");
+    givenActiveMember(member);
+    MemberImage memberImage = new MemberImage(member, "https://s3.test/puzzles/default.png", true);
+    given(memberImageRepository.findByMeetingMemberId(1L)).willReturn(Optional.of(memberImage));
+    given(amazonS3Manager.generatePuzzleKeyName(any())).willReturn("puzzles/new.png");
+    given(amazonS3Manager.uploadFile(any(), any())).willReturn("https://s3.test/puzzles/new.png");
+
+    MeetingMemberImageUpdateResponse response =
+        meetingService.updateMemberImage(100L, 10L, puzzleImage());
+
+    assertThat(memberImage.getImageUrl()).isEqualTo("https://s3.test/puzzles/new.png");
+    assertThat(memberImage.isDefaultImage()).isFalse();
+    assertThat(response.meetingId()).isEqualTo(10L);
+    assertThat(response.imageUrl()).isEqualTo("https://s3.test/puzzles/new.png");
+    verify(memberImageRepository, never()).save(any());
+  }
+
+  @Test
+  @DisplayName("교체할 이미지가 비어 있으면 MEETING_MEMBER_IMAGE_REQUIRED 예외가 발생한다")
+  void rejectsEmptyMemberImage() {
+    MockMultipartFile emptyImage =
+        new MockMultipartFile("image", "empty.png", "image/png", new byte[0]);
+
+    ApiException exception =
+        assertThrows(
+            ApiException.class, () -> meetingService.updateMemberImage(100L, 10L, emptyImage));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_MEMBER_IMAGE_REQUIRED);
+    verify(amazonS3Manager, never()).uploadFile(any(), any());
   }
 
   @Test
@@ -610,6 +647,10 @@ class MeetingServiceTest {
     MeetingMember member = new MeetingMember(meeting, guest, MeetingMemberRole.GUEST, nickname);
     ReflectionTestUtils.setField(member, "id", 1L);
     return member;
+  }
+
+  private MockMultipartFile puzzleImage() {
+    return new MockMultipartFile("image", "puzzle.png", "image/png", "puzzle".getBytes());
   }
 
   private void givenActiveMember(MeetingMember member) {
