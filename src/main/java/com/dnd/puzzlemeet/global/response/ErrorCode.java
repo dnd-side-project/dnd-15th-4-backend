@@ -26,6 +26,8 @@ public enum ErrorCode {
       HttpStatus.BAD_REQUEST, "MEETING_MAP_ROUTE_NOT_FOUND", "출발지에서 약속 장소까지 대중교통 경로를 찾을 수 없습니다."),
   MEETING_HOST_CANNOT_LEAVE(
       HttpStatus.BAD_REQUEST, "MEETING_HOST_CANNOT_LEAVE", "방장은 약속방을 나갈 수 없습니다. 약속을 삭제해 주세요."),
+  MEETING_MEMBER_IMAGE_REQUIRED(
+      HttpStatus.BAD_REQUEST, "MEETING_MEMBER_IMAGE_REQUIRED", "교체할 참여자 이미지가 필요합니다."),
 
   // 401 Unauthorized
   AUTH_KAKAO_UNAUTHORIZED(

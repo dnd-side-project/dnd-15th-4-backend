@@ -48,4 +48,9 @@ public class MemberImage {
     this.imageUrl = imageUrl;
     this.isDefaultImage = isDefaultImage;
   }
+
+  public void changeImage(String imageUrl) {
+    this.imageUrl = imageUrl;
+    this.isDefaultImage = false;
+  }
 }

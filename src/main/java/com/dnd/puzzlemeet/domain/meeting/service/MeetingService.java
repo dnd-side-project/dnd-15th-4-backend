@@ -12,6 +12,7 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureUpdateRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberImageUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
@@ -164,6 +165,25 @@ public class MeetingService {
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
     member.changeNickname(request.nickname());
     return MeetingMemberNicknameUpdateResponse.from(member);
+  }
+
+  @Transactional
+  public MeetingMemberImageUpdateResponse updateMemberImage(
+      Long userId, Long meetingId, MultipartFile image) {
+    if (image == null || image.isEmpty()) {
+      throw ApiException.of(ErrorCode.MEETING_MEMBER_IMAGE_REQUIRED);
+    }
+
+    MeetingMember member = getActiveMeetingMember(userId, meetingId);
+    String imageUrl = uploadMemberImage(image);
+
+    MemberImage memberImage =
+        memberImageRepository
+            .findByMeetingMemberId(member.getId())
+            .orElseGet(() -> memberImageRepository.save(new MemberImage(member, imageUrl, false)));
+    memberImage.changeImage(imageUrl);
+
+    return MeetingMemberImageUpdateResponse.from(memberImage);
   }
 
   @Transactional
