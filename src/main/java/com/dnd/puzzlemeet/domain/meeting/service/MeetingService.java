@@ -268,6 +268,18 @@ public class MeetingService {
   }
 
   @Transactional
+  public void leaveMeeting(Long userId, Long meetingId) {
+    MeetingMember member = getActiveMeetingMember(userId, meetingId);
+    if (member.getRole() == MeetingMemberRole.HOST) {
+      throw ApiException.of(ErrorCode.MEETING_HOST_CANNOT_LEAVE);
+    }
+
+    meetingMemberRouteRepository.deleteAllByMeetingMemberId(member.getId());
+    memberImageRepository.deleteAllByMeetingMemberId(member.getId());
+    meetingMemberRepository.delete(member);
+  }
+
+  @Transactional
   public MeetingMemberDepartureResponse createDeparture(
       Long userId,
       Long meetingId,

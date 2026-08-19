@@ -563,6 +563,32 @@ class MeetingServiceTest {
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND);
   }
 
+  @Test
+  @DisplayName("참여자가 약속방을 나가면 이동 경로와 프로필 이미지까지 함께 삭제된다")
+  void deletesMemberWithRoutesAndImageOnLeave() {
+    MeetingMember member = activeGuestMember("김땡땡");
+    givenActiveMember(member);
+
+    meetingService.leaveMeeting(100L, 10L);
+
+    verify(meetingMemberRouteRepository).deleteAllByMeetingMemberId(1L);
+    verify(memberImageRepository).deleteAllByMeetingMemberId(1L);
+    verify(meetingMemberRepository).delete(member);
+  }
+
+  @Test
+  @DisplayName("방장이 약속방 나가기를 요청하면 MEETING_HOST_CANNOT_LEAVE 예외가 발생한다")
+  void rejectsLeaveRequestFromHost() {
+    MeetingMember host = activeMember("효창");
+    givenActiveMember(host);
+
+    ApiException exception =
+        assertThrows(ApiException.class, () -> meetingService.leaveMeeting(100L, 10L));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_HOST_CANNOT_LEAVE);
+    verify(meetingMemberRepository, never()).delete(any());
+  }
+
   private MeetingMember activeMember(String nickname) {
     return activeMember(nickname, LocalDateTime.now().plusHours(3));
   }
@@ -573,6 +599,15 @@ class MeetingServiceTest {
     ReflectionTestUtils.setField(meeting, "meetingAt", meetingAt);
     MeetingMember member =
         new MeetingMember(meeting, meeting.getHostUser(), MeetingMemberRole.HOST, nickname);
+    ReflectionTestUtils.setField(member, "id", 1L);
+    return member;
+  }
+
+  private MeetingMember activeGuestMember(String nickname) {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    User guest = new User(200L, nickname, "https://img.kakao.com/b.jpg");
+    MeetingMember member = new MeetingMember(meeting, guest, MeetingMemberRole.GUEST, nickname);
     ReflectionTestUtils.setField(member, "id", 1L);
     return member;
   }

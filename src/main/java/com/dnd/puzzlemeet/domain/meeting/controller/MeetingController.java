@@ -221,6 +221,21 @@ public class MeetingController {
             principal.id(), meetingId, request.start().latitude(), request.start().longitude()));
   }
 
+  @Operation(summary = "약속방 나가기", description = "참여자가 약속방에서 나간다. 방장은 나갈 수 없고 약속 삭제를 사용한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.MEETING_HOST_CANNOT_LEAVE,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_ACTIVE
+  })
+  @DeleteMapping("/{meetingId}/members/me")
+  public ResponseEntity<ApiResult<Void>> leaveMeeting(
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long meetingId) {
+    meetingService.leaveMeeting(principal.id(), meetingId);
+    return ApiResult.success(null);
+  }
+
   @Operation(
       summary = "내 약속 목록 조회",
       description =

@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.BDDMockito.given;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
@@ -18,9 +19,13 @@ import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitRoute;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
+import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRoute;
 import com.dnd.puzzlemeet.domain.meeting.entity.TransportType;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
+import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRouteRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
+import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
+import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
 import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
 import com.dnd.puzzlemeet.global.security.service.JwtProvider;
@@ -49,6 +54,8 @@ class MeetingControllerTest {
   @Autowired private UserRepository userRepository;
   @Autowired private MeetingRepository meetingRepository;
   @Autowired private MeetingMemberRepository meetingMemberRepository;
+  @Autowired private MeetingMemberRouteRepository meetingMemberRouteRepository;
+  @Autowired private MemberImageRepository memberImageRepository;
   @Autowired private JwtProvider jwtProvider;
   @MockitoBean private TmapRouteClient tmapRouteClient;
 
@@ -184,6 +191,56 @@ class MeetingControllerTest {
                     """))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+  }
+
+  @Test
+  @DisplayName("참여자가 약속방을 나가면 참여자와 이동 경로, 프로필 이미지가 함께 삭제된다")
+  void leaveMeetingDeletesMemberWithChildRows() throws Exception {
+    MeetingMember host = saveMeetingMember("방장");
+    memberImageRepository.save(new MemberImage(host, "https://img.kakao.com/host.png", true));
+    Meeting meeting = host.getMeeting();
+
+    User guestUser = userRepository.save(new User(200L, "참여자닉네임", "https://img.kakao.com/b.jpg"));
+    MeetingMember guest =
+        meetingMemberRepository.save(
+            new MeetingMember(meeting, guestUser, MeetingMemberRole.GUEST, "참여자닉네임"));
+    memberImageRepository.save(new MemberImage(guest, "https://img.kakao.com/guest.png", true));
+    meetingMemberRouteRepository.save(
+        new MeetingMemberRoute(guest, 1, "서울대학교", TransportType.WALK, "도보", 10));
+    meetingMemberRepository.flush();
+
+    String accessToken = jwtProvider.createAccessToken(guestUser.getId());
+
+    mockMvc
+        .perform(
+            delete("/api/v1/meetings/{meetingId}/members/me", meeting.getId())
+                .header("Authorization", "Bearer " + accessToken))
+        .andExpect(status().isOk());
+
+    meetingMemberRepository.flush();
+    assertThat(meetingMemberRepository.findById(guest.getId())).isEmpty();
+    assertThat(
+            meetingMemberRouteRepository.findAllByMeetingMemberIdOrderByRouteIndexAsc(
+                guest.getId()))
+        .isEmpty();
+    assertThat(memberImageRepository.count()).isEqualTo(1);
+    assertThat(meetingMemberRepository.findById(host.getId())).isPresent();
+  }
+
+  @Test
+  @DisplayName("방장이 약속방 나가기를 요청하면 MEETING_HOST_CANNOT_LEAVE로 거절된다")
+  void rejectsLeaveMeetingRequestFromHost() throws Exception {
+    MeetingMember host = saveMeetingMember("방장");
+    String accessToken = jwtProvider.createAccessToken(host.getUser().getId());
+
+    mockMvc
+        .perform(
+            delete("/api/v1/meetings/{meetingId}/members/me", host.getMeeting().getId())
+                .header("Authorization", "Bearer " + accessToken))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("MEETING_HOST_CANNOT_LEAVE"));
+
+    assertThat(meetingMemberRepository.findById(host.getId())).isPresent();
   }
 
   private String departureRequestBody() {
