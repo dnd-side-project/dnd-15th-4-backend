@@ -9,9 +9,9 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureUpdateRequest;
-import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberImageUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberPuzzleImageUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchRequest;
@@ -127,22 +127,26 @@ public class MeetingController {
         meetingService.updateMemberNickname(principal.id(), meetingId, request));
   }
 
-  @Operation(summary = "약속방 참여자 이미지 교체", description = "인증된 참여자가 해당 약속방에 등록한 퍼즐 이미지를 새 이미지로 교체한다.")
+  @Operation(
+      summary = "약속방 참여자 퍼즐 이미지 교체",
+      description = "인증된 참여자가 해당 약속방에 등록한 퍼즐 이미지를 새 이미지로 교체한다. 대기 중인 약속에서만 교체할 수 있다.")
   @ApiErrorCodeExamples({
     ErrorCode.AUTH_TOKEN_INVALID,
-    ErrorCode.MEETING_MEMBER_IMAGE_REQUIRED,
+    ErrorCode.MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED,
+    ErrorCode.MEETING_NOT_WAITING,
     ErrorCode.MEETING_NOT_FOUND,
     ErrorCode.MEETING_MEMBER_NOT_FOUND,
     ErrorCode.MEETING_MEMBER_NOT_ACTIVE
   })
   @PatchMapping(
-      path = "/{meetingId}/members/me/image",
+      path = "/{meetingId}/members/me/puzzle-image",
       consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
-  public ResponseEntity<ApiResult<MeetingMemberImageUpdateResponse>> updateMemberImage(
+  public ResponseEntity<ApiResult<MeetingMemberPuzzleImageUpdateResponse>> updateMemberPuzzleImage(
       @AuthenticationPrincipal UserPrincipal principal,
       @PathVariable Long meetingId,
       @Parameter(description = "교체할 약속방 퍼즐 이미지") @RequestPart("image") MultipartFile image) {
-    return ApiResult.success(meetingService.updateMemberImage(principal.id(), meetingId, image));
+    return ApiResult.success(
+        meetingService.updateMemberPuzzleImage(principal.id(), meetingId, image));
   }
 
   @Operation(summary = "출발 설정 등록", description = "인증된 참여자의 출발지·알림 설정·닉네임을 등록하고 이동 경로를 계산해 저장한다.")

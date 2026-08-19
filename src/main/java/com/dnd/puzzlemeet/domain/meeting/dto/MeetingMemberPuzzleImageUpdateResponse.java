@@ -4,7 +4,7 @@ import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 
-public record MeetingMemberImageUpdateResponse(
+public record MeetingMemberPuzzleImageUpdateResponse(
     @Schema(description = "약속 식별자", example = "1", requiredMode = RequiredMode.REQUIRED)
         Long meetingId,
     @Schema(
@@ -14,8 +14,8 @@ public record MeetingMemberImageUpdateResponse(
             requiredMode = RequiredMode.REQUIRED)
         String imageUrl) {
 
-  public static MeetingMemberImageUpdateResponse from(MemberImage memberImage) {
-    return new MeetingMemberImageUpdateResponse(
+  public static MeetingMemberPuzzleImageUpdateResponse from(MemberImage memberImage) {
+    return new MeetingMemberPuzzleImageUpdateResponse(
         memberImage.getMeetingMember().getMeeting().getId(), memberImage.getImageUrl());
   }
 }

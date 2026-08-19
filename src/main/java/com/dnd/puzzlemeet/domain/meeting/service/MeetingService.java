@@ -12,9 +12,9 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureUpdateRequest;
-import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberImageUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberPuzzleImageUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchResponse;
@@ -168,13 +168,17 @@ public class MeetingService {
   }
 
   @Transactional
-  public MeetingMemberImageUpdateResponse updateMemberImage(
+  public MeetingMemberPuzzleImageUpdateResponse updateMemberPuzzleImage(
       Long userId, Long meetingId, MultipartFile image) {
     if (image == null || image.isEmpty()) {
-      throw ApiException.of(ErrorCode.MEETING_MEMBER_IMAGE_REQUIRED);
+      throw ApiException.of(ErrorCode.MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED);
     }
 
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
+    if (member.getMeeting().getStatus() != MeetingStatus.WAITING) {
+      throw ApiException.of(ErrorCode.MEETING_NOT_WAITING);
+    }
+
     String imageUrl = uploadMemberImage(image);
 
     MemberImage memberImage =
@@ -183,7 +187,7 @@ public class MeetingService {
             .orElseGet(() -> memberImageRepository.save(new MemberImage(member, imageUrl, false)));
     memberImage.changeImage(imageUrl);
 
-    return MeetingMemberImageUpdateResponse.from(memberImage);
+    return MeetingMemberPuzzleImageUpdateResponse.from(memberImage);
   }
 
   @Transactional
