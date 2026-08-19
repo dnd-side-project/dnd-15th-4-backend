@@ -13,6 +13,8 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
 import com.dnd.puzzlemeet.domain.meeting.service.MeetingService;
@@ -195,6 +197,28 @@ public class MeetingController {
             departure != null ? departure.longitude() : null,
             request.notificationSettings(),
             request.nicknameSetting()));
+  }
+
+  @Operation(
+      summary = "이동 경로 조회",
+      description = "출발지에서 약속 장소까지 가는 대중교통 경로를 조회한다. 약속 시각에 도착하는 기준으로 계산하고 저장하지 않는다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.INVALID_INPUT_VALUE,
+    ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_FOUND,
+    ErrorCode.MEETING_MEMBER_NOT_ACTIVE,
+    ErrorCode.MEETING_MAP_UNAVAILABLE
+  })
+  @PostMapping("/{meetingId}/routes")
+  public ResponseEntity<ApiResult<MeetingRouteSearchResponse>> searchMeetingRoutes(
+      @AuthenticationPrincipal UserPrincipal principal,
+      @PathVariable Long meetingId,
+      @Parameter(description = "출발지 정보") @Valid @RequestBody MeetingRouteSearchRequest request) {
+    return ApiResult.success(
+        meetingService.searchRoutes(
+            principal.id(), meetingId, request.start().latitude(), request.start().longitude()));
   }
 
   @Operation(

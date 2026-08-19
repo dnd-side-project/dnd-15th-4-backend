@@ -8,6 +8,7 @@ kakao:
 tmap:
   app-key: test-tmap-app-key
   transit-route-uri: https://apis.openapi.sk.com/transit/routes
+  poi-search-uri: https://apis.openapi.sk.com/tmap/pois
 
 frontend:
   login-redirect-uri: http://localhost:3000/login/callback

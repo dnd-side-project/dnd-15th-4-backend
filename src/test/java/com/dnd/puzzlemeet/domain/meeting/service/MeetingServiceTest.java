@@ -11,6 +11,7 @@ import static org.mockito.Mockito.verify;
 
 import com.dnd.puzzlemeet.domain.meeting.client.TmapRoute;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapRouteClient;
+import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureResponse;
@@ -19,6 +20,7 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchResponse;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
@@ -291,6 +293,103 @@ class MeetingServiceTest {
   }
 
   @Test
+  @DisplayName("역산한 출발 시각이 이미 지났으면 현재 시각 기준으로 다시 조회한다")
+  void searchesRouteAgainWithoutDepartureTimeWhenReQueryTimeHasPassed() {
+    LocalDateTime meetingAt = LocalDateTime.now().plusMinutes(30);
+    MeetingMember member = activeMember("효창", meetingAt);
+    givenActiveMember(member);
+    givenTransitRoute(longTransitRoute());
+    givenRouteSaveEchoesArgument();
+
+    meetingService.createDeparture(
+        100L,
+        10L,
+        "서울대학교",
+        37.5665,
+        126.9780,
+        new MeetingMemberDepartureCreateRequest.NotificationSettings(true, true, false),
+        new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null));
+
+    ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
+    verify(tmapRouteClient, times(2))
+        .findTransitRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
+    assertThat(departAt.getAllValues().get(0)).isEqualTo(meetingAt);
+    assertThat(departAt.getAllValues().get(1)).isNull();
+  }
+
+  @Test
+  @DisplayName("출발지 좌표로 조회하면 약속 장소까지 가는 경로가 구간별로 반환된다")
+  void searchesTransitRoutesToMeetingDestination() {
+    MeetingMember member = activeMember("효창", LocalDateTime.now().plusHours(3));
+    givenActiveMember(member);
+    givenTransitRoutes(transitRoutes());
+
+    MeetingRouteSearchResponse response = meetingService.searchRoutes(100L, 10L, 37.5045, 127.0247);
+
+    assertThat(response.routes()).hasSize(1);
+    MeetingRouteSearchResponse.Route route = response.routes().getFirst();
+    assertThat(route.totalTime()).isEqualTo(2400);
+    assertThat(route.fare()).isEqualTo(1850);
+    assertThat(route.transferCount()).isEqualTo(1);
+    assertThat(route.pathType()).isEqualTo(3);
+
+    MeetingRouteSearchResponse.Step walkStep = route.steps().getFirst();
+    assertThat(walkStep.type()).isEqualTo(TransportType.WALK);
+    assertThat(walkStep.description()).isEqualTo("태릉입구역 이동");
+    assertThat(walkStep.station()).isNull();
+    assertThat(walkStep.stations()).isNull();
+    assertThat(walkStep.startLocation().lat()).isEqualTo(37.5045);
+
+    MeetingRouteSearchResponse.Step subwayStep = route.steps().get(1);
+    assertThat(subwayStep.type()).isEqualTo(TransportType.SUBWAY);
+    assertThat(subwayStep.line()).isEqualTo("수도권6호선");
+    assertThat(subwayStep.color()).isEqualTo("CD7C2F");
+    assertThat(subwayStep.description()).isNull();
+    assertThat(subwayStep.station().start()).isEqualTo("태릉입구역");
+    assertThat(subwayStep.station().end()).isEqualTo("성수역");
+    assertThat(subwayStep.stations()).containsExactly("태릉입구역", "성수역");
+  }
+
+  @Test
+  @DisplayName("경로 조회도 예상 소요시간이 1시간 이상이면 출발 시각을 역산해 다시 조회한다")
+  void searchesTransitRoutesAgainWithArrivalBasedDepartureTime() {
+    LocalDateTime meetingAt = LocalDateTime.now().plusHours(5);
+    MeetingMember member = activeMember("효창", meetingAt);
+    givenActiveMember(member);
+    givenTransitRoutes(longTransitRoutes());
+
+    meetingService.searchRoutes(100L, 10L, 37.5045, 127.0247);
+
+    ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
+    verify(tmapRouteClient, times(2))
+        .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
+    assertThat(departAt.getAllValues().get(0)).isEqualTo(meetingAt);
+    assertThat(departAt.getAllValues().get(1)).isEqualTo(meetingAt.minusSeconds(5400));
+  }
+
+  @Test
+  @DisplayName("출발지가 약속 장소와 너무 가까우면 도보 한 구간 경로가 반환된다")
+  void buildsWalkingRouteWhenDepartureIsTooClose() {
+    MeetingMember member = activeMember("효창", LocalDateTime.now().plusHours(3));
+    givenActiveMember(member);
+    givenTransitRoutes(List.of());
+
+    MeetingRouteSearchResponse response = meetingService.searchRoutes(100L, 10L, 37.5283, 126.9325);
+
+    assertThat(response.routes()).hasSize(1);
+    MeetingRouteSearchResponse.Route route = response.routes().getFirst();
+    assertThat(route.fare()).isZero();
+    assertThat(route.transferCount()).isZero();
+    assertThat(route.pathType()).isNull();
+    assertThat(route.steps()).hasSize(1);
+
+    MeetingRouteSearchResponse.Step step = route.steps().getFirst();
+    assertThat(step.type()).isEqualTo(TransportType.WALK);
+    assertThat(step.description()).isEqualTo("서울 여의도 한강공원 이동");
+    assertThat(step.distance()).isPositive();
+  }
+
+  @Test
   @DisplayName("닉네임 사용에 동의했는데 닉네임이 비어 있으면 출발 설정에 실패한다")
   void rejectsDepartureWhenCustomNicknameIsBlank() {
     MeetingMember member = activeMember("효창");
@@ -494,6 +593,72 @@ class MeetingServiceTest {
   private void givenRouteSaveEchoesArgument() {
     given(meetingMemberRouteRepository.saveAll(any()))
         .willAnswer(invocation -> new ArrayList<MeetingMemberRoute>(invocation.getArgument(0)));
+  }
+
+  private void givenTransitRoutes(List<TmapTransitRoute> routes) {
+    given(
+            tmapRouteClient.findTransitRoutes(
+                anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
+        .willReturn(routes);
+  }
+
+  private List<TmapTransitRoute> transitRoutes() {
+    return List.of(
+        new TmapTransitRoute(
+            2400,
+            1850,
+            1,
+            3,
+            List.of(
+                new TmapTransitRoute.Leg(
+                    TransportType.WALK,
+                    null,
+                    null,
+                    600,
+                    420,
+                    "출발지",
+                    "태릉입구역",
+                    37.5045,
+                    127.0247,
+                    37.5017,
+                    127.0256,
+                    List.of()),
+                new TmapTransitRoute.Leg(
+                    TransportType.SUBWAY,
+                    "수도권6호선",
+                    "CD7C2F",
+                    1800,
+                    27000,
+                    "태릉입구역",
+                    "성수역",
+                    37.5017,
+                    127.0256,
+                    37.5446,
+                    127.0559,
+                    List.of("태릉입구역", "성수역")))));
+  }
+
+  private List<TmapTransitRoute> longTransitRoutes() {
+    return List.of(
+        new TmapTransitRoute(
+            5400,
+            2150,
+            2,
+            3,
+            List.of(
+                new TmapTransitRoute.Leg(
+                    TransportType.SUBWAY,
+                    "수인분당선",
+                    "F5A200",
+                    5400,
+                    41000,
+                    "죽전역",
+                    "강남역",
+                    37.3245,
+                    127.1076,
+                    37.4979,
+                    127.0276,
+                    List.of("죽전역", "강남역")))));
   }
 
   private TmapRoute longTransitRoute() {
