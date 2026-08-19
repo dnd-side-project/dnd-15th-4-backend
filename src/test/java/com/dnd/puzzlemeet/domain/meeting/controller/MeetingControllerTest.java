@@ -194,7 +194,7 @@ class MeetingControllerTest {
   }
 
   @Test
-  @DisplayName("참여자가 약속방을 나가면 참여자와 이동 경로, 프로필 이미지가 함께 삭제된다")
+  @DisplayName("참여자가 약속방을 나가면 참여자와 이동 경로, 퍼즐 이미지가 함께 삭제된다")
   void leaveMeetingDeletesMemberWithChildRows() throws Exception {
     MeetingMember host = saveMeetingMember("방장");
     memberImageRepository.save(new MemberImage(host, "https://img.kakao.com/host.png", true));

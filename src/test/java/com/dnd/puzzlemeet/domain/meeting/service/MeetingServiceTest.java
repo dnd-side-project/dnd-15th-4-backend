@@ -16,9 +16,9 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureUpdateRequest;
-import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberImageUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberPuzzleImageUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchResponse;
@@ -150,7 +150,7 @@ class MeetingServiceTest {
   }
 
   @Test
-  @DisplayName("참여자 이미지를 교체하면 기존 이미지의 URL이 바뀌고 기본 이미지 표시가 해제된다")
+  @DisplayName("퍼즐 이미지를 교체하면 기존 이미지의 URL이 바뀌고 기본 이미지 표시가 해제된다")
   void replacesExistingMemberImage() {
     MeetingMember member = activeMember("효창");
     givenActiveMember(member);
@@ -159,8 +159,8 @@ class MeetingServiceTest {
     given(amazonS3Manager.generatePuzzleKeyName(any())).willReturn("puzzles/new.png");
     given(amazonS3Manager.uploadFile(any(), any())).willReturn("https://s3.test/puzzles/new.png");
 
-    MeetingMemberImageUpdateResponse response =
-        meetingService.updateMemberImage(100L, 10L, puzzleImage());
+    MeetingMemberPuzzleImageUpdateResponse response =
+        meetingService.updateMemberPuzzleImage(100L, 10L, puzzleImage());
 
     assertThat(memberImage.getImageUrl()).isEqualTo("https://s3.test/puzzles/new.png");
     assertThat(memberImage.isDefaultImage()).isFalse();
@@ -170,16 +170,33 @@ class MeetingServiceTest {
   }
 
   @Test
-  @DisplayName("교체할 이미지가 비어 있으면 MEETING_MEMBER_IMAGE_REQUIRED 예외가 발생한다")
+  @DisplayName("교체할 이미지가 비어 있으면 MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED 예외가 발생한다")
   void rejectsEmptyMemberImage() {
     MockMultipartFile emptyImage =
         new MockMultipartFile("image", "empty.png", "image/png", new byte[0]);
 
     ApiException exception =
         assertThrows(
-            ApiException.class, () -> meetingService.updateMemberImage(100L, 10L, emptyImage));
+            ApiException.class,
+            () -> meetingService.updateMemberPuzzleImage(100L, 10L, emptyImage));
 
-    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_MEMBER_IMAGE_REQUIRED);
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED);
+    verify(amazonS3Manager, never()).uploadFile(any(), any());
+  }
+
+  @Test
+  @DisplayName("약속이 시작된 뒤에는 퍼즐 이미지를 교체할 수 없다")
+  void rejectsMemberImageReplacementAfterMeetingStarted() {
+    MeetingMember member = activeMember("효창");
+    member.getMeeting().start();
+    givenActiveMember(member);
+
+    ApiException exception =
+        assertThrows(
+            ApiException.class,
+            () -> meetingService.updateMemberPuzzleImage(100L, 10L, puzzleImage()));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_NOT_WAITING);
     verify(amazonS3Manager, never()).uploadFile(any(), any());
   }
 
@@ -601,7 +618,7 @@ class MeetingServiceTest {
   }
 
   @Test
-  @DisplayName("참여자가 약속방을 나가면 이동 경로와 프로필 이미지까지 함께 삭제된다")
+  @DisplayName("참여자가 약속방을 나가면 이동 경로와 퍼즐 이미지까지 함께 삭제된다")
   void deletesMemberWithRoutesAndImageOnLeave() {
     MeetingMember member = activeGuestMember("김땡땡");
     givenActiveMember(member);
