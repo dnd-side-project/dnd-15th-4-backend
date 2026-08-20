@@ -7,7 +7,12 @@ import tools.jackson.databind.annotation.JsonNaming;
 public record KakaoUserResponse(Long id, KakaoAccount kakaoAccount) {
 
   @JsonNaming(SnakeCaseStrategy.class)
-  public record KakaoAccount(Profile profile) {
+  public record KakaoAccount(
+      Profile profile,
+      Boolean emailNeedsAgreement,
+      Boolean isEmailValid,
+      Boolean isEmailVerified,
+      String email) {
 
     @JsonNaming(SnakeCaseStrategy.class)
     public record Profile(String nickname, String profileImageUrl) {}

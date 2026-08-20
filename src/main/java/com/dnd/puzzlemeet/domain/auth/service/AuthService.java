@@ -76,6 +76,7 @@ public class AuthService {
     String kakaoAccessToken = kakaoTokenClient.exchangeAuthorizationCode(authorizationCode);
     KakaoUserResponse kakaoUser = kakaoUserClient.getUserInfo(kakaoAccessToken);
     KakaoUserResponse.KakaoAccount.Profile profile = requireProfile(kakaoUser);
+    String email = resolveUsableEmail(kakaoUser.kakaoAccount());
     String nickname = profile.nickname();
     String profileImageUrl = profile.profileImageUrl();
 
@@ -84,11 +85,13 @@ public class AuthService {
             .findByKakaoId(kakaoUser.id())
             .map(
                 existing -> {
-                  existing.updateProfileImage(profileImageUrl);
+                  existing.updateKakaoProfile(email, profileImageUrl);
                   return existing;
                 })
             .orElseGet(
-                () -> userRepository.save(new User(kakaoUser.id(), nickname, profileImageUrl)));
+                () ->
+                    userRepository.save(
+                        new User(kakaoUser.id(), nickname, profileImageUrl, email)));
 
     return issueTokenPair(user);
   }
@@ -137,6 +140,16 @@ public class AuthService {
       throw ApiException.of(ErrorCode.AUTH_KAKAO_PROFILE_REQUIRED);
     }
     return kakaoAccount.profile();
+  }
+
+  private String resolveUsableEmail(KakaoUserResponse.KakaoAccount kakaoAccount) {
+    if (!Boolean.FALSE.equals(kakaoAccount.emailNeedsAgreement())
+        || !Boolean.TRUE.equals(kakaoAccount.isEmailValid())
+        || !Boolean.TRUE.equals(kakaoAccount.isEmailVerified())
+        || !StringUtils.hasText(kakaoAccount.email())) {
+      return null;
+    }
+    return kakaoAccount.email();
   }
 
   private TokenPair issueTokenPair(User user) {

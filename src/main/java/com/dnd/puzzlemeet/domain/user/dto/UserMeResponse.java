@@ -7,6 +7,12 @@ import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 public record UserMeResponse(
     @Schema(description = "사용자 ID", example = "1", requiredMode = RequiredMode.REQUIRED) Long id,
     @Schema(
+            description = "카카오 계정 이메일. 제공에 동의하지 않았거나 유효·인증되지 않았으면 null이다",
+            example = "puzzlemeet@example.com",
+            maxLength = 320,
+            nullable = true)
+        String email,
+    @Schema(
             description = "닉네임",
             example = "효창",
             maxLength = 50,
@@ -20,6 +26,7 @@ public record UserMeResponse(
         String profileImageUrl) {
 
   public static UserMeResponse from(User user) {
-    return new UserMeResponse(user.getId(), user.getNickname(), user.getProfileImageUrl());
+    return new UserMeResponse(
+        user.getId(), user.getEmail(), user.getNickname(), user.getProfileImageUrl());
   }
 }

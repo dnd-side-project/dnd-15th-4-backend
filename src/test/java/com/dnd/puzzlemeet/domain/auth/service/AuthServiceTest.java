@@ -48,6 +48,7 @@ class AuthServiceTest {
 
   private static final String AUTHORIZATION_CODE = "kakao-authorization-code";
   private static final String KAKAO_ACCESS_TOKEN = "kakao-access-token";
+  private static final String KAKAO_EMAIL = "puzzlemeet@example.com";
 
   @Mock private UserRepository userRepository;
   @Mock private RefreshTokenRepository refreshTokenRepository;
@@ -100,14 +101,15 @@ class AuthServiceTest {
 
     ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
     verify(userRepository).save(userCaptor.capture());
+    assertThat(userCaptor.getValue().getEmail()).isEqualTo(KAKAO_EMAIL);
     assertThat(userCaptor.getValue().getNickname()).isEqualTo("효창");
     assertThat(userCaptor.getValue().getProfileImageUrl()).isEqualTo("https://img.kakao.com/a.jpg");
   }
 
   @Test
-  @DisplayName("이미 가입한 카카오 계정은 닉네임을 유지하고 프로필 이미지만 갱신한다")
-  void existingUserKeepsNicknameAndUpdatesProfileImage() {
-    User existingUser = new User(100L, "이전닉네임", "https://img.kakao.com/old.jpg");
+  @DisplayName("이미 가입한 카카오 계정은 닉네임을 유지하고 이메일과 프로필 이미지를 갱신한다")
+  void existingUserKeepsNicknameAndUpdatesKakaoProfile() {
+    User existingUser = new User(100L, "이전닉네임", "https://img.kakao.com/old.jpg", "old@example.com");
     given(kakaoTokenClient.exchangeAuthorizationCode(AUTHORIZATION_CODE))
         .willReturn(KAKAO_ACCESS_TOKEN);
     given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
@@ -118,7 +120,100 @@ class AuthServiceTest {
 
     verify(userRepository, never()).save(any(User.class));
     assertThat(existingUser.getNickname()).isEqualTo("이전닉네임");
+    assertThat(existingUser.getEmail()).isEqualTo(KAKAO_EMAIL);
     assertThat(existingUser.getProfileImageUrl()).isEqualTo("https://img.kakao.com/new.jpg");
+  }
+
+  @Test
+  @DisplayName("이메일 추가 동의가 필요하면 기존 이메일을 지우고 로그인한다")
+  void loginNeedingEmailAgreementClearsExistingEmail() {
+    User existingUser = new User(100L, "효창", "https://img.kakao.com/old.jpg", "old@example.com");
+    given(kakaoTokenClient.exchangeAuthorizationCode(AUTHORIZATION_CODE))
+        .willReturn(KAKAO_ACCESS_TOKEN);
+    given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
+        .willReturn(
+            kakaoUserResponse(
+                100L, "효창", "https://img.kakao.com/new.jpg", KAKAO_EMAIL, true, true, true));
+    given(userRepository.findByKakaoId(100L)).willReturn(Optional.of(existingUser));
+
+    authService.loginWithKakao(AUTHORIZATION_CODE);
+
+    assertThat(existingUser.getEmail()).isNull();
+  }
+
+  @Test
+  @DisplayName("유효하지 않은 이메일을 내려줘도 이메일 없이 로그인한다")
+  void loginWithInvalidEmailSucceedsWithoutEmail() {
+    given(kakaoTokenClient.exchangeAuthorizationCode(AUTHORIZATION_CODE))
+        .willReturn(KAKAO_ACCESS_TOKEN);
+    given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
+        .willReturn(
+            kakaoUserResponse(
+                100L, "효창", "https://img.kakao.com/a.jpg", KAKAO_EMAIL, false, false, true));
+    given(userRepository.findByKakaoId(100L)).willReturn(Optional.empty());
+    given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+    authService.loginWithKakao(AUTHORIZATION_CODE);
+
+    ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).save(userCaptor.capture());
+    assertThat(userCaptor.getValue().getEmail()).isNull();
+  }
+
+  @Test
+  @DisplayName("이메일 동의 여부를 내려주지 않으면 이메일 없이 로그인한다")
+  void loginWithoutEmailAgreementStatusSucceedsWithoutEmail() {
+    given(kakaoTokenClient.exchangeAuthorizationCode(AUTHORIZATION_CODE))
+        .willReturn(KAKAO_ACCESS_TOKEN);
+    given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
+        .willReturn(
+            kakaoUserResponse(
+                100L, "효창", "https://img.kakao.com/a.jpg", KAKAO_EMAIL, null, true, true));
+    given(userRepository.findByKakaoId(100L)).willReturn(Optional.empty());
+    given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+    authService.loginWithKakao(AUTHORIZATION_CODE);
+
+    ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).save(userCaptor.capture());
+    assertThat(userCaptor.getValue().getEmail()).isNull();
+  }
+
+  @Test
+  @DisplayName("인증되지 않은 이메일을 내려줘도 이메일 없이 로그인한다")
+  void loginWithUnverifiedEmailSucceedsWithoutEmail() {
+    given(kakaoTokenClient.exchangeAuthorizationCode(AUTHORIZATION_CODE))
+        .willReturn(KAKAO_ACCESS_TOKEN);
+    given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
+        .willReturn(
+            kakaoUserResponse(
+                100L, "효창", "https://img.kakao.com/a.jpg", KAKAO_EMAIL, false, true, false));
+    given(userRepository.findByKakaoId(100L)).willReturn(Optional.empty());
+    given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+    authService.loginWithKakao(AUTHORIZATION_CODE);
+
+    ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).save(userCaptor.capture());
+    assertThat(userCaptor.getValue().getEmail()).isNull();
+  }
+
+  @Test
+  @DisplayName("이메일이 없어도 이메일 없이 로그인한다")
+  void loginWithoutEmailSucceeds() {
+    given(kakaoTokenClient.exchangeAuthorizationCode(AUTHORIZATION_CODE))
+        .willReturn(KAKAO_ACCESS_TOKEN);
+    given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
+        .willReturn(
+            kakaoUserResponse(100L, "효창", "https://img.kakao.com/a.jpg", null, false, null, null));
+    given(userRepository.findByKakaoId(100L)).willReturn(Optional.empty());
+    given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
+
+    authService.loginWithKakao(AUTHORIZATION_CODE);
+
+    ArgumentCaptor<User> userCaptor = ArgumentCaptor.forClass(User.class);
+    verify(userRepository).save(userCaptor.capture());
+    assertThat(userCaptor.getValue().getEmail()).isNull();
   }
 
   @Test
@@ -205,10 +300,25 @@ class AuthServiceTest {
 
   private KakaoUserResponse kakaoUserResponse(
       Long kakaoId, String nickname, String profileImageUrl) {
+    return kakaoUserResponse(kakaoId, nickname, profileImageUrl, KAKAO_EMAIL, false, true, true);
+  }
+
+  private KakaoUserResponse kakaoUserResponse(
+      Long kakaoId,
+      String nickname,
+      String profileImageUrl,
+      String email,
+      Boolean emailNeedsAgreement,
+      Boolean isEmailValid,
+      Boolean isEmailVerified) {
     return new KakaoUserResponse(
         kakaoId,
         new KakaoUserResponse.KakaoAccount(
-            new KakaoUserResponse.KakaoAccount.Profile(nickname, profileImageUrl)));
+            new KakaoUserResponse.KakaoAccount.Profile(nickname, profileImageUrl),
+            emailNeedsAgreement,
+            isEmailValid,
+            isEmailVerified,
+            email));
   }
 
   private String sha256(String value) {

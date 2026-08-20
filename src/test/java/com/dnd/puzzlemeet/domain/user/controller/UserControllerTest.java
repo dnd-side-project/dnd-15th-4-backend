@@ -32,13 +32,16 @@ class UserControllerTest {
   @Test
   @DisplayName("access token으로 인증된 사용자가 본인 정보를 조회한다")
   void getMeReturnsAuthenticatedUser() throws Exception {
-    User user = userRepository.save(new User(100L, "효창", "https://img.kakao.com/a.jpg"));
+    User user =
+        userRepository.save(
+            new User(100L, "효창", "https://img.kakao.com/a.jpg", "puzzlemeet@example.com"));
     String accessToken = jwtProvider.createAccessToken(user.getId());
 
     mockMvc
         .perform(get("/api/v1/users/me").header("Authorization", "Bearer " + accessToken))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.id").value(user.getId()))
+        .andExpect(jsonPath("$.data.email").value("puzzlemeet@example.com"))
         .andExpect(jsonPath("$.data.nickname").value("효창"))
         .andExpect(jsonPath("$.data.profileImageUrl").value("https://img.kakao.com/a.jpg"));
   }
@@ -50,9 +53,23 @@ class UserControllerTest {
   }
 
   @Test
+  @DisplayName("이메일이 없는 사용자는 본인 조회에서 null 이메일을 받는다")
+  void getMeReturnsNullEmailWhenUnavailable() throws Exception {
+    User user = userRepository.save(new User(100L, "효창", "https://img.kakao.com/a.jpg"));
+    String accessToken = jwtProvider.createAccessToken(user.getId());
+
+    mockMvc
+        .perform(get("/api/v1/users/me").header("Authorization", "Bearer " + accessToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.email").isEmpty());
+  }
+
+  @Test
   @DisplayName("access token으로 인증된 사용자가 본인 닉네임을 수정한다")
   void updateMeUpdatesAuthenticatedUserNickname() throws Exception {
-    User user = userRepository.save(new User(100L, "효창", "https://img.kakao.com/a.jpg"));
+    User user =
+        userRepository.save(
+            new User(100L, "효창", "https://img.kakao.com/a.jpg", "puzzlemeet@example.com"));
     String accessToken = jwtProvider.createAccessToken(user.getId());
 
     mockMvc
@@ -63,6 +80,7 @@ class UserControllerTest {
                 .content("{\"nickname\":\"새닉네임\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.id").value(user.getId()))
+        .andExpect(jsonPath("$.data.email").value("puzzlemeet@example.com"))
         .andExpect(jsonPath("$.data.nickname").value("새닉네임"))
         .andExpect(jsonPath("$.data.profileImageUrl").value("https://img.kakao.com/a.jpg"));
   }
