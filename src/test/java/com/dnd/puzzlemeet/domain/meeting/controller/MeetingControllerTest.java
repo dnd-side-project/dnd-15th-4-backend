@@ -13,9 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dnd.puzzlemeet.TestcontainersConfiguration;
-import com.dnd.puzzlemeet.domain.meeting.client.TmapRoute;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapRouteClient;
-import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitRoute;
+import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
@@ -33,6 +32,7 @@ import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -253,12 +253,39 @@ class MeetingControllerTest {
         """;
   }
 
-  private TmapRoute transitRoute() {
-    return new TmapRoute(
+  private TravelRoute transitRoute() {
+    return new TravelRoute(
         2400,
+        1850,
+        1,
+        3,
         List.of(
-            new TmapRoute.Leg(TransportType.WALK, null, null, "태릉입구역", 600, 0),
-            new TmapRoute.Leg(TransportType.SUBWAY, "수도권6호선", "태릉입구역", "디지털미디어시티역", 1800, 27)));
+            new TravelRoute.Leg(
+                TransportType.WALK,
+                null,
+                null,
+                600,
+                0,
+                null,
+                "태릉입구역",
+                null,
+                null,
+                null,
+                null,
+                List.of()),
+            new TravelRoute.Leg(
+                TransportType.SUBWAY,
+                "수도권6호선",
+                null,
+                1800,
+                0,
+                "태릉입구역",
+                "디지털미디어시티역",
+                null,
+                null,
+                null,
+                null,
+                IntStream.rangeClosed(0, 27).mapToObj(index -> "역" + index).toList())));
   }
 
   @Test
@@ -321,14 +348,14 @@ class MeetingControllerTest {
         .andExpect(jsonPath("$.code").value("MEETING_MEMBER_NOT_FOUND"));
   }
 
-  private TmapTransitRoute transitRouteWithFare() {
-    return new TmapTransitRoute(
+  private TravelRoute transitRouteWithFare() {
+    return new TravelRoute(
         2400,
         1850,
         1,
         1,
         List.of(
-            new TmapTransitRoute.Leg(
+            new TravelRoute.Leg(
                 TransportType.SUBWAY,
                 "수도권6호선",
                 "CD7C2F",

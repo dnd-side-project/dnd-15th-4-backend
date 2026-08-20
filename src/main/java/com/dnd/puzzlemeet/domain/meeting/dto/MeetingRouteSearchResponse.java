@@ -1,6 +1,6 @@
 package com.dnd.puzzlemeet.domain.meeting.dto;
 
-import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitRoute;
+import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.entity.TransportType;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
@@ -9,7 +9,7 @@ import java.util.List;
 public record MeetingRouteSearchResponse(
     @Schema(description = "추천 경로 목록", requiredMode = RequiredMode.REQUIRED) List<Route> routes) {
 
-  public static MeetingRouteSearchResponse from(List<TmapTransitRoute> routes) {
+  public static MeetingRouteSearchResponse from(List<TravelRoute> routes) {
     return new MeetingRouteSearchResponse(routes.stream().map(Route::from).toList());
   }
 
@@ -28,7 +28,7 @@ public record MeetingRouteSearchResponse(
           Integer pathType,
       @Schema(description = "상세 이동 구간 목록", requiredMode = RequiredMode.REQUIRED) List<Step> steps) {
 
-    public static Route from(TmapTransitRoute route) {
+    public static Route from(TravelRoute route) {
       return new Route(
           route.totalTimeSeconds(),
           route.fare(),
@@ -57,7 +57,7 @@ public record MeetingRouteSearchResponse(
     private static final String WALK_DESCRIPTION_SUFFIX = " 이동";
     private static final String WALK_DESCRIPTION_FALLBACK = "도보 이동";
 
-    public static Step from(TmapTransitRoute.Leg leg) {
+    public static Step from(TravelRoute.Leg leg) {
       boolean walking = leg.transportType() == TransportType.WALK;
       return new Step(
           leg.transportType(),
@@ -72,7 +72,7 @@ public record MeetingRouteSearchResponse(
           Location.of(leg.endLatitude(), leg.endLongitude()));
     }
 
-    private static String walkDescription(TmapTransitRoute.Leg leg) {
+    private static String walkDescription(TravelRoute.Leg leg) {
       return leg.endName() != null
           ? leg.endName() + WALK_DESCRIPTION_SUFFIX
           : WALK_DESCRIPTION_FALLBACK;

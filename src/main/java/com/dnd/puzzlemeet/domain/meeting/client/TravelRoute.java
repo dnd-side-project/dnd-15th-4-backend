@@ -3,7 +3,7 @@ package com.dnd.puzzlemeet.domain.meeting.client;
 import com.dnd.puzzlemeet.domain.meeting.entity.TransportType;
 import java.util.List;
 
-public record TmapTransitRoute(
+public record TravelRoute(
     int totalTimeSeconds, int fare, int transferCount, Integer pathType, List<Leg> legs) {
 
   public record Leg(
@@ -18,5 +18,10 @@ public record TmapTransitRoute(
       Double startLongitude,
       Double endLatitude,
       Double endLongitude,
-      List<String> stationNames) {}
+      List<String> stationNames) {
+
+    public int stationCount() {
+      return Math.max(stationNames.size() - 1, 0);
+    }
+  }
 }

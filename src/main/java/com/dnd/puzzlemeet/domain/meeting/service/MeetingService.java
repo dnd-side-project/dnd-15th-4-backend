@@ -1,8 +1,7 @@
 package com.dnd.puzzlemeet.domain.meeting.service;
 
-import com.dnd.puzzlemeet.domain.meeting.client.TmapRoute;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapRouteClient;
-import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitRoute;
+import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
@@ -373,17 +372,17 @@ public class MeetingService {
         resolveTransitRoutes(member.getMeeting(), latitude, longitude));
   }
 
-  private List<TmapTransitRoute> resolveTransitRoutes(
+  private List<TravelRoute> resolveTransitRoutes(
       Meeting meeting, double latitude, double longitude) {
     double destinationLatitude = meeting.getDestinationLatitude().doubleValue();
     double destinationLongitude = meeting.getDestinationLongitude().doubleValue();
     LocalDateTime firstDepartAt = firstQueryDepartAt(meeting);
 
-    List<TmapTransitRoute> routes =
+    List<TravelRoute> routes =
         tmapRouteClient.findTransitRoutes(
             latitude, longitude, destinationLatitude, destinationLongitude, firstDepartAt);
     if (routes.isEmpty()) {
-      return List.of(walkingTransitRoute(meeting, latitude, longitude));
+      return List.of(walkingRoute(meeting, latitude, longitude));
     }
 
     int estimatedTimeSeconds = routes.getFirst().totalTimeSeconds();
@@ -391,7 +390,7 @@ public class MeetingService {
       return routes;
     }
 
-    List<TmapTransitRoute> reQueried =
+    List<TravelRoute> reQueried =
         tmapRouteClient.findTransitRoutes(
             latitude,
             longitude,
@@ -401,7 +400,7 @@ public class MeetingService {
     return reQueried.isEmpty() ? routes : reQueried;
   }
 
-  private TmapTransitRoute walkingTransitRoute(Meeting meeting, double latitude, double longitude) {
+  private TravelRoute walkingRoute(Meeting meeting, double latitude, double longitude) {
     double distanceM =
         distanceMeters(
             BigDecimal.valueOf(latitude),
@@ -409,13 +408,13 @@ public class MeetingService {
             meeting.getDestinationLatitude(),
             meeting.getDestinationLongitude());
     int totalTimeSeconds = (int) Math.round(distanceM / WALKING_SPEED_METERS_PER_SECOND);
-    return new TmapTransitRoute(
+    return new TravelRoute(
         totalTimeSeconds,
         0,
         0,
         null,
         List.of(
-            new TmapTransitRoute.Leg(
+            new TravelRoute.Leg(
                 TransportType.WALK,
                 null,
                 null,
@@ -433,23 +432,23 @@ public class MeetingService {
   private MeetingMemberDepartureResponse applyDeparture(
       MeetingMember member, String placeName, double latitude, double longitude) {
     Meeting meeting = member.getMeeting();
-    TmapRoute route = resolveRoute(meeting, latitude, longitude);
+    TravelRoute route = resolveRoute(meeting, latitude, longitude);
 
     member.updateDeparture(placeName, BigDecimal.valueOf(latitude), BigDecimal.valueOf(longitude));
     member.updateEstimatedDuration(route.totalTimeSeconds());
-    TmapRoute.Leg mainLeg = mainTransportLeg(route);
+    TravelRoute.Leg mainLeg = mainTransportLeg(route);
     member.updateTransport(mainLeg.transportType(), mainLeg.routeName());
 
     meetingMemberRouteRepository.deleteAllByMeetingMemberId(member.getId());
     return MeetingMemberDepartureResponse.of(member, saveRoutes(member, placeName, route));
   }
 
-  private TmapRoute resolveRoute(Meeting meeting, double latitude, double longitude) {
+  private TravelRoute resolveRoute(Meeting meeting, double latitude, double longitude) {
     double destinationLatitude = meeting.getDestinationLatitude().doubleValue();
     double destinationLongitude = meeting.getDestinationLongitude().doubleValue();
     LocalDateTime firstDepartAt = firstQueryDepartAt(meeting);
 
-    TmapRoute estimatedRoute =
+    TravelRoute estimatedRoute =
         tmapRouteClient
             .findTransitRoute(
                 latitude, longitude, destinationLatitude, destinationLongitude, firstDepartAt)
@@ -496,32 +495,12 @@ public class MeetingService {
     member.changeNickname(nickname);
   }
 
-  private TmapRoute walkingRoute(Meeting meeting, double latitude, double longitude) {
-    double distanceM =
-        distanceMeters(
-            BigDecimal.valueOf(latitude),
-            BigDecimal.valueOf(longitude),
-            meeting.getDestinationLatitude(),
-            meeting.getDestinationLongitude());
-    int totalTimeSeconds = (int) Math.round(distanceM / WALKING_SPEED_METERS_PER_SECOND);
-    return new TmapRoute(
-        totalTimeSeconds,
-        List.of(
-            new TmapRoute.Leg(
-                TransportType.WALK,
-                null,
-                null,
-                meeting.getDestinationName(),
-                totalTimeSeconds,
-                0)));
-  }
-
   private List<MeetingMemberRoute> saveRoutes(
-      MeetingMember member, String departurePlaceName, TmapRoute route) {
-    List<TmapRoute.Leg> legs = route.legs();
+      MeetingMember member, String departurePlaceName, TravelRoute route) {
+    List<TravelRoute.Leg> legs = route.legs();
     List<MeetingMemberRoute> routes = new ArrayList<>(legs.size());
     for (int index = 0; index < legs.size(); index++) {
-      TmapRoute.Leg leg = legs.get(index);
+      TravelRoute.Leg leg = legs.get(index);
       routes.add(
           new MeetingMemberRoute(
               member,
@@ -539,7 +518,7 @@ public class MeetingService {
         member.getId());
   }
 
-  private String routeContent(TmapRoute.Leg leg, boolean first, String departurePlaceName) {
+  private String routeContent(TravelRoute.Leg leg, boolean first, String departurePlaceName) {
     if (leg.transportType() == TransportType.WALK) {
       if (first) {
         return departurePlaceName;
@@ -549,7 +528,7 @@ public class MeetingService {
     return leg.startName() + " " + leg.routeName() + " 승차";
   }
 
-  private String transportContent(TmapRoute.Leg leg) {
+  private String transportContent(TravelRoute.Leg leg) {
     return switch (leg.transportType()) {
       case WALK -> "도보";
       case SUBWAY -> leg.stationCount() + "개 역 이동";
@@ -558,7 +537,7 @@ public class MeetingService {
     };
   }
 
-  private TmapRoute.Leg mainTransportLeg(TmapRoute route) {
+  private TravelRoute.Leg mainTransportLeg(TravelRoute route) {
     return route.legs().stream()
         .filter(leg -> leg.transportType() != TransportType.WALK)
         .findFirst()

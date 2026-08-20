@@ -9,9 +9,8 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.dnd.puzzlemeet.domain.meeting.client.TmapRoute;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapRouteClient;
-import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitRoute;
+import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureResponse;
@@ -43,6 +42,7 @@ import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -676,7 +676,7 @@ class MeetingServiceTest {
         .willReturn(Optional.of(member));
   }
 
-  private void givenTransitRoute(TmapRoute route) {
+  private void givenTransitRoute(TravelRoute route) {
     given(
             tmapRouteClient.findTransitRoute(
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
@@ -688,22 +688,22 @@ class MeetingServiceTest {
         .willAnswer(invocation -> new ArrayList<MeetingMemberRoute>(invocation.getArgument(0)));
   }
 
-  private void givenTransitRoutes(List<TmapTransitRoute> routes) {
+  private void givenTransitRoutes(List<TravelRoute> routes) {
     given(
             tmapRouteClient.findTransitRoutes(
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
         .willReturn(routes);
   }
 
-  private List<TmapTransitRoute> transitRoutes() {
+  private List<TravelRoute> transitRoutes() {
     return List.of(
-        new TmapTransitRoute(
+        new TravelRoute(
             2400,
             1850,
             1,
             3,
             List.of(
-                new TmapTransitRoute.Leg(
+                new TravelRoute.Leg(
                     TransportType.WALK,
                     null,
                     null,
@@ -716,7 +716,7 @@ class MeetingServiceTest {
                     37.5017,
                     127.0256,
                     List.of()),
-                new TmapTransitRoute.Leg(
+                new TravelRoute.Leg(
                     TransportType.SUBWAY,
                     "수도권6호선",
                     "CD7C2F",
@@ -731,15 +731,15 @@ class MeetingServiceTest {
                     List.of("태릉입구역", "성수역")))));
   }
 
-  private List<TmapTransitRoute> longTransitRoutes() {
+  private List<TravelRoute> longTransitRoutes() {
     return List.of(
-        new TmapTransitRoute(
+        new TravelRoute(
             5400,
             2150,
             2,
             3,
             List.of(
-                new TmapTransitRoute.Leg(
+                new TravelRoute.Leg(
                     TransportType.SUBWAY,
                     "수인분당선",
                     "F5A200",
@@ -754,20 +754,68 @@ class MeetingServiceTest {
                     List.of("죽전역", "강남역")))));
   }
 
-  private TmapRoute longTransitRoute() {
-    return new TmapRoute(
+  private TravelRoute longTransitRoute() {
+    return new TravelRoute(
         5400,
+        2150,
+        1,
+        3,
         List.of(
-            new TmapRoute.Leg(TransportType.WALK, null, null, "죽전역", 600, 0),
-            new TmapRoute.Leg(TransportType.SUBWAY, "수인분당선", "죽전역", "강남역", 4800, 21)));
+            walkLeg("죽전역", 600),
+            transitLeg(TransportType.SUBWAY, "수인분당선", "죽전역", "강남역", 4800, 21)));
   }
 
-  private TmapRoute transitRoute() {
-    return new TmapRoute(
+  private TravelRoute transitRoute() {
+    return new TravelRoute(
         2400,
+        1850,
+        1,
+        3,
         List.of(
-            new TmapRoute.Leg(TransportType.WALK, null, null, "태릉입구역", 600, 0),
-            new TmapRoute.Leg(TransportType.SUBWAY, "수도권6호선", "태릉입구역", "디지털미디어시티역", 1800, 27)));
+            walkLeg("태릉입구역", 600),
+            transitLeg(TransportType.SUBWAY, "수도권6호선", "태릉입구역", "디지털미디어시티역", 1800, 27)));
+  }
+
+  private TravelRoute.Leg walkLeg(String endName, int sectionTimeSeconds) {
+    return new TravelRoute.Leg(
+        TransportType.WALK,
+        null,
+        null,
+        sectionTimeSeconds,
+        0,
+        null,
+        endName,
+        null,
+        null,
+        null,
+        null,
+        List.of());
+  }
+
+  private TravelRoute.Leg transitLeg(
+      TransportType transportType,
+      String routeName,
+      String startName,
+      String endName,
+      int sectionTimeSeconds,
+      int stationCount) {
+    return new TravelRoute.Leg(
+        transportType,
+        routeName,
+        null,
+        sectionTimeSeconds,
+        0,
+        startName,
+        endName,
+        null,
+        null,
+        null,
+        null,
+        stationNames(stationCount));
+  }
+
+  private List<String> stationNames(int stationCount) {
+    return IntStream.rangeClosed(0, stationCount).mapToObj(index -> "역" + index).toList();
   }
 
   private Meeting waitingMeeting() {
