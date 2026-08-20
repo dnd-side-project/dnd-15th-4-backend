@@ -20,7 +20,7 @@ import org.springframework.web.client.RestClientException;
 
 @Slf4j
 @Component
-public class TmapRouteClient {
+public class TmapTransitClient {
 
   private static final int CONNECT_TIMEOUT_MILLIS = 2_000;
   private static final int READ_TIMEOUT_MILLIS = 5_000;
@@ -34,7 +34,7 @@ public class TmapRouteClient {
   private final String transitRouteUri;
   private final String appKey;
 
-  public TmapRouteClient(TmapProperties tmapProperties) {
+  public TmapTransitClient(TmapProperties tmapProperties) {
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
     requestFactory.setConnectTimeout(CONNECT_TIMEOUT_MILLIS);
     requestFactory.setReadTimeout(READ_TIMEOUT_MILLIS);

@@ -1,6 +1,6 @@
 package com.dnd.puzzlemeet.domain.meeting.service;
 
-import com.dnd.puzzlemeet.domain.meeting.client.TmapRouteClient;
+import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
@@ -86,7 +86,7 @@ public class MeetingService {
   private final MemberImageRepository memberImageRepository;
   private final UserRepository userRepository;
   private final AmazonS3Manager amazonS3Manager;
-  private final TmapRouteClient tmapRouteClient;
+  private final TmapTransitClient tmapTransitClient;
 
   @Transactional
   public MeetingCreateResponse createMeeting(
@@ -389,7 +389,7 @@ public class MeetingService {
     LocalDateTime firstDepartAt = firstQueryDepartAt(meeting);
 
     List<TravelRoute> routes =
-        tmapRouteClient.findTransitRoutes(
+        tmapTransitClient.findTransitRoutes(
             latitude, longitude, destinationLatitude, destinationLongitude, firstDepartAt);
     if (routes.isEmpty()) {
       return List.of(walkingRoute(meeting, latitude, longitude));
@@ -401,7 +401,7 @@ public class MeetingService {
     }
 
     List<TravelRoute> reQueried =
-        tmapRouteClient.findTransitRoutes(
+        tmapTransitClient.findTransitRoutes(
             latitude,
             longitude,
             destinationLatitude,

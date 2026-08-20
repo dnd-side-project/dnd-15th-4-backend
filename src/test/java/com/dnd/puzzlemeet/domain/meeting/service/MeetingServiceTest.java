@@ -9,7 +9,7 @@ import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 
-import com.dnd.puzzlemeet.domain.meeting.client.TmapRouteClient;
+import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureCreateRequest;
@@ -63,7 +63,7 @@ class MeetingServiceTest {
   @Mock private MemberImageRepository memberImageRepository;
   @Mock private UserRepository userRepository;
   @Mock private AmazonS3Manager amazonS3Manager;
-  @Mock private TmapRouteClient tmapRouteClient;
+  @Mock private TmapTransitClient tmapTransitClient;
 
   private MeetingService meetingService;
 
@@ -77,7 +77,7 @@ class MeetingServiceTest {
             memberImageRepository,
             userRepository,
             amazonS3Manager,
-            tmapRouteClient);
+            tmapTransitClient);
   }
 
   @Test
@@ -319,7 +319,7 @@ class MeetingServiceTest {
     meetingService.searchRoutes(100L, 10L, 37.5045, 127.0247);
 
     ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
-    verify(tmapRouteClient, times(2))
+    verify(tmapTransitClient, times(2))
         .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
     assertThat(departAt.getAllValues().get(0)).isEqualTo(meetingAt);
     assertThat(departAt.getAllValues().get(1)).isEqualTo(meetingAt.minusSeconds(5400));
@@ -495,7 +495,7 @@ class MeetingServiceTest {
                 null,
                 null));
 
-    verify(tmapRouteClient, never())
+    verify(tmapTransitClient, never())
         .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), any());
     assertThat(member.isLocationNotificationEnabled()).isFalse();
     assertThat(member.isChatBubbleNotificationEnabled()).isTrue();
@@ -593,7 +593,7 @@ class MeetingServiceTest {
 
   private void givenTransitRoutes(List<TravelRoute> routes) {
     given(
-            tmapRouteClient.findTransitRoutes(
+            tmapTransitClient.findTransitRoutes(
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
         .willReturn(routes);
   }

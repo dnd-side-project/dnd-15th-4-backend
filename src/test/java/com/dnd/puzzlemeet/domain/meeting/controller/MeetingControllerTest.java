@@ -13,7 +13,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dnd.puzzlemeet.TestcontainersConfiguration;
-import com.dnd.puzzlemeet.domain.meeting.client.TmapRouteClient;
+import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
@@ -57,7 +57,7 @@ class MeetingControllerTest {
   @Autowired private MeetingMemberRouteRepository meetingMemberRouteRepository;
   @Autowired private MemberImageRepository memberImageRepository;
   @Autowired private JwtProvider jwtProvider;
-  @MockitoBean private TmapRouteClient tmapRouteClient;
+  @MockitoBean private TmapTransitClient tmapTransitClient;
 
   @Test
   @DisplayName("인증된 참여자가 약속방 닉네임을 수정한다")
@@ -269,7 +269,7 @@ class MeetingControllerTest {
     MeetingMember member = saveMeetingMember("기본닉네임");
     String accessToken = jwtProvider.createAccessToken(member.getUser().getId());
     given(
-            tmapRouteClient.findTransitRoutes(
+            tmapTransitClient.findTransitRoutes(
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
         .willReturn(List.of(transitRouteWithFare()));
 
