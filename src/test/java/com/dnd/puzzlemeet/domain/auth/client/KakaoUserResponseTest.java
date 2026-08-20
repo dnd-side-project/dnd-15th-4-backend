@@ -17,6 +17,10 @@ class KakaoUserResponseTest {
         {
           "id": 123456789,
           "kakao_account": {
+            "email_needs_agreement": false,
+            "is_email_valid": true,
+            "is_email_verified": true,
+            "email": "puzzlemeet@example.com",
             "profile": {
               "nickname": "효창",
               "profile_image_url": "https://img.kakao.com/profile.jpg"
@@ -29,6 +33,10 @@ class KakaoUserResponseTest {
     KakaoUserResponse response = jsonMapper.readValue(json, KakaoUserResponse.class);
 
     assertThat(response.id()).isEqualTo(123456789L);
+    assertThat(response.kakaoAccount().emailNeedsAgreement()).isFalse();
+    assertThat(response.kakaoAccount().isEmailValid()).isTrue();
+    assertThat(response.kakaoAccount().isEmailVerified()).isTrue();
+    assertThat(response.kakaoAccount().email()).isEqualTo("puzzlemeet@example.com");
     assertThat(response.kakaoAccount().profile().nickname()).isEqualTo("효창");
     assertThat(response.kakaoAccount().profile().profileImageUrl())
         .isEqualTo("https://img.kakao.com/profile.jpg");

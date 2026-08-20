@@ -24,6 +24,9 @@ public class User extends BaseTimeEntity {
   @Column(nullable = false, unique = true)
   private Long kakaoId;
 
+  @Column(length = 320)
+  private String email;
+
   @Column(nullable = false, length = 50)
   private String nickname;
 
@@ -31,7 +34,12 @@ public class User extends BaseTimeEntity {
   private String profileImageUrl;
 
   public User(Long kakaoId, String nickname, String profileImageUrl) {
+    this(kakaoId, nickname, profileImageUrl, null);
+  }
+
+  public User(Long kakaoId, String nickname, String profileImageUrl, String email) {
     this.kakaoId = kakaoId;
+    this.email = email;
     this.nickname = nickname;
     this.profileImageUrl = profileImageUrl;
   }
@@ -40,7 +48,8 @@ public class User extends BaseTimeEntity {
     this.nickname = nickname;
   }
 
-  public void updateProfileImage(String profileImageUrl) {
+  public void updateKakaoProfile(String email, String profileImageUrl) {
+    this.email = email;
     this.profileImageUrl = profileImageUrl;
   }
 }
