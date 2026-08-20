@@ -42,7 +42,7 @@ public record MeetingMemberDepartureResponse(
         new NicknameSetting(member.isCustomNickname(), member.getNickname()),
         totalEstimatedMinutes(member),
         recommendedDepartureTime(member),
-        routes.stream().map(Route::from).toList());
+        routes.stream().map(route -> Route.of(route, member.getDepartureName())).toList());
   }
 
   private static LocalDateTime recommendedDepartureTime(MeetingMember member) {
@@ -103,14 +103,51 @@ public record MeetingMemberDepartureResponse(
               description = "해당 경로 예상 소요 시간(분)",
               example = "30",
               requiredMode = RequiredMode.REQUIRED)
-          int estimatedTime) {
+          int estimatedTime,
+      @Schema(description = "승하차 역·정류장. 도보 구간에는 값이 없다", nullable = true) Station station) {
 
-    public static Route from(MeetingMemberRoute route) {
+    private static final int FIRST_ROUTE_INDEX = 1;
+    private static final String BOARDING_SUFFIX = " 승차";
+    private static final String WALK_CONTENT = "도보";
+    private static final String ETC_CONTENT = "이동";
+
+    public static Route of(MeetingMemberRoute route, String departureName) {
+      boolean walking = route.getTransportType() == TransportType.WALK;
       return new Route(
-          route.getContent(),
+          content(route, departureName),
           route.getTransportType(),
-          route.getTransportContent(),
-          route.getEstimatedTimeMinutes());
+          transportContent(route),
+          estimatedMinutes(route),
+          walking ? null : new Station(route.getStartName(), route.getEndName()));
+    }
+
+    private static String content(MeetingMemberRoute route, String departureName) {
+      if (route.getTransportType() != TransportType.WALK) {
+        return route.getStartName() + " " + route.getRouteName() + BOARDING_SUFFIX;
+      }
+      if (route.getRouteIndex() == FIRST_ROUTE_INDEX) {
+        return departureName;
+      }
+      return route.getStartName() != null ? route.getStartName() : route.getEndName();
+    }
+
+    private static String transportContent(MeetingMemberRoute route) {
+      return switch (route.getTransportType()) {
+        case WALK -> WALK_CONTENT;
+        case SUBWAY -> route.getStationCount() + "개 역 이동";
+        case BUS -> route.getStationCount() + "개 정류장 이동";
+        case ETC -> route.getRouteName() != null ? route.getRouteName() : ETC_CONTENT;
+      };
+    }
+
+    private static int estimatedMinutes(MeetingMemberRoute route) {
+      return (int) Math.round((double) route.getSectionTimeSeconds() / SECONDS_PER_MINUTE);
     }
   }
+
+  public record Station(
+      @Schema(description = "승차 역·정류장", example = "태릉입구역", requiredMode = RequiredMode.REQUIRED)
+          String start,
+      @Schema(description = "하차 역·정류장", example = "디지털미디어시티역", requiredMode = RequiredMode.REQUIRED)
+          String end) {}
 }

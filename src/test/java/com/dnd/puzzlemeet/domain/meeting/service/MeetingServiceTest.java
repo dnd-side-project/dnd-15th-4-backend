@@ -266,6 +266,9 @@ class MeetingServiceTest {
     assertThat(response.routes().get(0).estimatedTime()).isEqualTo(10);
     assertThat(response.routes().get(1).content()).isEqualTo("태릉입구역 수도권6호선 승차");
     assertThat(response.routes().get(1).transportContent()).isEqualTo("27개 역 이동");
+    assertThat(response.routes().get(0).station()).isNull();
+    assertThat(response.routes().get(1).station().start()).isEqualTo("태릉입구역");
+    assertThat(response.routes().get(1).station().end()).isEqualTo("디지털미디어시티역");
     assertThat(response.nicknameSetting().enabled()).isTrue();
     assertThat(response.nicknameSetting().nickname()).isEqualTo("김땡땡");
   }

@@ -206,7 +206,7 @@ class MeetingControllerTest {
             new MeetingMember(meeting, guestUser, MeetingMemberRole.GUEST, "참여자닉네임"));
     memberImageRepository.save(new MemberImage(guest, "https://img.kakao.com/guest.png", true));
     meetingMemberRouteRepository.save(
-        new MeetingMemberRoute(guest, 1, "서울대학교", TransportType.WALK, "도보", 10));
+        new MeetingMemberRoute(guest, 1, TransportType.WALK, null, null, "태릉입구역", 0, 600));
     meetingMemberRepository.flush();
 
     String accessToken = jwtProvider.createAccessToken(guestUser.getId());

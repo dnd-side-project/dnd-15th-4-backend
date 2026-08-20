@@ -59,7 +59,6 @@ public class MeetingService {
   private static final double EARTH_RADIUS_M = 6_371_000;
   private static final double WALKING_SPEED_METERS_PER_SECOND = 4_000.0 / 3_600;
   private static final int ROUTE_RESEARCH_THRESHOLD_SECONDS = 3_600;
-  private static final double SECONDS_PER_MINUTE = 60.0;
   private static final int INVITE_CODE_LENGTH = 8;
   private static final String INVITE_CODE_CHARS =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -440,7 +439,7 @@ public class MeetingService {
     member.updateTransport(mainLeg.transportType(), mainLeg.routeName());
 
     meetingMemberRouteRepository.deleteAllByMeetingMemberId(member.getId());
-    return MeetingMemberDepartureResponse.of(member, saveRoutes(member, placeName, route));
+    return MeetingMemberDepartureResponse.of(member, saveRoutes(member, route));
   }
 
   private TravelRoute resolveRoute(Meeting meeting, double latitude, double longitude) {
@@ -495,8 +494,7 @@ public class MeetingService {
     member.changeNickname(nickname);
   }
 
-  private List<MeetingMemberRoute> saveRoutes(
-      MeetingMember member, String departurePlaceName, TravelRoute route) {
+  private List<MeetingMemberRoute> saveRoutes(MeetingMember member, TravelRoute route) {
     List<TravelRoute.Leg> legs = route.legs();
     List<MeetingMemberRoute> routes = new ArrayList<>(legs.size());
     for (int index = 0; index < legs.size(); index++) {
@@ -505,10 +503,12 @@ public class MeetingService {
           new MeetingMemberRoute(
               member,
               index + 1,
-              routeContent(leg, index == 0, departurePlaceName),
               leg.transportType(),
-              transportContent(leg),
-              toMinutes(leg.sectionTimeSeconds())));
+              leg.routeName(),
+              leg.startName(),
+              leg.endName(),
+              leg.stationCount(),
+              leg.sectionTimeSeconds()));
     }
     return meetingMemberRouteRepository.saveAll(routes);
   }
@@ -518,34 +518,11 @@ public class MeetingService {
         member.getId());
   }
 
-  private String routeContent(TravelRoute.Leg leg, boolean first, String departurePlaceName) {
-    if (leg.transportType() == TransportType.WALK) {
-      if (first) {
-        return departurePlaceName;
-      }
-      return leg.startName() != null ? leg.startName() : leg.endName();
-    }
-    return leg.startName() + " " + leg.routeName() + " 승차";
-  }
-
-  private String transportContent(TravelRoute.Leg leg) {
-    return switch (leg.transportType()) {
-      case WALK -> "도보";
-      case SUBWAY -> leg.stationCount() + "개 역 이동";
-      case BUS -> leg.stationCount() + "개 정류장 이동";
-      case ETC -> leg.routeName() != null ? leg.routeName() : "이동";
-    };
-  }
-
   private TravelRoute.Leg mainTransportLeg(TravelRoute route) {
     return route.legs().stream()
         .filter(leg -> leg.transportType() != TransportType.WALK)
         .findFirst()
         .orElse(route.legs().getFirst());
-  }
-
-  private int toMinutes(int seconds) {
-    return (int) Math.round(seconds / SECONDS_PER_MINUTE);
   }
 
   private void registerMember(
