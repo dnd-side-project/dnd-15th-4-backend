@@ -12,15 +12,19 @@ import io.swagger.v3.oas.models.examples.Example;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.media.Content;
 import io.swagger.v3.oas.models.media.MediaType;
+import io.swagger.v3.oas.models.media.Schema;
 import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import io.swagger.v3.oas.models.security.SecurityRequirement;
 import io.swagger.v3.oas.models.security.SecurityScheme;
 import java.util.Arrays;
 import java.util.LinkedHashMap;
+import java.util.LinkedHashSet;
 import java.util.List;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
+import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springdoc.core.customizers.OperationCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -29,6 +33,8 @@ import org.springframework.web.method.HandlerMethod;
 
 @Configuration
 public class SwaggerConfig {
+
+  private static final Set<String> NULL_TYPE = Set.of("null");
 
   @Bean
   public OpenAPI puzzleMeetOpenAPI() {
@@ -61,6 +67,38 @@ public class SwaggerConfig {
 
       return operation;
     };
+  }
+
+  @Bean
+  public OpenApiCustomizer nullableObjectSchemaCustomizer() {
+    return openApi -> {
+      Components components = openApi.getComponents();
+      if (components == null || components.getSchemas() == null) {
+        return;
+      }
+      components.getSchemas().values().forEach(this::restoreNullableObjectType);
+    };
+  }
+
+  private void restoreNullableObjectType(Schema<?> schema) {
+    if (schema == null) {
+      return;
+    }
+
+    if (schema.get$ref() != null) {
+      if (NULL_TYPE.equals(schema.getTypes())) {
+        schema.setTypes(new LinkedHashSet<>(List.of("object", "null")));
+      }
+      return;
+    }
+
+    if (schema.getProperties() != null) {
+      schema.getProperties().values().forEach(this::restoreNullableObjectType);
+    }
+    restoreNullableObjectType(schema.getItems());
+    if (schema.getAdditionalProperties() instanceof Schema<?> additionalProperties) {
+      restoreNullableObjectType(additionalProperties);
+    }
   }
 
   private void generateErrorCodeResponseExample(Operation operation, ErrorCode[] errorCodes) {
