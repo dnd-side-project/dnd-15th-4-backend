@@ -62,7 +62,6 @@ public class MeetingService {
 
   private static final int ARRIVAL_RADIUS_M = 50;
   private static final double EARTH_RADIUS_M = 6_371_000;
-  private static final double WALKING_SPEED_METERS_PER_SECOND = 4_000.0 / 3_600;
   private static final int ROUTE_RESEARCH_THRESHOLD_SECONDS = 3_600;
   private static final int INVITE_CODE_LENGTH = 8;
   private static final String INVITE_CODE_CHARS =
@@ -427,9 +426,6 @@ public class MeetingService {
     List<TravelRoute> routes =
         tmapTransitClient.findTransitRoutes(
             latitude, longitude, destinationLatitude, destinationLongitude, firstDepartAt);
-    if (routes.isEmpty()) {
-      return List.of(walkingRoute(meeting, latitude, longitude));
-    }
 
     int estimatedTimeSeconds = routes.getFirst().totalTimeSeconds();
     if (!needsReQuery(firstDepartAt, estimatedTimeSeconds)) {
@@ -444,35 +440,6 @@ public class MeetingService {
             destinationLongitude,
             reQueryDepartAt(meeting, estimatedTimeSeconds));
     return reQueried.isEmpty() ? routes : reQueried;
-  }
-
-  private TravelRoute walkingRoute(Meeting meeting, double latitude, double longitude) {
-    double distanceM =
-        distanceMeters(
-            BigDecimal.valueOf(latitude),
-            BigDecimal.valueOf(longitude),
-            meeting.getDestinationLatitude(),
-            meeting.getDestinationLongitude());
-    int totalTimeSeconds = (int) Math.round(distanceM / WALKING_SPEED_METERS_PER_SECOND);
-    return new TravelRoute(
-        totalTimeSeconds,
-        0,
-        0,
-        null,
-        List.of(
-            new TravelRoute.Leg(
-                TransportType.WALK,
-                null,
-                null,
-                totalTimeSeconds,
-                (int) Math.round(distanceM),
-                null,
-                meeting.getDestinationName(),
-                latitude,
-                longitude,
-                meeting.getDestinationLatitude().doubleValue(),
-                meeting.getDestinationLongitude().doubleValue(),
-                List.of())));
   }
 
   private TravelMode travelMode(MeetingMemberDepartureUpdateRequest request, MeetingMember member) {

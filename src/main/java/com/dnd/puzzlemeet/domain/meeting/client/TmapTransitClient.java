@@ -9,7 +9,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -49,13 +48,17 @@ public class TmapTransitClient {
       double endLatitude,
       double endLongitude,
       LocalDateTime departAt) {
-    return requestItineraries(
-            startLatitude, startLongitude, endLatitude, endLongitude, departAt, ROUTE_SEARCH_COUNT)
-        .map(this::toRoutes)
-        .orElseGet(List::of);
+    return toRoutes(
+        requestItineraries(
+            startLatitude,
+            startLongitude,
+            endLatitude,
+            endLongitude,
+            departAt,
+            ROUTE_SEARCH_COUNT));
   }
 
-  private Optional<List<TmapTransitRouteResponse.Itinerary>> requestItineraries(
+  private List<TmapTransitRouteResponse.Itinerary> requestItineraries(
       double startLatitude,
       double startLongitude,
       double endLatitude,
@@ -97,7 +100,7 @@ public class TmapTransitClient {
       int status = response.result().status();
       log.info("[지도 연동] 대중교통 경로 없음, status={}, elapsedMs={}", status, elapsedMs);
       if (status == TOO_CLOSE_STATUS) {
-        return Optional.empty();
+        throw ApiException.of(ErrorCode.MEETING_MAP_TOO_CLOSE);
       }
       throw ApiException.of(ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND);
     }
@@ -109,7 +112,7 @@ public class TmapTransitClient {
     }
 
     log.info("[지도 연동] 대중교통 경로 조회 성공, elapsedMs={}", elapsedMs);
-    return Optional.of(itineraries);
+    return itineraries;
   }
 
   private Map<String, Object> requestBody(

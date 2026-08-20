@@ -420,27 +420,23 @@ class MeetingServiceTest {
   }
 
   @Test
-  @DisplayName("출발지가 약속 장소와 너무 가까우면 도보 한 구간 경로가 반환된다")
-  void buildsWalkingRouteWhenDepartureIsTooClose() {
+  @DisplayName("출발지가 약속 장소와 너무 가까우면 도보 이동을 권하며 거절한다")
+  void rejectsTransitSearchWhenDepartureIsTooClose() {
     MeetingMember member = activeMember("효창", LocalDateTime.now().plusHours(3));
     givenActiveMember(member);
-    givenTransitRoutes(List.of());
+    given(
+            tmapTransitClient.findTransitRoutes(
+                anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
+        .willThrow(ApiException.of(ErrorCode.MEETING_MAP_TOO_CLOSE));
 
-    MeetingRouteSearchResponse response =
-        meetingService.searchRoutes(
-            100L, 10L, searchRequest(37.5283, 126.9325, TravelMode.TRANSIT));
+    ApiException exception =
+        assertThrows(
+            ApiException.class,
+            () ->
+                meetingService.searchRoutes(
+                    100L, 10L, searchRequest(37.5283, 126.9325, TravelMode.TRANSIT)));
 
-    assertThat(response.routes()).hasSize(1);
-    MeetingRouteSearchResponse.Route route = response.routes().getFirst();
-    assertThat(route.fare()).isZero();
-    assertThat(route.transferCount()).isZero();
-    assertThat(route.pathType()).isNull();
-    assertThat(route.steps()).hasSize(1);
-
-    MeetingRouteSearchResponse.Step step = route.steps().getFirst();
-    assertThat(step.type()).isEqualTo(TransportType.WALK);
-    assertThat(step.description()).isEqualTo("서울 여의도 한강공원 이동");
-    assertThat(step.distance()).isPositive();
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_MAP_TOO_CLOSE);
   }
 
   @Test

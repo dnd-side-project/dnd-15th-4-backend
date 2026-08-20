@@ -152,7 +152,7 @@ public class MeetingController {
         meetingService.updateMemberPuzzleImage(principal.id(), meetingId, image));
   }
 
-  @Operation(summary = "출발 설정 등록", description = "인증된 참여자의 출발지·알림 설정·닉네임을 등록하고 이동 경로를 계산해 저장한다.")
+  @Operation(summary = "출발 설정 등록", description = "인증된 참여자의 출발지·알림 설정·닉네임과 이동 경로 조회로 고른 경로를 등록한다.")
   @ApiErrorCodeExamples({
     ErrorCode.AUTH_TOKEN_INVALID,
     ErrorCode.INVALID_INPUT_VALUE,
@@ -160,8 +160,7 @@ public class MeetingController {
     ErrorCode.MEETING_NOT_FOUND,
     ErrorCode.MEETING_MEMBER_NOT_FOUND,
     ErrorCode.MEETING_DEPARTURE_ALREADY_SET,
-    ErrorCode.MEETING_MEMBER_NOT_ACTIVE,
-    ErrorCode.MEETING_MAP_UNAVAILABLE
+    ErrorCode.MEETING_MEMBER_NOT_ACTIVE
   })
   @PostMapping("/{meetingId}/members/me/departure")
   public ResponseEntity<ApiResult<MeetingMemberDepartureResponse>> createMemberDeparture(
@@ -188,16 +187,14 @@ public class MeetingController {
 
   @Operation(
       summary = "출발 설정 수정",
-      description = "요청에 넣은 항목만 반영한다. 출발지를 넣으면 이동 경로를 다시 계산해 기존 경로를 대체한다.")
+      description = "요청에 넣은 항목만 반영한다. 출발지를 넣으면 선택한 이동 경로도 함께 넣어야 하고 기존 경로를 대체한다.")
   @ApiErrorCodeExamples({
     ErrorCode.AUTH_TOKEN_INVALID,
     ErrorCode.INVALID_INPUT_VALUE,
-    ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND,
     ErrorCode.MEETING_NOT_FOUND,
     ErrorCode.MEETING_MEMBER_NOT_FOUND,
     ErrorCode.MEETING_DEPARTURE_NOT_FOUND,
-    ErrorCode.MEETING_MEMBER_NOT_ACTIVE,
-    ErrorCode.MEETING_MAP_UNAVAILABLE
+    ErrorCode.MEETING_MEMBER_NOT_ACTIVE
   })
   @PatchMapping("/{meetingId}/members/me/departure")
   public ResponseEntity<ApiResult<MeetingMemberDepartureResponse>> updateMemberDeparture(
@@ -210,11 +207,14 @@ public class MeetingController {
 
   @Operation(
       summary = "이동 경로 조회",
-      description = "출발지에서 약속 장소까지 가는 대중교통 경로를 조회한다. 약속 시각에 도착하는 기준으로 계산하고 저장하지 않는다.")
+      description =
+          "출발지에서 약속 장소까지 가는 경로를 이동수단별로 조회한다. 약속 시각에 도착하는 기준으로 계산하고 저장하지 않는다. "
+              + "대중교통은 여러 건, 차량과 도보는 한 건을 돌려준다.")
   @ApiErrorCodeExamples({
     ErrorCode.AUTH_TOKEN_INVALID,
     ErrorCode.INVALID_INPUT_VALUE,
     ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND,
+    ErrorCode.MEETING_MAP_TOO_CLOSE,
     ErrorCode.MEETING_NOT_FOUND,
     ErrorCode.MEETING_MEMBER_NOT_FOUND,
     ErrorCode.MEETING_MEMBER_NOT_ACTIVE,
