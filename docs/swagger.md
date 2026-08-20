@@ -15,6 +15,9 @@ springdoc-openapi가 스펙을 `/v3/api-docs`로, Swagger UI를 `/swagger-ui.htm
 
 `name`·`summary`·`description`은 한국어 한 문장으로 쓴다.
 
+객체 필드에 `@Schema(nullable = true)`를 붙이면 OpenAPI 3.1에서 `type`이 `"null"`로 덮인다.
+`SwaggerConfig`의 `OpenApiCustomizer`가 `["object", "null"]`로 되돌린다.
+
 ## 에러 응답
 
 `ErrorCode`는 enum이라 어노테이션 요소 타입으로 그대로 쓸 수 있다.
