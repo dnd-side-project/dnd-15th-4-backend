@@ -15,7 +15,11 @@ public record MeetingMemberDepartureCreateRequest(
     @Schema(description = "알림 설정 정보", requiredMode = RequiredMode.REQUIRED) @NotNull @Valid
         NotificationSettings notificationSettings,
     @Schema(description = "닉네임 설정 정보", requiredMode = RequiredMode.REQUIRED) @NotNull @Valid
-        NicknameSetting nicknameSetting) {
+        NicknameSetting nicknameSetting,
+    @Schema(description = "이동 경로 조회로 받은 경로 중 선택한 하나", requiredMode = RequiredMode.REQUIRED)
+        @NotNull
+        @Valid
+        MeetingRouteRequest route) {
 
   public record Departure(
       @Schema(

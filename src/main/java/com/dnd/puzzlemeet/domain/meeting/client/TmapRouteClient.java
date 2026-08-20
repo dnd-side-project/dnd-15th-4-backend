@@ -25,7 +25,6 @@ public class TmapRouteClient {
   private static final int CONNECT_TIMEOUT_MILLIS = 2_000;
   private static final int READ_TIMEOUT_MILLIS = 5_000;
   private static final String APP_KEY_HEADER = "appKey";
-  private static final int RESULT_COUNT = 1;
   private static final int ROUTE_SEARCH_COUNT = 5;
   private static final int TOO_CLOSE_STATUS = 11;
   private static final DateTimeFormatter SEARCH_DATE_TIME_FORMAT =
@@ -42,17 +41,6 @@ public class TmapRouteClient {
     this.restClient = RestClient.builder().requestFactory(requestFactory).build();
     this.transitRouteUri = tmapProperties.transitRouteUri();
     this.appKey = tmapProperties.appKey();
-  }
-
-  public Optional<TravelRoute> findTransitRoute(
-      double startLatitude,
-      double startLongitude,
-      double endLatitude,
-      double endLongitude,
-      LocalDateTime departAt) {
-    return requestItineraries(
-            startLatitude, startLongitude, endLatitude, endLongitude, departAt, RESULT_COUNT)
-        .map(itineraries -> toRoute(itineraries.getFirst()));
   }
 
   public List<TravelRoute> findTransitRoutes(

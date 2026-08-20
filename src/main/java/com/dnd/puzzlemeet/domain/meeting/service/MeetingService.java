@@ -16,6 +16,7 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberPuzzleImageUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
@@ -303,25 +304,28 @@ public class MeetingService {
 
   @Transactional
   public MeetingMemberDepartureResponse createDeparture(
-      Long userId,
-      Long meetingId,
-      String placeName,
-      double latitude,
-      double longitude,
-      MeetingMemberDepartureCreateRequest.NotificationSettings notificationSettings,
-      MeetingMemberDepartureCreateRequest.NicknameSetting nicknameSetting) {
+      Long userId, Long meetingId, MeetingMemberDepartureCreateRequest request) {
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
     if (member.getDepartureName() != null) {
       throw ApiException.of(ErrorCode.MEETING_DEPARTURE_ALREADY_SET);
     }
 
+    MeetingMemberDepartureCreateRequest.NicknameSetting nicknameSetting = request.nicknameSetting();
     applyNicknameSetting(member, nicknameSetting.enabled(), nicknameSetting.nickname());
+    MeetingMemberDepartureCreateRequest.NotificationSettings notificationSettings =
+        request.notificationSettings();
     member.updateNotificationSettings(
         notificationSettings.locationPermission(),
         notificationSettings.friendArrival(),
         notificationSettings.chatBubble());
 
-    return applyDeparture(member, placeName, latitude, longitude);
+    MeetingMemberDepartureCreateRequest.Departure departure = request.departure();
+    return applyDeparture(
+        member,
+        departure.placeName(),
+        departure.latitude(),
+        departure.longitude(),
+        request.route());
   }
 
   @Transactional(readOnly = true)
@@ -335,29 +339,36 @@ public class MeetingService {
 
   @Transactional
   public MeetingMemberDepartureResponse updateDeparture(
-      Long userId,
-      Long meetingId,
-      String placeName,
-      Double latitude,
-      Double longitude,
-      MeetingMemberDepartureUpdateRequest.NotificationSettings notificationSettings,
-      MeetingMemberDepartureUpdateRequest.NicknameSetting nicknameSetting) {
+      Long userId, Long meetingId, MeetingMemberDepartureUpdateRequest request) {
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
     if (member.getDepartureName() == null) {
       throw ApiException.of(ErrorCode.MEETING_DEPARTURE_NOT_FOUND);
     }
 
+    MeetingMemberDepartureUpdateRequest.NicknameSetting nicknameSetting = request.nicknameSetting();
     if (nicknameSetting != null) {
       applyNicknameSetting(member, nicknameSetting.enabled(), nicknameSetting.nickname());
     }
+    MeetingMemberDepartureUpdateRequest.NotificationSettings notificationSettings =
+        request.notificationSettings();
     if (notificationSettings != null) {
       member.updateNotificationSettings(
           notificationSettings.locationPermission(),
           notificationSettings.friendArrival(),
           notificationSettings.chatBubble());
     }
-    if (placeName != null) {
-      return applyDeparture(member, placeName, latitude, longitude);
+
+    MeetingMemberDepartureUpdateRequest.Departure departure = request.departure();
+    if (departure != null) {
+      if (request.route() == null) {
+        throw ApiException.of(ErrorCode.INVALID_INPUT_VALUE);
+      }
+      return applyDeparture(
+          member,
+          departure.placeName(),
+          departure.latitude(),
+          departure.longitude(),
+          request.route());
     }
 
     return MeetingMemberDepartureResponse.of(member, findRoutes(member));
@@ -429,44 +440,18 @@ public class MeetingService {
   }
 
   private MeetingMemberDepartureResponse applyDeparture(
-      MeetingMember member, String placeName, double latitude, double longitude) {
-    Meeting meeting = member.getMeeting();
-    TravelRoute route = resolveRoute(meeting, latitude, longitude);
-
+      MeetingMember member,
+      String placeName,
+      double latitude,
+      double longitude,
+      MeetingRouteRequest route) {
     member.updateDeparture(placeName, BigDecimal.valueOf(latitude), BigDecimal.valueOf(longitude));
-    member.updateEstimatedDuration(route.totalTimeSeconds());
-    TravelRoute.Leg mainLeg = mainTransportLeg(route);
-    member.updateTransport(mainLeg.transportType(), mainLeg.routeName());
+    member.updateEstimatedDuration(route.totalTime());
+    MeetingRouteRequest.Step mainStep = mainTransportStep(route);
+    member.updateTransport(mainStep.type(), mainStep.line());
 
     meetingMemberRouteRepository.deleteAllByMeetingMemberId(member.getId());
     return MeetingMemberDepartureResponse.of(member, saveRoutes(member, route));
-  }
-
-  private TravelRoute resolveRoute(Meeting meeting, double latitude, double longitude) {
-    double destinationLatitude = meeting.getDestinationLatitude().doubleValue();
-    double destinationLongitude = meeting.getDestinationLongitude().doubleValue();
-    LocalDateTime firstDepartAt = firstQueryDepartAt(meeting);
-
-    TravelRoute estimatedRoute =
-        tmapRouteClient
-            .findTransitRoute(
-                latitude, longitude, destinationLatitude, destinationLongitude, firstDepartAt)
-            .orElse(null);
-    if (estimatedRoute == null) {
-      return walkingRoute(meeting, latitude, longitude);
-    }
-    if (!needsReQuery(firstDepartAt, estimatedRoute.totalTimeSeconds())) {
-      return estimatedRoute;
-    }
-
-    return tmapRouteClient
-        .findTransitRoute(
-            latitude,
-            longitude,
-            destinationLatitude,
-            destinationLongitude,
-            reQueryDepartAt(meeting, estimatedRoute.totalTimeSeconds()))
-        .orElse(estimatedRoute);
   }
 
   private LocalDateTime firstQueryDepartAt(Meeting meeting) {
@@ -494,21 +479,21 @@ public class MeetingService {
     member.changeNickname(nickname);
   }
 
-  private List<MeetingMemberRoute> saveRoutes(MeetingMember member, TravelRoute route) {
-    List<TravelRoute.Leg> legs = route.legs();
-    List<MeetingMemberRoute> routes = new ArrayList<>(legs.size());
-    for (int index = 0; index < legs.size(); index++) {
-      TravelRoute.Leg leg = legs.get(index);
+  private List<MeetingMemberRoute> saveRoutes(MeetingMember member, MeetingRouteRequest route) {
+    List<MeetingRouteRequest.Step> steps = route.steps();
+    List<MeetingMemberRoute> routes = new ArrayList<>(steps.size());
+    for (int index = 0; index < steps.size(); index++) {
+      MeetingRouteRequest.Step step = steps.get(index);
       routes.add(
           new MeetingMemberRoute(
               member,
               index + 1,
-              leg.transportType(),
-              leg.routeName(),
-              leg.startName(),
-              leg.endName(),
-              leg.stationCount(),
-              leg.sectionTimeSeconds()));
+              step.type(),
+              step.line(),
+              step.startName(),
+              step.endName(),
+              step.stationCount(),
+              step.time()));
     }
     return meetingMemberRouteRepository.saveAll(routes);
   }
@@ -518,11 +503,11 @@ public class MeetingService {
         member.getId());
   }
 
-  private TravelRoute.Leg mainTransportLeg(TravelRoute route) {
-    return route.legs().stream()
-        .filter(leg -> leg.transportType() != TransportType.WALK)
+  private MeetingRouteRequest.Step mainTransportStep(MeetingRouteRequest route) {
+    return route.steps().stream()
+        .filter(step -> step.type() != TransportType.WALK)
         .findFirst()
-        .orElse(route.legs().getFirst());
+        .orElse(route.steps().getFirst());
   }
 
   private void registerMember(

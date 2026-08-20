@@ -10,10 +10,13 @@ import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record MeetingMemberDepartureUpdateRequest(
-    @Schema(description = "출발지 정보. 넣으면 이동 경로를 다시 계산한다", nullable = true) @Valid Departure departure,
+    @Schema(description = "출발지 정보. 넣으면 선택한 이동 경로도 함께 넣어야 한다", nullable = true) @Valid
+        Departure departure,
     @Schema(description = "알림 설정 정보", nullable = true) @Valid
         NotificationSettings notificationSettings,
-    @Schema(description = "닉네임 설정 정보", nullable = true) @Valid NicknameSetting nicknameSetting) {
+    @Schema(description = "닉네임 설정 정보", nullable = true) @Valid NicknameSetting nicknameSetting,
+    @Schema(description = "출발지를 넣었을 때 함께 넣는 선택한 이동 경로", nullable = true) @Valid
+        MeetingRouteRequest route) {
 
   public record Departure(
       @Schema(

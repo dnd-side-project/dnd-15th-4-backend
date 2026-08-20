@@ -20,6 +20,7 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberPuzzleImageUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchResponse;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
@@ -242,18 +243,18 @@ class MeetingServiceTest {
   void createsDepartureWithTransitRoute() {
     MeetingMember member = activeMember("효창");
     givenActiveMember(member);
-    givenTransitRoute(transitRoute());
     givenRouteSaveEchoesArgument();
 
     MeetingMemberDepartureResponse response =
         meetingService.createDeparture(
             100L,
             10L,
-            "서울대학교",
-            37.5665,
-            126.9780,
-            new MeetingMemberDepartureCreateRequest.NotificationSettings(true, true, false),
-            new MeetingMemberDepartureCreateRequest.NicknameSetting(true, "김땡땡"));
+            departureRequest(
+                "서울대학교",
+                37.5665,
+                126.9780,
+                new MeetingMemberDepartureCreateRequest.NicknameSetting(true, "김땡땡"),
+                transitRouteRequest()));
 
     assertThat(member.getEstimatedDurationSeconds()).isEqualTo(2400);
     assertThat(member.getTransportType()).isEqualTo(TransportType.SUBWAY);
@@ -271,107 +272,6 @@ class MeetingServiceTest {
     assertThat(response.routes().get(1).station().end()).isEqualTo("디지털미디어시티역");
     assertThat(response.nicknameSetting().enabled()).isTrue();
     assertThat(response.nicknameSetting().nickname()).isEqualTo("김땡땡");
-  }
-
-  @Test
-  @DisplayName("예상 소요시간이 1시간 이상이면 출발 시각을 역산해 경로를 다시 조회한다")
-  void searchesRouteAgainWithArrivalBasedDepartureTime() {
-    LocalDateTime meetingAt = LocalDateTime.now().plusHours(5);
-    MeetingMember member = activeMember("효창", meetingAt);
-    givenActiveMember(member);
-    givenTransitRoute(longTransitRoute());
-    givenRouteSaveEchoesArgument();
-
-    MeetingMemberDepartureResponse response =
-        meetingService.createDeparture(
-            100L,
-            10L,
-            "서울대학교",
-            37.5665,
-            126.9780,
-            new MeetingMemberDepartureCreateRequest.NotificationSettings(true, true, false),
-            new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null));
-
-    ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
-    verify(tmapRouteClient, times(2))
-        .findTransitRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
-    assertThat(departAt.getAllValues().get(0)).isEqualTo(meetingAt);
-    assertThat(departAt.getAllValues().get(1)).isEqualTo(meetingAt.minusSeconds(5400));
-    assertThat(response.recommendedDepartureTime()).isEqualTo(meetingAt.minusSeconds(5400));
-  }
-
-  @Test
-  @DisplayName("예상 소요시간이 1시간 미만이면 경로를 다시 조회하지 않는다")
-  void skipsSecondSearchForShortRoute() {
-    LocalDateTime meetingAt = LocalDateTime.now().plusHours(3);
-    MeetingMember member = activeMember("효창", meetingAt);
-    givenActiveMember(member);
-    givenTransitRoute(transitRoute());
-    givenRouteSaveEchoesArgument();
-
-    MeetingMemberDepartureResponse response =
-        meetingService.createDeparture(
-            100L,
-            10L,
-            "서울대학교",
-            37.5665,
-            126.9780,
-            new MeetingMemberDepartureCreateRequest.NotificationSettings(true, true, false),
-            new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null));
-
-    ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
-    verify(tmapRouteClient)
-        .findTransitRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
-    assertThat(departAt.getValue()).isEqualTo(meetingAt);
-    assertThat(response.recommendedDepartureTime()).isEqualTo(meetingAt.minusSeconds(2400));
-  }
-
-  @Test
-  @DisplayName("약속 시각이 이미 지났으면 현재 시각 기준으로 한 번만 조회한다")
-  void searchesRouteOnceForPastMeeting() {
-    MeetingMember member = activeMember("효창", LocalDateTime.now().minusHours(1));
-    givenActiveMember(member);
-    givenTransitRoute(transitRoute());
-    givenRouteSaveEchoesArgument();
-
-    meetingService.createDeparture(
-        100L,
-        10L,
-        "서울대학교",
-        37.5665,
-        126.9780,
-        new MeetingMemberDepartureCreateRequest.NotificationSettings(true, true, false),
-        new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null));
-
-    ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
-    verify(tmapRouteClient)
-        .findTransitRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
-    assertThat(departAt.getValue()).isNull();
-  }
-
-  @Test
-  @DisplayName("역산한 출발 시각이 이미 지났으면 현재 시각 기준으로 다시 조회한다")
-  void searchesRouteAgainWithoutDepartureTimeWhenReQueryTimeHasPassed() {
-    LocalDateTime meetingAt = LocalDateTime.now().plusMinutes(30);
-    MeetingMember member = activeMember("효창", meetingAt);
-    givenActiveMember(member);
-    givenTransitRoute(longTransitRoute());
-    givenRouteSaveEchoesArgument();
-
-    meetingService.createDeparture(
-        100L,
-        10L,
-        "서울대학교",
-        37.5665,
-        126.9780,
-        new MeetingMemberDepartureCreateRequest.NotificationSettings(true, true, false),
-        new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null));
-
-    ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
-    verify(tmapRouteClient, times(2))
-        .findTransitRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
-    assertThat(departAt.getAllValues().get(0)).isEqualTo(meetingAt);
-    assertThat(departAt.getAllValues().get(1)).isNull();
   }
 
   @Test
@@ -393,7 +293,8 @@ class MeetingServiceTest {
     MeetingRouteSearchResponse.Step walkStep = route.steps().getFirst();
     assertThat(walkStep.type()).isEqualTo(TransportType.WALK);
     assertThat(walkStep.description()).isEqualTo("태릉입구역 이동");
-    assertThat(walkStep.station()).isNull();
+    assertThat(walkStep.station().start()).isEqualTo("출발지");
+    assertThat(walkStep.station().end()).isEqualTo("태릉입구역");
     assertThat(walkStep.stations()).isNull();
     assertThat(walkStep.startLocation().lat()).isEqualTo(37.5045);
 
@@ -459,11 +360,12 @@ class MeetingServiceTest {
                 meetingService.createDeparture(
                     100L,
                     10L,
-                    "서울대학교",
-                    37.5665,
-                    126.9780,
-                    new MeetingMemberDepartureCreateRequest.NotificationSettings(true, true, false),
-                    new MeetingMemberDepartureCreateRequest.NicknameSetting(true, " ")));
+                    departureRequest(
+                        "서울대학교",
+                        37.5665,
+                        126.9780,
+                        new MeetingMemberDepartureCreateRequest.NicknameSetting(true, " "),
+                        transitRouteRequest())));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
   }
@@ -473,18 +375,18 @@ class MeetingServiceTest {
   void fallsBackToUserNicknameWhenCustomNicknameDisabled() {
     MeetingMember member = activeMember("이전닉네임");
     givenActiveMember(member);
-    givenTransitRoute(transitRoute());
     givenRouteSaveEchoesArgument();
 
     MeetingMemberDepartureResponse response =
         meetingService.createDeparture(
             100L,
             10L,
-            "서울대학교",
-            37.5665,
-            126.9780,
-            new MeetingMemberDepartureCreateRequest.NotificationSettings(true, true, false),
-            new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null));
+            departureRequest(
+                "서울대학교",
+                37.5665,
+                126.9780,
+                new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null),
+                transitRouteRequest()));
 
     assertThat(member.getNickname()).isEqualTo("효창");
     assertThat(member.isCustomNickname()).isFalse();
@@ -505,11 +407,12 @@ class MeetingServiceTest {
                 meetingService.createDeparture(
                     100L,
                     10L,
-                    "서울역",
-                    37.5547,
-                    126.9707,
-                    new MeetingMemberDepartureCreateRequest.NotificationSettings(true, true, false),
-                    new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null)));
+                    departureRequest(
+                        "서울역",
+                        37.5547,
+                        126.9707,
+                        new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null),
+                        transitRouteRequest())));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_DEPARTURE_ALREADY_SET);
   }
@@ -532,15 +435,45 @@ class MeetingServiceTest {
     MeetingMember member = activeMember("효창");
     member.updateDeparture("서울역", BigDecimal.valueOf(37.5547), BigDecimal.valueOf(126.9707));
     givenActiveMember(member);
-    givenTransitRoute(transitRoute());
     givenRouteSaveEchoesArgument();
 
     MeetingMemberDepartureResponse response =
-        meetingService.updateDeparture(100L, 10L, "서울대학교", 37.5665, 126.9780, null, null);
+        meetingService.updateDeparture(
+            100L,
+            10L,
+            new MeetingMemberDepartureUpdateRequest(
+                new MeetingMemberDepartureUpdateRequest.Departure("서울대학교", 37.5665, 126.9780),
+                null,
+                null,
+                transitRouteRequest()));
 
     verify(meetingMemberRouteRepository).deleteAllByMeetingMemberId(1L);
     assertThat(member.getDepartureName()).isEqualTo("서울대학교");
     assertThat(response.routes()).hasSize(2);
+  }
+
+  @Test
+  @DisplayName("출발지만 넣고 선택한 경로를 빼면 출발 설정 수정에 실패한다")
+  void rejectsDepartureUpdateWithoutSelectedRoute() {
+    MeetingMember member = activeMember("효창");
+    member.updateDeparture("서울역", BigDecimal.valueOf(37.5547), BigDecimal.valueOf(126.9707));
+    givenActiveMember(member);
+
+    ApiException exception =
+        assertThrows(
+            ApiException.class,
+            () ->
+                meetingService.updateDeparture(
+                    100L,
+                    10L,
+                    new MeetingMemberDepartureUpdateRequest(
+                        new MeetingMemberDepartureUpdateRequest.Departure(
+                            "서울대학교", 37.5665, 126.9780),
+                        null,
+                        null,
+                        null)));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
   }
 
   @Test
@@ -556,14 +489,14 @@ class MeetingServiceTest {
         meetingService.updateDeparture(
             100L,
             10L,
-            null,
-            null,
-            null,
-            new MeetingMemberDepartureUpdateRequest.NotificationSettings(false, true, true),
-            null);
+            new MeetingMemberDepartureUpdateRequest(
+                null,
+                new MeetingMemberDepartureUpdateRequest.NotificationSettings(false, true, true),
+                null,
+                null));
 
     verify(tmapRouteClient, never())
-        .findTransitRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), any());
+        .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), any());
     assertThat(member.isLocationNotificationEnabled()).isFalse();
     assertThat(member.isChatBubbleNotificationEnabled()).isTrue();
     assertThat(response.departure().placeName()).isEqualTo("서울역");
@@ -574,50 +507,24 @@ class MeetingServiceTest {
   void createsWalkingRouteWhenDepartureIsTooClose() {
     MeetingMember member = activeMember("효창");
     givenActiveMember(member);
-    givenTransitRoute(null);
     givenRouteSaveEchoesArgument();
 
     MeetingMemberDepartureResponse response =
         meetingService.createDeparture(
             100L,
             10L,
-            "여의도 나루터",
-            37.5290,
-            126.9320,
-            new MeetingMemberDepartureCreateRequest.NotificationSettings(true, true, false),
-            new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null));
+            departureRequest(
+                "여의도 나루터",
+                37.5290,
+                126.9320,
+                new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null),
+                walkingRouteRequest()));
 
     assertThat(response.routes()).hasSize(1);
     assertThat(response.routes().get(0).transportType()).isEqualTo(TransportType.WALK);
     assertThat(response.routes().get(0).transportContent()).isEqualTo("도보");
     assertThat(response.routes().get(0).content()).isEqualTo("여의도 나루터");
     assertThat(response.totalEstimatedTime()).isEqualTo(1);
-  }
-
-  @Test
-  @DisplayName("대중교통 경로를 찾을 수 없으면 출발 설정에 실패한다")
-  void rejectsDepartureWhenTransitRouteNotFound() {
-    MeetingMember member = activeMember("효창");
-    givenActiveMember(member);
-    given(
-            tmapRouteClient.findTransitRoute(
-                anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
-        .willThrow(ApiException.of(ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND));
-
-    ApiException exception =
-        assertThrows(
-            ApiException.class,
-            () ->
-                meetingService.createDeparture(
-                    100L,
-                    10L,
-                    "서울대학교",
-                    37.5665,
-                    126.9780,
-                    new MeetingMemberDepartureCreateRequest.NotificationSettings(true, true, false),
-                    new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null)));
-
-    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND);
   }
 
   @Test
@@ -677,13 +584,6 @@ class MeetingServiceTest {
     given(meetingRepository.findById(10L)).willReturn(Optional.of(member.getMeeting()));
     given(meetingMemberRepository.findByMeetingIdAndUserId(10L, 100L))
         .willReturn(Optional.of(member));
-  }
-
-  private void givenTransitRoute(TravelRoute route) {
-    given(
-            tmapRouteClient.findTransitRoute(
-                anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
-        .willReturn(Optional.ofNullable(route));
   }
 
   private void givenRouteSaveEchoesArgument() {
@@ -757,64 +657,47 @@ class MeetingServiceTest {
                     List.of("죽전역", "강남역")))));
   }
 
-  private TravelRoute longTransitRoute() {
-    return new TravelRoute(
-        5400,
-        2150,
-        1,
-        3,
-        List.of(
-            walkLeg("죽전역", 600),
-            transitLeg(TransportType.SUBWAY, "수인분당선", "죽전역", "강남역", 4800, 21)));
+  private MeetingMemberDepartureCreateRequest departureRequest(
+      String placeName,
+      double latitude,
+      double longitude,
+      MeetingMemberDepartureCreateRequest.NicknameSetting nicknameSetting,
+      MeetingRouteRequest route) {
+    return new MeetingMemberDepartureCreateRequest(
+        new MeetingMemberDepartureCreateRequest.Departure(placeName, latitude, longitude),
+        new MeetingMemberDepartureCreateRequest.NotificationSettings(true, true, false),
+        nicknameSetting,
+        route);
   }
 
-  private TravelRoute transitRoute() {
-    return new TravelRoute(
+  private MeetingRouteRequest transitRouteRequest() {
+    return new MeetingRouteRequest(
         2400,
-        1850,
-        1,
-        3,
         List.of(
-            walkLeg("태릉입구역", 600),
-            transitLeg(TransportType.SUBWAY, "수도권6호선", "태릉입구역", "디지털미디어시티역", 1800, 27)));
+            new MeetingRouteRequest.Step(
+                TransportType.WALK,
+                600,
+                null,
+                new MeetingRouteRequest.Station(null, "태릉입구역"),
+                null),
+            new MeetingRouteRequest.Step(
+                TransportType.SUBWAY,
+                1800,
+                "수도권6호선",
+                new MeetingRouteRequest.Station("태릉입구역", "디지털미디어시티역"),
+                stationNames(27))));
   }
 
-  private TravelRoute.Leg walkLeg(String endName, int sectionTimeSeconds) {
-    return new TravelRoute.Leg(
-        TransportType.WALK,
-        null,
-        null,
-        sectionTimeSeconds,
-        0,
-        null,
-        endName,
-        null,
-        null,
-        null,
-        null,
-        List.of());
-  }
-
-  private TravelRoute.Leg transitLeg(
-      TransportType transportType,
-      String routeName,
-      String startName,
-      String endName,
-      int sectionTimeSeconds,
-      int stationCount) {
-    return new TravelRoute.Leg(
-        transportType,
-        routeName,
-        null,
-        sectionTimeSeconds,
-        0,
-        startName,
-        endName,
-        null,
-        null,
-        null,
-        null,
-        stationNames(stationCount));
+  private MeetingRouteRequest walkingRouteRequest() {
+    return new MeetingRouteRequest(
+        60,
+        List.of(
+            new MeetingRouteRequest.Step(
+                TransportType.WALK,
+                60,
+                null,
+                new MeetingRouteRequest.Station(null, "서울 여의도 한강공원"),
+                null)));
   }
 
   private List<String> stationNames(int stationCount) {

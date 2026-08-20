@@ -49,7 +49,7 @@ public record MeetingRouteSearchResponse(
           String description,
       @Schema(description = "노선명", example = "수도권6호선", nullable = true) String line,
       @Schema(description = "노선 색상", example = "CD7C2F", nullable = true) String color,
-      @Schema(description = "승하차 역 정보", nullable = true) Station station,
+      @Schema(description = "구간의 시작·끝 지점. 대중교통 구간은 승하차 역·정류장이다", nullable = true) Station station,
       @Schema(description = "이동 경로상의 정류장 목록", nullable = true) List<String> stations,
       @Schema(description = "시작 좌표", nullable = true) Location startLocation,
       @Schema(description = "종료 좌표", nullable = true) Location endLocation) {
@@ -66,7 +66,7 @@ public record MeetingRouteSearchResponse(
           walking ? walkDescription(leg) : null,
           leg.routeName(),
           leg.routeColor(),
-          walking ? null : new Station(leg.startName(), leg.endName()),
+          Station.of(leg.startName(), leg.endName()),
           leg.stationNames().isEmpty() ? null : leg.stationNames(),
           Location.of(leg.startLatitude(), leg.startLongitude()),
           Location.of(leg.endLatitude(), leg.endLongitude()));
@@ -83,7 +83,12 @@ public record MeetingRouteSearchResponse(
       @Schema(description = "출발 정류장·역", example = "태릉입구", requiredMode = RequiredMode.REQUIRED)
           String start,
       @Schema(description = "도착 정류장·역", example = "성수", requiredMode = RequiredMode.REQUIRED)
-          String end) {}
+          String end) {
+
+    public static Station of(String start, String end) {
+      return start != null || end != null ? new Station(start, end) : null;
+    }
+  }
 
   public record Location(
       @Schema(description = "위도", example = "37.5045", requiredMode = RequiredMode.REQUIRED)

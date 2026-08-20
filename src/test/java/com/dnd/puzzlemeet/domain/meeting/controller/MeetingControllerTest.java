@@ -31,7 +31,7 @@ import com.dnd.puzzlemeet.global.security.service.JwtProvider;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
 import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -120,11 +120,6 @@ class MeetingControllerTest {
     MeetingMember member = saveMeetingMember("기본닉네임");
     String accessToken = jwtProvider.createAccessToken(member.getUser().getId());
     Long meetingId = member.getMeeting().getId();
-    given(
-            tmapRouteClient.findTransitRoute(
-                anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
-        .willReturn(Optional.of(transitRoute()));
-
     mockMvc
         .perform(
             post("/api/v1/meetings/{meetingId}/members/me/departure", meetingId)
@@ -149,11 +144,6 @@ class MeetingControllerTest {
     MeetingMember member = saveMeetingMember("기본닉네임");
     String accessToken = jwtProvider.createAccessToken(member.getUser().getId());
     Long meetingId = member.getMeeting().getId();
-    given(
-            tmapRouteClient.findTransitRoute(
-                anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
-        .willReturn(Optional.of(transitRoute()));
-
     mockMvc.perform(
         post("/api/v1/meetings/{meetingId}/members/me/departure", meetingId)
             .header("Authorization", "Bearer " + accessToken)
@@ -248,44 +238,29 @@ class MeetingControllerTest {
         {
           "departure": {"placeName": "서울대학교", "latitude": 37.5665, "longitude": 126.9780},
           "notificationSettings": {"locationPermission": true, "friendArrival": true, "chatBubble": false},
-          "nicknameSetting": {"enabled": true, "nickname": "김땡땡"}
+          "nicknameSetting": {"enabled": true, "nickname": "김땡땡"},
+          "route": {
+            "totalTime": 2400,
+            "steps": [
+              {"type": "WALK", "time": 600, "station": {"start": null, "end": "태릉입구역"}},
+              {
+                "type": "SUBWAY",
+                "time": 1800,
+                "line": "수도권6호선",
+                "station": {"start": "태릉입구역", "end": "디지털미디어시티역"},
+                "stations": %s
+              }
+            ]
+          }
         }
-        """;
+        """
+        .formatted(stationNamesJson(27));
   }
 
-  private TravelRoute transitRoute() {
-    return new TravelRoute(
-        2400,
-        1850,
-        1,
-        3,
-        List.of(
-            new TravelRoute.Leg(
-                TransportType.WALK,
-                null,
-                null,
-                600,
-                0,
-                null,
-                "태릉입구역",
-                null,
-                null,
-                null,
-                null,
-                List.of()),
-            new TravelRoute.Leg(
-                TransportType.SUBWAY,
-                "수도권6호선",
-                null,
-                1800,
-                0,
-                "태릉입구역",
-                "디지털미디어시티역",
-                null,
-                null,
-                null,
-                null,
-                IntStream.rangeClosed(0, 27).mapToObj(index -> "역" + index).toList())));
+  private String stationNamesJson(int stationCount) {
+    return IntStream.rangeClosed(0, stationCount)
+        .mapToObj(index -> "\"역" + index + "\"")
+        .collect(Collectors.joining(", ", "[", "]"));
   }
 
   @Test

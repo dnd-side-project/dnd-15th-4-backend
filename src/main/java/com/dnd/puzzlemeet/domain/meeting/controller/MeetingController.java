@@ -169,15 +169,7 @@ public class MeetingController {
       @PathVariable Long meetingId,
       @Parameter(description = "출발 설정 정보") @Valid @RequestBody
           MeetingMemberDepartureCreateRequest request) {
-    return ApiResult.success(
-        meetingService.createDeparture(
-            principal.id(),
-            meetingId,
-            request.departure().placeName(),
-            request.departure().latitude(),
-            request.departure().longitude(),
-            request.notificationSettings(),
-            request.nicknameSetting()));
+    return ApiResult.success(meetingService.createDeparture(principal.id(), meetingId, request));
   }
 
   @Operation(summary = "출발 설정 조회", description = "인증된 참여자가 등록한 출발 설정과 이동 경로를 조회한다.")
@@ -213,16 +205,7 @@ public class MeetingController {
       @PathVariable Long meetingId,
       @Parameter(description = "수정할 출발 설정 정보") @Valid @RequestBody
           MeetingMemberDepartureUpdateRequest request) {
-    MeetingMemberDepartureUpdateRequest.Departure departure = request.departure();
-    return ApiResult.success(
-        meetingService.updateDeparture(
-            principal.id(),
-            meetingId,
-            departure != null ? departure.placeName() : null,
-            departure != null ? departure.latitude() : null,
-            departure != null ? departure.longitude() : null,
-            request.notificationSettings(),
-            request.nicknameSetting()));
+    return ApiResult.success(meetingService.updateDeparture(principal.id(), meetingId, request));
   }
 
   @Operation(
