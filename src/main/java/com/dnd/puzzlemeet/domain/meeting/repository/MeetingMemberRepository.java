@@ -13,6 +13,8 @@ public interface MeetingMemberRepository extends JpaRepository<MeetingMember, Lo
 
   Optional<MeetingMember> findByMeetingIdAndUserId(Long meetingId, Long userId);
 
+  List<MeetingMember> findAllByUserId(Long userId);
+
   @Query(
       """
       select mm from MeetingMember mm

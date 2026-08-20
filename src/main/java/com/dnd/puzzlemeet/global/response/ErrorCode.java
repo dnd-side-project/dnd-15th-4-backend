@@ -68,6 +68,10 @@ public enum ErrorCode {
       HttpStatus.CONFLICT, "MEETING_MEMBER_NOT_ACTIVE", "활성 상태의 약속 참여자만 요청할 수 있습니다."),
   MEETING_DEPARTURE_ALREADY_SET(
       HttpStatus.CONFLICT, "MEETING_DEPARTURE_ALREADY_SET", "이미 출발 설정을 완료했습니다."),
+  USER_WITHDRAWAL_BLOCKED_BY_HOSTED_MEETING(
+      HttpStatus.CONFLICT,
+      "USER_WITHDRAWAL_BLOCKED_BY_HOSTED_MEETING",
+      "대기 또는 진행 중인 약속의 방장은 회원 탈퇴할 수 없습니다. 약속을 삭제하거나 완료해 주세요."),
 
   // 415 Unsupported Media Type
   UNSUPPORTED_MEDIA_TYPE(
@@ -77,9 +81,12 @@ public enum ErrorCode {
   INTERNAL_SERVER_ERROR(
       HttpStatus.INTERNAL_SERVER_ERROR, "INTERNAL_SERVER_ERROR", "알 수 없는 서버 오류가 발생했습니다."),
   S3_UPLOAD_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "S3_UPLOAD_FAILED", "파일 업로드에 실패했습니다."),
+  S3_DELETE_FAILED(HttpStatus.INTERNAL_SERVER_ERROR, "S3_DELETE_FAILED", "파일 삭제에 실패했습니다."),
 
   // 502 Bad Gateway
   AUTH_KAKAO_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "AUTH_KAKAO_UNAVAILABLE", "카카오 서버와 통신할 수 없습니다."),
+  AUTH_KAKAO_UNLINK_FAILED(
+      HttpStatus.BAD_GATEWAY, "AUTH_KAKAO_UNLINK_FAILED", "카카오 연결 해제에 실패했습니다."),
   MEETING_MAP_UNAVAILABLE(HttpStatus.BAD_GATEWAY, "MEETING_MAP_UNAVAILABLE", "지도 서버와 통신할 수 없습니다."),
   PLACE_SEARCH_UNAVAILABLE(
       HttpStatus.BAD_GATEWAY, "PLACE_SEARCH_UNAVAILABLE", "장소 검색 서버와 통신할 수 없습니다.");

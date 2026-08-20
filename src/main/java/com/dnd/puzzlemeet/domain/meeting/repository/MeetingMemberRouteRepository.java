@@ -9,4 +9,6 @@ public interface MeetingMemberRouteRepository extends JpaRepository<MeetingMembe
   List<MeetingMemberRoute> findAllByMeetingMemberIdOrderByRouteIndexAsc(Long meetingMemberId);
 
   void deleteAllByMeetingMemberId(Long meetingMemberId);
+
+  void deleteAllByMeetingMemberIdIn(List<Long> meetingMemberIds);
 }

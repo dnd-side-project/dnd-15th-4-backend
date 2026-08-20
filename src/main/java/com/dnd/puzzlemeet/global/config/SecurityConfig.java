@@ -4,6 +4,7 @@ import com.dnd.puzzlemeet.global.security.CorsProperties;
 import com.dnd.puzzlemeet.global.security.FrontendProperties;
 import com.dnd.puzzlemeet.global.security.JwtProperties;
 import com.dnd.puzzlemeet.global.security.KakaoProperties;
+import com.dnd.puzzlemeet.global.security.KakaoUnlinkProperties;
 import com.dnd.puzzlemeet.global.security.service.UserPrincipalJwtAuthenticationConverter;
 import com.nimbusds.jose.jwk.source.ImmutableSecret;
 import java.nio.charset.StandardCharsets;
@@ -39,6 +40,7 @@ import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
   JwtProperties.class,
   CorsProperties.class,
   KakaoProperties.class,
+  KakaoUnlinkProperties.class,
   FrontendProperties.class
 })
 public class SecurityConfig {

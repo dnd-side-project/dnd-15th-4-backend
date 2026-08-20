@@ -5,6 +5,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.Mockito.lenient;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
@@ -77,6 +78,9 @@ class MeetingServiceTest {
             userRepository,
             amazonS3Manager,
             tmapRouteClient);
+    lenient()
+        .when(userRepository.findActiveByIdForUpdate(any()))
+        .thenReturn(Optional.of(new User(100L, "효창", "https://img.kakao.com/a.jpg")));
   }
 
   @Test
@@ -167,6 +171,24 @@ class MeetingServiceTest {
     assertThat(response.meetingId()).isEqualTo(10L);
     assertThat(response.imageUrl()).isEqualTo("https://s3.test/puzzles/new.png");
     verify(memberImageRepository, never()).save(any());
+    verify(amazonS3Manager, never()).deletePuzzleImage(any());
+  }
+
+  @Test
+  @DisplayName("업로드한 퍼즐 이미지를 교체하면 기존 S3 객체를 삭제한다")
+  void deletesPreviousUploadedMemberImageAfterReplacement() {
+    MeetingMember member = activeMember("효창");
+    givenActiveMember(member);
+    String previousImageUrl = "https://bucket.s3.ap-northeast-2.amazonaws.com/puzzles/old.png";
+    MemberImage memberImage = new MemberImage(member, previousImageUrl, false);
+    given(memberImageRepository.findByMeetingMemberId(1L)).willReturn(Optional.of(memberImage));
+    given(amazonS3Manager.generatePuzzleKeyName(any())).willReturn("puzzles/new.png");
+    given(amazonS3Manager.uploadFile(any(), any()))
+        .willReturn("https://bucket.s3.ap-northeast-2.amazonaws.com/puzzles/new.png");
+
+    meetingService.updateMemberPuzzleImage(100L, 10L, puzzleImage());
+
+    verify(amazonS3Manager).deletePuzzleImage(previousImageUrl);
   }
 
   @Test
@@ -198,6 +220,22 @@ class MeetingServiceTest {
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_NOT_WAITING);
     verify(amazonS3Manager, never()).uploadFile(any(), any());
+  }
+
+  @Test
+  @DisplayName("탈퇴한 사용자는 약속 정보를 수정할 수 없다")
+  void rejectsMutationFromInactiveUser() {
+    given(userRepository.findActiveByIdForUpdate(100L)).willReturn(Optional.empty());
+
+    ApiException exception =
+        assertThrows(
+            ApiException.class,
+            () ->
+                meetingService.updateMemberNickname(
+                    100L, 10L, new MeetingMemberNicknameUpdateRequest("새닉네임")));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
+    verify(meetingRepository, never()).findById(any());
   }
 
   @Test
@@ -622,12 +660,16 @@ class MeetingServiceTest {
   void deletesMemberWithRoutesAndImageOnLeave() {
     MeetingMember member = activeGuestMember("김땡땡");
     givenActiveMember(member);
+    String imageUrl = "https://bucket.s3.ap-northeast-2.amazonaws.com/puzzles/guest.png";
+    given(memberImageRepository.findByMeetingMemberId(1L))
+        .willReturn(Optional.of(new MemberImage(member, imageUrl, false)));
 
     meetingService.leaveMeeting(100L, 10L);
 
     verify(meetingMemberRouteRepository).deleteAllByMeetingMemberId(1L);
     verify(memberImageRepository).deleteAllByMeetingMemberId(1L);
     verify(meetingMemberRepository).delete(member);
+    verify(amazonS3Manager).deletePuzzleImage(imageUrl);
   }
 
   @Test
