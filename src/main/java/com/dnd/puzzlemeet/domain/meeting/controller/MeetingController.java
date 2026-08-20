@@ -225,9 +225,7 @@ public class MeetingController {
       @AuthenticationPrincipal UserPrincipal principal,
       @PathVariable Long meetingId,
       @Parameter(description = "출발지 정보") @Valid @RequestBody MeetingRouteSearchRequest request) {
-    return ApiResult.success(
-        meetingService.searchRoutes(
-            principal.id(), meetingId, request.start().latitude(), request.start().longitude()));
+    return ApiResult.success(meetingService.searchRoutes(principal.id(), meetingId, request));
   }
 
   @Operation(summary = "약속방 나가기", description = "참여자가 약속방에서 나간다. 방장은 나갈 수 없고 약속 삭제를 사용한다.")

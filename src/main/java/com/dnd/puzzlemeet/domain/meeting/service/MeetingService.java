@@ -1,5 +1,7 @@
 package com.dnd.puzzlemeet.domain.meeting.service;
 
+import com.dnd.puzzlemeet.domain.meeting.client.TmapCarClient;
+import com.dnd.puzzlemeet.domain.meeting.client.TmapPedestrianClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
@@ -17,6 +19,7 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberPuzzleImageUpdateRespo
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
@@ -26,6 +29,7 @@ import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRoute;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberStatus;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
 import com.dnd.puzzlemeet.domain.meeting.entity.TransportType;
+import com.dnd.puzzlemeet.domain.meeting.entity.TravelMode;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRouteRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
@@ -87,6 +91,8 @@ public class MeetingService {
   private final UserRepository userRepository;
   private final AmazonS3Manager amazonS3Manager;
   private final TmapTransitClient tmapTransitClient;
+  private final TmapCarClient tmapCarClient;
+  private final TmapPedestrianClient tmapPedestrianClient;
 
   @Transactional
   public MeetingCreateResponse createMeeting(
@@ -325,7 +331,8 @@ public class MeetingService {
         departure.placeName(),
         departure.latitude(),
         departure.longitude(),
-        request.route());
+        request.route(),
+        request.travelMode());
   }
 
   @Transactional(readOnly = true)
@@ -368,7 +375,8 @@ public class MeetingService {
           departure.placeName(),
           departure.latitude(),
           departure.longitude(),
-          request.route());
+          request.route(),
+          travelMode(request, member));
     }
 
     return MeetingMemberDepartureResponse.of(member, findRoutes(member));
@@ -376,10 +384,38 @@ public class MeetingService {
 
   @Transactional(readOnly = true)
   public MeetingRouteSearchResponse searchRoutes(
-      Long userId, Long meetingId, double latitude, double longitude) {
+      Long userId, Long meetingId, MeetingRouteSearchRequest request) {
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
     return MeetingRouteSearchResponse.from(
-        resolveTransitRoutes(member.getMeeting(), latitude, longitude));
+        resolveRoutes(
+            member.getMeeting(),
+            request.start().latitude(),
+            request.start().longitude(),
+            request.travelMode()));
+  }
+
+  private List<TravelRoute> resolveRoutes(
+      Meeting meeting, double latitude, double longitude, TravelMode travelMode) {
+    return switch (travelMode) {
+      case TRANSIT -> resolveTransitRoutes(meeting, latitude, longitude);
+      case CAR ->
+          List.of(
+              tmapCarClient.findCarRoute(
+                  latitude,
+                  longitude,
+                  meeting.getDestinationLatitude().doubleValue(),
+                  meeting.getDestinationLongitude().doubleValue(),
+                  meeting.getDestinationName(),
+                  firstQueryDepartAt(meeting)));
+      case WALK ->
+          List.of(
+              tmapPedestrianClient.findWalkingRoute(
+                  latitude,
+                  longitude,
+                  meeting.getDestinationLatitude().doubleValue(),
+                  meeting.getDestinationLongitude().doubleValue(),
+                  meeting.getDestinationName()));
+    };
   }
 
   private List<TravelRoute> resolveTransitRoutes(
@@ -439,13 +475,22 @@ public class MeetingService {
                 List.of())));
   }
 
+  private TravelMode travelMode(MeetingMemberDepartureUpdateRequest request, MeetingMember member) {
+    if (request.travelMode() != null) {
+      return request.travelMode();
+    }
+    return member.getTravelMode() != null ? member.getTravelMode() : TravelMode.TRANSIT;
+  }
+
   private MeetingMemberDepartureResponse applyDeparture(
       MeetingMember member,
       String placeName,
       double latitude,
       double longitude,
-      MeetingRouteRequest route) {
-    member.updateDeparture(placeName, BigDecimal.valueOf(latitude), BigDecimal.valueOf(longitude));
+      MeetingRouteRequest route,
+      TravelMode travelMode) {
+    member.updateDeparture(
+        placeName, BigDecimal.valueOf(latitude), BigDecimal.valueOf(longitude), travelMode);
     member.updateEstimatedDuration(route.totalTime());
     MeetingRouteRequest.Step mainStep = mainTransportStep(route);
     member.updateTransport(mainStep.type(), mainStep.line());

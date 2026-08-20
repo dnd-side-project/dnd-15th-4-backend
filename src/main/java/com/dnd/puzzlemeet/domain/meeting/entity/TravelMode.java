@@ -1,9 +1,7 @@
 package com.dnd.puzzlemeet.domain.meeting.entity;
 
-public enum TransportType {
-  SUBWAY,
-  BUS,
+public enum TravelMode {
+  TRANSIT,
   CAR,
-  WALK,
-  ETC
+  WALK
 }

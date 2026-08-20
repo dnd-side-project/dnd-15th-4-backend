@@ -1,5 +1,6 @@
 package com.dnd.puzzlemeet.domain.meeting.dto;
 
+import com.dnd.puzzlemeet.domain.meeting.entity.TravelMode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import jakarta.validation.Valid;
@@ -16,7 +17,9 @@ public record MeetingMemberDepartureUpdateRequest(
         NotificationSettings notificationSettings,
     @Schema(description = "닉네임 설정 정보", nullable = true) @Valid NicknameSetting nicknameSetting,
     @Schema(description = "출발지를 넣었을 때 함께 넣는 선택한 이동 경로", nullable = true) @Valid
-        MeetingRouteRequest route) {
+        MeetingRouteRequest route,
+    @Schema(description = "이동수단. 출발지를 넣었는데 빼면 대중교통으로 저장한다", example = "CAR", nullable = true)
+        TravelMode travelMode) {
 
   public record Departure(
       @Schema(

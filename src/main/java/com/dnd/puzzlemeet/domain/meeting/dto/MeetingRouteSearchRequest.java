@@ -1,5 +1,6 @@
 package com.dnd.puzzlemeet.domain.meeting.dto;
 
+import com.dnd.puzzlemeet.domain.meeting.entity.TravelMode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import jakarta.validation.Valid;
@@ -9,7 +10,13 @@ import jakarta.validation.constraints.NotNull;
 
 public record MeetingRouteSearchRequest(
     @Schema(description = "출발지 좌표", requiredMode = RequiredMode.REQUIRED) @NotNull @Valid
-        Start start) {
+        Start start,
+    @Schema(description = "이동수단. 넣지 않으면 대중교통으로 조회한다", example = "TRANSIT", nullable = true)
+        TravelMode travelMode) {
+
+  public MeetingRouteSearchRequest {
+    travelMode = travelMode != null ? travelMode : TravelMode.TRANSIT;
+  }
 
   public record Start(
       @Schema(description = "출발지 위도", example = "37.5045", requiredMode = RequiredMode.REQUIRED)
