@@ -14,6 +14,8 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
 
   Optional<Meeting> findByInviteCode(String inviteCode);
 
+  boolean existsByHostUserIdAndStatusIn(Long userId, List<MeetingStatus> statuses);
+
   @Query(
       """
       select m from Meeting m

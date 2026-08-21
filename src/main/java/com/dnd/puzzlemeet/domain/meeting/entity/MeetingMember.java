@@ -25,6 +25,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class MeetingMember extends BaseTimeEntity {
 
+  private static final String WITHDRAWN_NICKNAME = "탈퇴한 사용자";
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
@@ -157,5 +159,24 @@ public class MeetingMember extends BaseTimeEntity {
     this.isLocationNotificationEnabled = locationNotificationEnabled;
     this.isFriendArrivalNotificationEnabled = friendArrivalNotificationEnabled;
     this.isChatBubbleNotificationEnabled = chatBubbleNotificationEnabled;
+  }
+
+  public void anonymizeForUserWithdrawal() {
+    this.transportType = null;
+    this.transportLine = null;
+    this.departedAt = null;
+    this.arrivedAt = null;
+    this.estimatedDurationSeconds = null;
+    this.durationCalculatedAt = null;
+    this.currentLatitude = null;
+    this.currentLongitude = null;
+    this.nickname = WITHDRAWN_NICKNAME;
+    this.isCustomNickname = false;
+    this.departureName = null;
+    this.departureLatitude = null;
+    this.departureLongitude = null;
+    this.isLocationNotificationEnabled = false;
+    this.isFriendArrivalNotificationEnabled = false;
+    this.isChatBubbleNotificationEnabled = false;
   }
 }

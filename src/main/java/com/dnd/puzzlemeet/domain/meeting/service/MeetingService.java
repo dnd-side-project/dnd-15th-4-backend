@@ -53,6 +53,8 @@ import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 import org.springframework.web.multipart.MultipartFile;
 
 @Slf4j
@@ -98,7 +100,7 @@ public class MeetingService {
       Long userId, MeetingCreateRequest request, MultipartFile image) {
     User host =
         userRepository
-            .findById(userId)
+            .findActiveByIdForUpdate(userId)
             .orElseThrow(() -> ApiException.of(ErrorCode.USER_NOT_FOUND));
 
     Meeting meeting =
@@ -142,7 +144,7 @@ public class MeetingService {
       Long userId, MeetingJoinRequest request, MultipartFile image) {
     User user =
         userRepository
-            .findById(userId)
+            .findActiveByIdForUpdate(userId)
             .orElseThrow(() -> ApiException.of(ErrorCode.USER_NOT_FOUND));
 
     Meeting meeting =
@@ -166,6 +168,8 @@ public class MeetingService {
   @Transactional
   public MeetingMemberNicknameUpdateResponse updateMemberNickname(
       Long userId, Long meetingId, MeetingMemberNicknameUpdateRequest request) {
+    lockActiveUser(userId);
+
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
     member.changeNickname(request.nickname());
     return MeetingMemberNicknameUpdateResponse.from(member);
@@ -174,6 +178,8 @@ public class MeetingService {
   @Transactional
   public MeetingMemberPuzzleImageUpdateResponse updateMemberPuzzleImage(
       Long userId, Long meetingId, MultipartFile image) {
+    lockActiveUser(userId);
+
     if (image == null || image.isEmpty()) {
       throw ApiException.of(ErrorCode.MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED);
     }
@@ -186,16 +192,21 @@ public class MeetingService {
     String imageUrl = uploadMemberImage(image);
 
     MemberImage memberImage =
-        memberImageRepository
-            .findByMeetingMemberId(member.getId())
-            .orElseGet(() -> memberImageRepository.save(new MemberImage(member, imageUrl, false)));
+        memberImageRepository.findByMeetingMemberId(member.getId()).orElse(null);
+    String previousUploadedImageUrl = resolveUploadedImageUrl(memberImage);
+    if (memberImage == null) {
+      memberImage = memberImageRepository.save(new MemberImage(member, imageUrl, false));
+    }
     memberImage.changeImage(imageUrl);
+    deletePuzzleImageAfterCommit(previousUploadedImageUrl);
 
     return MeetingMemberPuzzleImageUpdateResponse.from(memberImage);
   }
 
   @Transactional
   public MeetingMemberArrivalResponse markMemberArrived(Long userId, Long meetingId) {
+    lockActiveUser(userId);
+
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
     if (member.getStatus() == MeetingMemberStatus.ARRIVED) {
       return MeetingMemberArrivalResponse.from(member);
@@ -242,6 +253,8 @@ public class MeetingService {
 
   @Transactional
   public void updateMeeting(Long userId, Long meetingId, MeetingUpdateRequest request) {
+    lockActiveUser(userId);
+
     Meeting meeting =
         meetingRepository
             .findById(meetingId)
@@ -279,6 +292,8 @@ public class MeetingService {
 
   @Transactional
   public void cancelMeeting(Long userId, Long meetingId) {
+    lockActiveUser(userId);
+
     Meeting meeting =
         meetingRepository
             .findById(meetingId)
@@ -297,19 +312,28 @@ public class MeetingService {
 
   @Transactional
   public void leaveMeeting(Long userId, Long meetingId) {
+    lockActiveUser(userId);
+
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
     if (member.getRole() == MeetingMemberRole.HOST) {
       throw ApiException.of(ErrorCode.MEETING_HOST_CANNOT_LEAVE);
     }
 
+    MemberImage memberImage =
+        memberImageRepository.findByMeetingMemberId(member.getId()).orElse(null);
+    String uploadedImageUrl = resolveUploadedImageUrl(memberImage);
+
     meetingMemberRouteRepository.deleteAllByMeetingMemberId(member.getId());
     memberImageRepository.deleteAllByMeetingMemberId(member.getId());
     meetingMemberRepository.delete(member);
+    deletePuzzleImageAfterCommit(uploadedImageUrl);
   }
 
   @Transactional
   public MeetingMemberDepartureResponse createDeparture(
       Long userId, Long meetingId, MeetingMemberDepartureCreateRequest request) {
+    lockActiveUser(userId);
+
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
     if (member.getDepartureName() != null) {
       throw ApiException.of(ErrorCode.MEETING_DEPARTURE_ALREADY_SET);
@@ -346,6 +370,8 @@ public class MeetingService {
   @Transactional
   public MeetingMemberDepartureResponse updateDeparture(
       Long userId, Long meetingId, MeetingMemberDepartureUpdateRequest request) {
+    lockActiveUser(userId);
+
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
     if (member.getDepartureName() == null) {
       throw ApiException.of(ErrorCode.MEETING_DEPARTURE_NOT_FOUND);
@@ -531,6 +557,45 @@ public class MeetingService {
     boolean hasImage = image != null && !image.isEmpty();
     String imageUrl = hasImage ? uploadMemberImage(image) : DEFAULT_MEMBER_IMAGE_URL;
     memberImageRepository.save(new MemberImage(member, imageUrl, !hasImage));
+  }
+
+  private void lockActiveUser(Long userId) {
+    userRepository
+        .findActiveByIdForUpdate(userId)
+        .orElseThrow(() -> ApiException.of(ErrorCode.USER_NOT_FOUND));
+  }
+
+  private String resolveUploadedImageUrl(MemberImage memberImage) {
+    if (memberImage == null
+        || memberImage.isDefaultImage()
+        || DEFAULT_MEMBER_IMAGE_URL.equals(memberImage.getImageUrl())) {
+      return null;
+    }
+    return memberImage.getImageUrl();
+  }
+
+  private void deletePuzzleImageAfterCommit(String imageUrl) {
+    if (imageUrl == null) {
+      return;
+    }
+
+    if (!TransactionSynchronizationManager.isActualTransactionActive()
+        || !TransactionSynchronizationManager.isSynchronizationActive()) {
+      amazonS3Manager.deletePuzzleImage(imageUrl);
+      return;
+    }
+
+    TransactionSynchronizationManager.registerSynchronization(
+        new TransactionSynchronization() {
+          @Override
+          public void afterCommit() {
+            try {
+              amazonS3Manager.deletePuzzleImage(imageUrl);
+            } catch (RuntimeException e) {
+              log.warn("[S3 퍼즐 이미지 후처리 삭제 실패] url={}", imageUrl, e);
+            }
+          }
+        });
   }
 
   private MeetingMember getActiveMeetingMember(Long userId, Long meetingId) {
