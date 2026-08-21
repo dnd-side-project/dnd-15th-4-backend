@@ -18,20 +18,20 @@ public class UserService {
 
   @Transactional(readOnly = true)
   public UserMeResponse getMe(Long userId) {
-    User user = getUser(userId);
+    User user =
+        userRepository
+            .findByIdAndDeletedAtIsNull(userId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.USER_NOT_FOUND));
     return UserMeResponse.from(user);
   }
 
   @Transactional
   public UserMeResponse updateMe(Long userId, UserUpdateRequest request) {
-    User user = getUser(userId);
+    User user =
+        userRepository
+            .findActiveByIdForUpdate(userId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.USER_NOT_FOUND));
     user.changeNickname(request.nickname());
     return UserMeResponse.from(user);
-  }
-
-  private User getUser(Long userId) {
-    return userRepository
-        .findById(userId)
-        .orElseThrow(() -> ApiException.of(ErrorCode.USER_NOT_FOUND));
   }
 }

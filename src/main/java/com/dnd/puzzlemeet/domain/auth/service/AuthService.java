@@ -82,7 +82,7 @@ public class AuthService {
 
     User user =
         userRepository
-            .findByKakaoId(kakaoUser.id())
+            .findActiveByKakaoIdForUpdate(kakaoUser.id())
             .map(
                 existing -> {
                   existing.updateKakaoProfile(email, profileImageUrl);
@@ -110,7 +110,10 @@ public class AuthService {
       throw ApiException.of(ErrorCode.AUTH_REFRESH_TOKEN_EXPIRED);
     }
 
-    User user = refreshToken.getUser();
+    User user =
+        userRepository
+            .findActiveByIdForUpdate(refreshToken.getUser().getId())
+            .orElseThrow(() -> ApiException.of(ErrorCode.AUTH_REFRESH_TOKEN_INVALID));
     refreshTokenRepository.delete(refreshToken);
 
     return issueTokenPair(user);

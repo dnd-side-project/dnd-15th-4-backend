@@ -10,6 +10,7 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.dnd.puzzlemeet.TestcontainersConfiguration;
 import com.dnd.puzzlemeet.domain.place.client.TmapPlaceClient;
 import com.dnd.puzzlemeet.domain.place.client.TmapPlaceSearchResult;
+import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
 import com.dnd.puzzlemeet.global.security.service.JwtProvider;
 import java.util.List;
 import org.junit.jupiter.api.DisplayName;
@@ -31,6 +32,7 @@ class PlaceControllerTest {
   @Autowired private MockMvc mockMvc;
   @Autowired private JwtProvider jwtProvider;
   @MockitoBean private TmapPlaceClient tmapPlaceClient;
+  @MockitoBean private UserRepository userRepository;
 
   @Test
   @DisplayName("페이지당 조회 개수가 상한을 넘으면 입력값 검증에 실패한다")
@@ -136,6 +138,7 @@ class PlaceControllerTest {
   }
 
   private String accessToken() {
+    given(userRepository.existsByIdAndDeletedAtIsNull(USER_ID)).willReturn(true);
     return jwtProvider.createAccessToken(USER_ID);
   }
 }

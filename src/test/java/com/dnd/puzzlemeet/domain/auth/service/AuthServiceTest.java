@@ -94,7 +94,7 @@ class AuthServiceTest {
         .willReturn(KAKAO_ACCESS_TOKEN);
     given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
         .willReturn(kakaoUserResponse(100L, "효창", "https://img.kakao.com/a.jpg"));
-    given(userRepository.findByKakaoId(100L)).willReturn(Optional.empty());
+    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
@@ -114,7 +114,7 @@ class AuthServiceTest {
         .willReturn(KAKAO_ACCESS_TOKEN);
     given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
         .willReturn(kakaoUserResponse(100L, "새닉네임", "https://img.kakao.com/new.jpg"));
-    given(userRepository.findByKakaoId(100L)).willReturn(Optional.of(existingUser));
+    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.of(existingUser));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
 
@@ -134,7 +134,7 @@ class AuthServiceTest {
         .willReturn(
             kakaoUserResponse(
                 100L, "효창", "https://img.kakao.com/new.jpg", KAKAO_EMAIL, true, true, true));
-    given(userRepository.findByKakaoId(100L)).willReturn(Optional.of(existingUser));
+    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.of(existingUser));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
 
@@ -150,7 +150,7 @@ class AuthServiceTest {
         .willReturn(
             kakaoUserResponse(
                 100L, "효창", "https://img.kakao.com/a.jpg", KAKAO_EMAIL, false, false, true));
-    given(userRepository.findByKakaoId(100L)).willReturn(Optional.empty());
+    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
@@ -169,7 +169,7 @@ class AuthServiceTest {
         .willReturn(
             kakaoUserResponse(
                 100L, "효창", "https://img.kakao.com/a.jpg", KAKAO_EMAIL, null, true, true));
-    given(userRepository.findByKakaoId(100L)).willReturn(Optional.empty());
+    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
@@ -188,7 +188,7 @@ class AuthServiceTest {
         .willReturn(
             kakaoUserResponse(
                 100L, "효창", "https://img.kakao.com/a.jpg", KAKAO_EMAIL, false, true, false));
-    given(userRepository.findByKakaoId(100L)).willReturn(Optional.empty());
+    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
@@ -206,7 +206,7 @@ class AuthServiceTest {
     given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
         .willReturn(
             kakaoUserResponse(100L, "효창", "https://img.kakao.com/a.jpg", null, false, null, null));
-    given(userRepository.findByKakaoId(100L)).willReturn(Optional.empty());
+    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
@@ -253,7 +253,7 @@ class AuthServiceTest {
         .willReturn(KAKAO_ACCESS_TOKEN);
     given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
         .willReturn(kakaoUserResponse(100L, "효창", null));
-    given(userRepository.findByKakaoId(100L)).willReturn(Optional.empty());
+    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
@@ -273,9 +273,11 @@ class AuthServiceTest {
     given(refreshTokenRepository.findByTokenHash(sha256(rawRefreshToken)))
         .willReturn(Optional.of(storedRefreshToken))
         .willReturn(Optional.empty());
+    given(userRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(user));
 
     authService.reissue(rawRefreshToken);
     verify(refreshTokenRepository).delete(storedRefreshToken);
+    verify(userRepository).findActiveByIdForUpdate(1L);
 
     assertThrows(ApiException.class, () -> authService.reissue(rawRefreshToken));
   }
@@ -296,6 +298,27 @@ class AuthServiceTest {
         assertThrows(ApiException.class, () -> authService.reissue(rawRefreshToken));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.AUTH_REFRESH_TOKEN_EXPIRED);
+  }
+
+  @Test
+  @DisplayName("탈퇴한 사용자의 refresh token은 재발급에 사용할 수 없다")
+  void reissueForWithdrawnUserIsRejected() {
+    User user = new User(100L, "효창", "https://img.kakao.com/a.jpg");
+    ReflectionTestUtils.setField(user, "id", 1L);
+    String rawRefreshToken = jwtProvider.createRefreshToken(1L);
+    RefreshToken storedRefreshToken =
+        new RefreshToken(user, sha256(rawRefreshToken), LocalDateTime.now().plusDays(1));
+
+    given(refreshTokenRepository.findByTokenHash(sha256(rawRefreshToken)))
+        .willReturn(Optional.of(storedRefreshToken));
+    given(userRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.empty());
+
+    ApiException exception =
+        assertThrows(ApiException.class, () -> authService.reissue(rawRefreshToken));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.AUTH_REFRESH_TOKEN_INVALID);
+    verify(userRepository).findActiveByIdForUpdate(1L);
+    verify(refreshTokenRepository, never()).delete(storedRefreshToken);
   }
 
   private KakaoUserResponse kakaoUserResponse(

@@ -36,7 +36,7 @@ class UserServiceTest {
   void returnsUserWhenFound() {
     User user = new User(100L, "효창", "https://img.kakao.com/a.jpg", "puzzlemeet@example.com");
     ReflectionTestUtils.setField(user, "id", 1L);
-    given(userRepository.findById(1L)).willReturn(Optional.of(user));
+    given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(user));
 
     UserMeResponse response = userService.getMe(1L);
 
@@ -49,7 +49,7 @@ class UserServiceTest {
   @Test
   @DisplayName("존재하지 않는 사용자를 조회하면 USER_NOT_FOUND 예외가 발생한다")
   void throwsWhenUserNotFound() {
-    given(userRepository.findById(1L)).willReturn(Optional.empty());
+    given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.empty());
 
     ApiException exception = assertThrows(ApiException.class, () -> userService.getMe(1L));
 
@@ -61,7 +61,7 @@ class UserServiceTest {
   void updatesNicknameWhenUserFound() {
     User user = new User(100L, "효창", "https://img.kakao.com/a.jpg", "puzzlemeet@example.com");
     ReflectionTestUtils.setField(user, "id", 1L);
-    given(userRepository.findById(1L)).willReturn(Optional.of(user));
+    given(userRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(user));
 
     UserMeResponse response = userService.updateMe(1L, new UserUpdateRequest("새닉네임"));
 
