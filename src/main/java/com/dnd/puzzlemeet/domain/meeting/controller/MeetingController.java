@@ -2,6 +2,7 @@ package com.dnd.puzzlemeet.domain.meeting.controller;
 
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
@@ -9,11 +10,13 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureUpdateRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberLocationUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberPuzzleImageUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingResultResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
@@ -275,6 +278,23 @@ public class MeetingController {
     return ApiResult.success(null);
   }
 
+  @Operation(summary = "참여자 현재 위치 갱신", description = "약속 참여자가 자신의 현재 위치를 갱신한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.INVALID_INPUT_VALUE,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.AUTH_FORBIDDEN
+  })
+  @PatchMapping("/{meetingId}/members/location")
+  public ResponseEntity<ApiResult<Void>> updateCurrentLocation(
+      @AuthenticationPrincipal UserPrincipal principal,
+      @PathVariable Long meetingId,
+      @Valid @RequestBody MeetingMemberLocationUpdateRequest request) {
+    meetingService.updateCurrentLocation(
+        principal.id(), meetingId, request.latitude(), request.longitude());
+    return ApiResult.success(null);
+  }
+
   @Operation(summary = "약속 삭제", description = "방장이 대기 중인 약속을 삭제한다.")
   @ApiErrorCodeExamples({
     ErrorCode.AUTH_TOKEN_INVALID,
@@ -287,6 +307,32 @@ public class MeetingController {
       @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long meetingId) {
     meetingService.cancelMeeting(principal.id(), meetingId);
     return ApiResult.success(null);
+  }
+
+  @Operation(summary = "진행 중인 약속 데이터 조회", description = "진행 중인 약속방의 데이터를 조회한다. 1분 간격으로 polling 한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.AUTH_FORBIDDEN,
+    ErrorCode.MEETING_NOT_STARTED
+  })
+  @GetMapping("/{meetingId}/in-progress")
+  public ResponseEntity<ApiResult<MeetingInProgressResponse>> getMeetingInProgress(
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long meetingId) {
+    return ApiResult.success(meetingService.getMeetingInProgress(principal.id(), meetingId));
+  }
+
+  @Operation(summary = "약속 결과 조회", description = "완료된 약속방의 결과(퍼즐 피드, 도착 랭킹, 본인 출발 시각)를 조회한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.AUTH_FORBIDDEN,
+    ErrorCode.MEETING_NOT_COMPLETED
+  })
+  @GetMapping("/{meetingId}/result")
+  public ResponseEntity<ApiResult<MeetingResultResponse>> getMeetingResult(
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long meetingId) {
+    return ApiResult.success(meetingService.getMeetingResult(principal.id(), meetingId));
   }
 
   private MeetingStatus resolveStatus(String rawStatus) {

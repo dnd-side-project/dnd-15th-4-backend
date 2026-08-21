@@ -30,6 +30,8 @@ public enum ErrorCode {
       HttpStatus.BAD_REQUEST, "MEETING_HOST_CANNOT_LEAVE", "방장은 약속방을 나갈 수 없습니다. 약속을 삭제해 주세요."),
   MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED(
       HttpStatus.BAD_REQUEST, "MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED", "교체할 퍼즐 이미지가 필요합니다."),
+  MEETING_NOT_STARTED(HttpStatus.BAD_REQUEST, "MEETING_NOT_STARTED", "아직 시작되지 않은 약속입니다."),
+  MEETING_NOT_COMPLETED(HttpStatus.BAD_REQUEST, "MEETING_NOT_COMPLETED", "완료된 약속만 결과를 조회할 수 있습니다."),
 
   // 401 Unauthorized
   AUTH_KAKAO_UNAUTHORIZED(
@@ -61,6 +63,8 @@ public enum ErrorCode {
       HttpStatus.NOT_FOUND, "MEETING_MEMBER_NOT_FOUND", "약속 참여자 정보를 찾을 수 없습니다."),
   MEETING_DEPARTURE_NOT_FOUND(
       HttpStatus.NOT_FOUND, "MEETING_DEPARTURE_NOT_FOUND", "출발 설정을 찾을 수 없습니다."),
+  REACTION_PRESET_NOT_FOUND(
+      HttpStatus.NOT_FOUND, "REACTION_PRESET_NOT_FOUND", "존재하지 않거나 비활성화된 리액션 프리셋입니다."),
 
   // 405 Method Not Allowed
   METHOD_NOT_ALLOWED(HttpStatus.METHOD_NOT_ALLOWED, "METHOD_NOT_ALLOWED", "허용되지 않은 HTTP 메서드입니다."),
