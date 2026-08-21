@@ -1,7 +1,7 @@
 package com.dnd.puzzlemeet.global.exception;
 
-import com.dnd.puzzlemeet.global.response.ApiResult;
 import com.dnd.puzzlemeet.global.response.ErrorCode;
+import com.dnd.puzzlemeet.global.response.ErrorResult;
 import java.util.stream.Collectors;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.ResponseEntity;
@@ -26,107 +26,106 @@ public class GlobalExceptionHandler {
 
   // 비즈니스 로직에서 명시적으로 던진 예외
   @ExceptionHandler(ApiException.class)
-  public ResponseEntity<ApiResult<Void>> handleApiException(ApiException e) {
+  public ResponseEntity<ErrorResult> handleApiException(ApiException e) {
     ErrorCode errorCode = e.getErrorCode();
     log.warn("[비즈니스 예외] code={}, message={}", errorCode.getCode(), errorCode.getMessage());
-    return ApiResult.fail(errorCode);
+    return ErrorResult.of(errorCode);
   }
 
   // @Valid @RequestBody 검증 실패
   @ExceptionHandler(MethodArgumentNotValidException.class)
-  public ResponseEntity<ApiResult<Void>> handleMethodArgumentNotValid(
+  public ResponseEntity<ErrorResult> handleMethodArgumentNotValid(
       MethodArgumentNotValidException e) {
     log.warn("[검증 실패] 요청 바디 검증 실패: {}", extractBindingErrors(e.getBindingResult()));
-    return ApiResult.fail(ErrorCode.INVALID_INPUT_VALUE);
+    return ErrorResult.of(ErrorCode.INVALID_INPUT_VALUE);
   }
 
   // @ModelAttribute 바인딩/검증 실패
   @ExceptionHandler(BindException.class)
-  public ResponseEntity<ApiResult<Void>> handleBindException(BindException e) {
+  public ResponseEntity<ErrorResult> handleBindException(BindException e) {
     log.warn("[검증 실패] 파라미터 바인딩 검증 실패: {}", extractBindingErrors(e.getBindingResult()));
-    return ApiResult.fail(ErrorCode.INVALID_INPUT_VALUE);
+    return ErrorResult.of(ErrorCode.INVALID_INPUT_VALUE);
   }
 
   // @RequestParam/@PathVariable 등 메서드 파라미터 검증 실패
   @ExceptionHandler(HandlerMethodValidationException.class)
-  public ResponseEntity<ApiResult<Void>> handleHandlerMethodValidation(
+  public ResponseEntity<ErrorResult> handleHandlerMethodValidation(
       HandlerMethodValidationException e) {
     log.warn("[검증 실패] 메서드 파라미터 검증 실패: {}", e.getMessage());
-    return ApiResult.fail(ErrorCode.INVALID_INPUT_VALUE);
+    return ErrorResult.of(ErrorCode.INVALID_INPUT_VALUE);
   }
 
   // 요청 값 타입 불일치
   @ExceptionHandler(MethodArgumentTypeMismatchException.class)
-  public ResponseEntity<ApiResult<Void>> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
+  public ResponseEntity<ErrorResult> handleTypeMismatch(MethodArgumentTypeMismatchException e) {
     Class<?> requiredType = e.getRequiredType();
     log.warn(
         "[타입 불일치] name={}, requiredType={}",
         e.getName(),
         requiredType != null ? requiredType.getSimpleName() : "unknown");
-    return ApiResult.fail(ErrorCode.INVALID_TYPE_VALUE);
+    return ErrorResult.of(ErrorCode.INVALID_TYPE_VALUE);
   }
 
   // 필수 요청 파라미터 누락
   @ExceptionHandler(MissingServletRequestParameterException.class)
-  public ResponseEntity<ApiResult<Void>> handleMissingParameter(
+  public ResponseEntity<ErrorResult> handleMissingParameter(
       MissingServletRequestParameterException e) {
     log.warn("[파라미터 누락] name={}, type={}", e.getParameterName(), e.getParameterType());
-    return ApiResult.fail(ErrorCode.MISSING_REQUEST_PARAMETER);
+    return ErrorResult.of(ErrorCode.MISSING_REQUEST_PARAMETER);
   }
 
   // 필수 요청 헤더 누락
   @ExceptionHandler(MissingRequestHeaderException.class)
-  public ResponseEntity<ApiResult<Void>> handleMissingHeader(MissingRequestHeaderException e) {
+  public ResponseEntity<ErrorResult> handleMissingHeader(MissingRequestHeaderException e) {
     log.warn("[헤더 누락] name={}", e.getHeaderName());
-    return ApiResult.fail(ErrorCode.MISSING_REQUEST_HEADER);
+    return ErrorResult.of(ErrorCode.MISSING_REQUEST_HEADER);
   }
 
   // 요청 본문 파싱 실패 (JSON 문법 오류 등)
   @ExceptionHandler(HttpMessageNotReadableException.class)
-  public ResponseEntity<ApiResult<Void>> handleMessageNotReadable(
-      HttpMessageNotReadableException e) {
+  public ResponseEntity<ErrorResult> handleMessageNotReadable(HttpMessageNotReadableException e) {
     log.warn("[본문 파싱 실패] {}", e.getMessage());
-    return ApiResult.fail(ErrorCode.MALFORMED_REQUEST_BODY);
+    return ErrorResult.of(ErrorCode.MALFORMED_REQUEST_BODY);
   }
 
   // 지원하지 않는 HTTP 메서드
   @ExceptionHandler(HttpRequestMethodNotSupportedException.class)
-  public ResponseEntity<ApiResult<Void>> handleMethodNotAllowed(
+  public ResponseEntity<ErrorResult> handleMethodNotAllowed(
       HttpRequestMethodNotSupportedException e) {
     log.warn("[허용되지 않은 메서드] method={}, supported={}", e.getMethod(), e.getSupportedHttpMethods());
-    return ApiResult.fail(ErrorCode.METHOD_NOT_ALLOWED);
+    return ErrorResult.of(ErrorCode.METHOD_NOT_ALLOWED);
   }
 
   // 지원하지 않는 Content-Type
   @ExceptionHandler(HttpMediaTypeNotSupportedException.class)
-  public ResponseEntity<ApiResult<Void>> handleMediaTypeNotSupported(
+  public ResponseEntity<ErrorResult> handleMediaTypeNotSupported(
       HttpMediaTypeNotSupportedException e) {
     log.warn(
         "[지원하지 않는 Content-Type] contentType={}, supported={}",
         e.getContentType(),
         e.getSupportedMediaTypes());
-    return ApiResult.fail(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
+    return ErrorResult.of(ErrorCode.UNSUPPORTED_MEDIA_TYPE);
   }
 
   // 매핑되는 핸들러/리소스 없음 (404)
   @ExceptionHandler({NoHandlerFoundException.class, NoResourceFoundException.class})
-  public ResponseEntity<ApiResult<Void>> handleNotFound(Exception e) {
+  public ResponseEntity<ErrorResult> handleNotFound(Exception e) {
     log.warn("[리소스 없음] {}", e.getMessage());
-    return ApiResult.fail(ErrorCode.RESOURCE_NOT_FOUND);
+    return ErrorResult.of(ErrorCode.RESOURCE_NOT_FOUND);
   }
 
   // 잘못된 인자
   @ExceptionHandler(IllegalArgumentException.class)
-  public ResponseEntity<ApiResult<Void>> handleIllegalArgument(IllegalArgumentException e) {
+  public ResponseEntity<ErrorResult> handleIllegalArgument(IllegalArgumentException e) {
     log.warn("[잘못된 인자] {}", e.getMessage());
-    return ApiResult.fail(ErrorCode.BAD_REQUEST);
+    return ErrorResult.of(ErrorCode.BAD_REQUEST);
   }
 
   // 그 외 처리되지 않은 모든 예외
   @ExceptionHandler(Exception.class)
-  public ResponseEntity<ApiResult<Void>> handleException(Exception e) {
+  public ResponseEntity<ErrorResult> handleException(Exception e) {
     log.error("[처리되지 않은 예외] {}", e.getMessage(), e);
-    return ApiResult.fail(ErrorCode.INTERNAL_SERVER_ERROR);
+    return ErrorResult.of(ErrorCode.INTERNAL_SERVER_ERROR);
   }
 
   private String extractBindingErrors(BindingResult bindingResult) {

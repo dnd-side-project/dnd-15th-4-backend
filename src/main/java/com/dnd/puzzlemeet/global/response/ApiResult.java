@@ -2,15 +2,11 @@ package com.dnd.puzzlemeet.global.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 import lombok.Getter;
-import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 
 @Getter
 @Schema(description = "공통 API 응답 포맷")
 public class ApiResult<T> {
-
-  @Schema(description = "HTTP 상태 코드", example = "200")
-  private final int status;
 
   @Schema(description = "커스텀 코드", example = "API_SUCCESS")
   private final String code;
@@ -21,8 +17,7 @@ public class ApiResult<T> {
   @Schema(description = "응답 데이터", nullable = true)
   private final T data;
 
-  private ApiResult(HttpStatus httpStatus, String code, String message, T data) {
-    this.status = httpStatus.value();
+  private ApiResult(String code, String message, T data) {
     this.code = code;
     this.message = message;
     this.data = data;
@@ -33,16 +28,7 @@ public class ApiResult<T> {
   }
 
   public static <T> ResponseEntity<ApiResult<T>> success(SuccessCode successCode, T data) {
-    ApiResult<T> body =
-        new ApiResult<>(
-            successCode.getHttpStatus(), successCode.getCode(), successCode.getMessage(), data);
+    ApiResult<T> body = new ApiResult<>(successCode.getCode(), successCode.getMessage(), data);
     return ResponseEntity.status(successCode.getHttpStatus()).body(body);
-  }
-
-  public static ResponseEntity<ApiResult<Void>> fail(ErrorCode errorCode) {
-    ApiResult<Void> body =
-        new ApiResult<>(
-            errorCode.getHttpStatus(), errorCode.getCode(), errorCode.getMessage(), null);
-    return ResponseEntity.status(errorCode.getHttpStatus()).body(body);
   }
 }
