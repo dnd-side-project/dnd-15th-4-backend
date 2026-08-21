@@ -1,6 +1,7 @@
 package com.dnd.puzzlemeet.domain.user.service;
 
 import com.dnd.puzzlemeet.domain.user.dto.UserMeResponse;
+import com.dnd.puzzlemeet.domain.user.dto.UserUpdateRequest;
 import com.dnd.puzzlemeet.domain.user.entity.User;
 import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
 import com.dnd.puzzlemeet.global.exception.ApiException;
@@ -19,8 +20,18 @@ public class UserService {
   public UserMeResponse getMe(Long userId) {
     User user =
         userRepository
-            .findById(userId)
+            .findByIdAndDeletedAtIsNull(userId)
             .orElseThrow(() -> ApiException.of(ErrorCode.USER_NOT_FOUND));
+    return UserMeResponse.from(user);
+  }
+
+  @Transactional
+  public UserMeResponse updateMe(Long userId, UserUpdateRequest request) {
+    User user =
+        userRepository
+            .findActiveByIdForUpdate(userId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.USER_NOT_FOUND));
+    user.changeNickname(request.nickname());
     return UserMeResponse.from(user);
   }
 }

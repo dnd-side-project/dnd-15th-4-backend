@@ -25,6 +25,8 @@ import lombok.NoArgsConstructor;
 @NoArgsConstructor(access = AccessLevel.PROTECTED)
 public class MeetingMember extends BaseTimeEntity {
 
+  private static final String WITHDRAWN_NICKNAME = "탈퇴한 사용자";
+
   @Id
   @GeneratedValue(strategy = GenerationType.IDENTITY)
   private Long id;
@@ -44,6 +46,10 @@ public class MeetingMember extends BaseTimeEntity {
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 20)
   private MeetingMemberStatus status;
+
+  @Enumerated(EnumType.STRING)
+  @Column(length = 10)
+  private TravelMode travelMode;
 
   @Enumerated(EnumType.STRING)
   @Column(length = 10)
@@ -68,8 +74,29 @@ public class MeetingMember extends BaseTimeEntity {
 
   private LocalDateTime locationUpdatedAt;
 
-  @Column(nullable = false, length = 30)
+  @Column(nullable = false, length = 50)
   private String nickname;
+
+  @Column(nullable = false)
+  private boolean isCustomNickname;
+
+  @Column(length = 100)
+  private String departureName;
+
+  @Column(precision = 10, scale = 7)
+  private BigDecimal departureLatitude;
+
+  @Column(precision = 10, scale = 7)
+  private BigDecimal departureLongitude;
+
+  @Column(nullable = false)
+  private boolean isLocationNotificationEnabled;
+
+  @Column(nullable = false)
+  private boolean isFriendArrivalNotificationEnabled;
+
+  @Column(nullable = false)
+  private boolean isChatBubbleNotificationEnabled;
 
   public MeetingMember(Meeting meeting, User user, MeetingMemberRole role, String nickname) {
     this.meeting = meeting;
@@ -101,9 +128,59 @@ public class MeetingMember extends BaseTimeEntity {
     this.arrivedAt = LocalDateTime.now();
   }
 
+  public void changeNickname(String nickname) {
+    this.nickname = nickname;
+    this.isCustomNickname = true;
+  }
+
+  public void resetNicknameToDefault(String defaultNickname) {
+    this.nickname = defaultNickname;
+    this.isCustomNickname = false;
+  }
+
   public void updateCurrentLocation(BigDecimal currentLatitude, BigDecimal currentLongitude) {
     this.currentLatitude = currentLatitude;
     this.currentLongitude = currentLongitude;
     this.locationUpdatedAt = LocalDateTime.now();
+  }
+
+  public void updateDeparture(
+      String departureName,
+      BigDecimal departureLatitude,
+      BigDecimal departureLongitude,
+      TravelMode travelMode) {
+    this.departureName = departureName;
+    this.departureLatitude = departureLatitude;
+    this.departureLongitude = departureLongitude;
+    this.travelMode = travelMode;
+  }
+
+  public void updateNotificationSettings(
+      boolean locationNotificationEnabled,
+      boolean friendArrivalNotificationEnabled,
+      boolean chatBubbleNotificationEnabled) {
+    this.isLocationNotificationEnabled = locationNotificationEnabled;
+    this.isFriendArrivalNotificationEnabled = friendArrivalNotificationEnabled;
+    this.isChatBubbleNotificationEnabled = chatBubbleNotificationEnabled;
+  }
+
+  public void anonymizeForUserWithdrawal() {
+    this.transportType = null;
+    this.transportLine = null;
+    this.departedAt = null;
+    this.arrivedAt = null;
+    this.estimatedDurationSeconds = null;
+    this.durationCalculatedAt = null;
+    this.currentLatitude = null;
+    this.currentLongitude = null;
+    this.locationUpdatedAt = null;
+    this.nickname = WITHDRAWN_NICKNAME;
+    this.isCustomNickname = false;
+    this.departureName = null;
+    this.departureLatitude = null;
+    this.departureLongitude = null;
+    this.isLocationNotificationEnabled = false;
+    this.isFriendArrivalNotificationEnabled = false;
+    this.isChatBubbleNotificationEnabled = false;
   }
 }

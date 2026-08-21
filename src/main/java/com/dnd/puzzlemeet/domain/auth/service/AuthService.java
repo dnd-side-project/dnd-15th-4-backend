@@ -76,19 +76,22 @@ public class AuthService {
     String kakaoAccessToken = kakaoTokenClient.exchangeAuthorizationCode(authorizationCode);
     KakaoUserResponse kakaoUser = kakaoUserClient.getUserInfo(kakaoAccessToken);
     KakaoUserResponse.KakaoAccount.Profile profile = requireProfile(kakaoUser);
+    String email = resolveUsableEmail(kakaoUser.kakaoAccount());
     String nickname = profile.nickname();
     String profileImageUrl = profile.profileImageUrl();
 
     User user =
         userRepository
-            .findByKakaoId(kakaoUser.id())
+            .findActiveByKakaoIdForUpdate(kakaoUser.id())
             .map(
                 existing -> {
-                  existing.updateProfile(nickname, profileImageUrl);
+                  existing.updateKakaoProfile(email, profileImageUrl);
                   return existing;
                 })
             .orElseGet(
-                () -> userRepository.save(new User(kakaoUser.id(), nickname, profileImageUrl)));
+                () ->
+                    userRepository.save(
+                        new User(kakaoUser.id(), nickname, profileImageUrl, email)));
 
     return issueTokenPair(user);
   }
@@ -107,7 +110,10 @@ public class AuthService {
       throw ApiException.of(ErrorCode.AUTH_REFRESH_TOKEN_EXPIRED);
     }
 
-    User user = refreshToken.getUser();
+    User user =
+        userRepository
+            .findActiveByIdForUpdate(refreshToken.getUser().getId())
+            .orElseThrow(() -> ApiException.of(ErrorCode.AUTH_REFRESH_TOKEN_INVALID));
     refreshTokenRepository.delete(refreshToken);
 
     return issueTokenPair(user);
@@ -137,6 +143,16 @@ public class AuthService {
       throw ApiException.of(ErrorCode.AUTH_KAKAO_PROFILE_REQUIRED);
     }
     return kakaoAccount.profile();
+  }
+
+  private String resolveUsableEmail(KakaoUserResponse.KakaoAccount kakaoAccount) {
+    if (!Boolean.FALSE.equals(kakaoAccount.emailNeedsAgreement())
+        || !Boolean.TRUE.equals(kakaoAccount.isEmailValid())
+        || !Boolean.TRUE.equals(kakaoAccount.isEmailVerified())
+        || !StringUtils.hasText(kakaoAccount.email())) {
+      return null;
+    }
+    return kakaoAccount.email();
   }
 
   private TokenPair issueTokenPair(User user) {
