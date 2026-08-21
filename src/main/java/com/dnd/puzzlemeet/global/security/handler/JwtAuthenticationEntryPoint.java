@@ -1,7 +1,7 @@
 package com.dnd.puzzlemeet.global.security.handler;
 
-import com.dnd.puzzlemeet.global.response.ApiResult;
 import com.dnd.puzzlemeet.global.response.ErrorCode;
+import com.dnd.puzzlemeet.global.response.ErrorResult;
 import jakarta.servlet.ServletException;
 import jakarta.servlet.http.HttpServletRequest;
 import jakarta.servlet.http.HttpServletResponse;
@@ -39,8 +39,8 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
     response.setContentType(MediaType.APPLICATION_JSON_VALUE);
     response.setCharacterEncoding(StandardCharsets.UTF_8.name());
 
-    ApiResult<Void> apiResult = ApiResult.fail(ErrorCode.AUTH_TOKEN_INVALID).getBody();
-    response.getWriter().write(objectMapper.writeValueAsString(apiResult));
+    ErrorResult errorResult = ErrorResult.of(ErrorCode.AUTH_TOKEN_INVALID).getBody();
+    response.getWriter().write(objectMapper.writeValueAsString(errorResult));
     response.getWriter().flush();
 
     log.debug("[Authentication Failed] 401 JSON 응답 전송 완료");
