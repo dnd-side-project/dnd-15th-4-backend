@@ -14,6 +14,7 @@ import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
 import com.dnd.puzzlemeet.domain.meeting.entity.TransportType;
+import com.dnd.puzzlemeet.domain.meeting.entity.TravelMode;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRouteRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
@@ -234,7 +235,8 @@ class UserWithdrawalServiceTest {
     meetingMember.updateEstimatedDuration(1_200);
     meetingMember.updateCurrentLocation(
         BigDecimal.valueOf(37.1234567), BigDecimal.valueOf(127.1234567));
-    meetingMember.updateDeparture("강남역", BigDecimal.valueOf(37.4979), BigDecimal.valueOf(127.0276));
+    meetingMember.updateDeparture(
+        "강남역", BigDecimal.valueOf(37.4979), BigDecimal.valueOf(127.0276), TravelMode.TRANSIT);
     meetingMember.changeNickname("개인 닉네임");
     meetingMember.updateNotificationSettings(true, true, true);
     return meetingMember;

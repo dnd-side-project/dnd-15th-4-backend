@@ -37,18 +37,24 @@ public class MeetingMemberRoute {
   @Column(nullable = false)
   private int routeIndex;
 
-  @Column(nullable = false, length = 200)
-  private String content;
-
   @Enumerated(EnumType.STRING)
   @Column(nullable = false, length = 10)
   private TransportType transportType;
 
-  @Column(nullable = false, length = 100)
-  private String transportContent;
+  @Column(length = 50)
+  private String routeName;
+
+  @Column(length = 100)
+  private String startName;
+
+  @Column(length = 100)
+  private String endName;
 
   @Column(nullable = false)
-  private int estimatedTimeMinutes;
+  private int stationCount;
+
+  @Column(nullable = false)
+  private int sectionTimeSeconds;
 
   @CreatedDate
   @Column(nullable = false, updatable = false)
@@ -57,15 +63,19 @@ public class MeetingMemberRoute {
   public MeetingMemberRoute(
       MeetingMember meetingMember,
       int routeIndex,
-      String content,
       TransportType transportType,
-      String transportContent,
-      int estimatedTimeMinutes) {
+      String routeName,
+      String startName,
+      String endName,
+      int stationCount,
+      int sectionTimeSeconds) {
     this.meetingMember = meetingMember;
     this.routeIndex = routeIndex;
-    this.content = content;
     this.transportType = transportType;
-    this.transportContent = transportContent;
-    this.estimatedTimeMinutes = estimatedTimeMinutes;
+    this.routeName = routeName;
+    this.startName = startName;
+    this.endName = endName;
+    this.stationCount = stationCount;
+    this.sectionTimeSeconds = sectionTimeSeconds;
   }
 }

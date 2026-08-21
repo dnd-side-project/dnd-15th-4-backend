@@ -11,6 +11,8 @@ kakao:
 tmap:
   app-key: test-tmap-app-key
   transit-route-uri: https://apis.openapi.sk.com/transit/routes
+  car-route-uri: https://apis.openapi.sk.com/tmap/routes/prediction
+  pedestrian-route-uri: https://apis.openapi.sk.com/tmap/routes/pedestrian
   poi-search-uri: https://apis.openapi.sk.com/tmap/pois
 
 frontend:

@@ -49,6 +49,10 @@ public class MeetingMember extends BaseTimeEntity {
 
   @Enumerated(EnumType.STRING)
   @Column(length = 10)
+  private TravelMode travelMode;
+
+  @Enumerated(EnumType.STRING)
+  @Column(length = 10)
   private TransportType transportType;
 
   @Column(length = 50)
@@ -138,10 +142,14 @@ public class MeetingMember extends BaseTimeEntity {
   }
 
   public void updateDeparture(
-      String departureName, BigDecimal departureLatitude, BigDecimal departureLongitude) {
+      String departureName,
+      BigDecimal departureLatitude,
+      BigDecimal departureLongitude,
+      TravelMode travelMode) {
     this.departureName = departureName;
     this.departureLatitude = departureLatitude;
     this.departureLongitude = departureLongitude;
+    this.travelMode = travelMode;
   }
 
   public void updateNotificationSettings(

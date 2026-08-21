@@ -9,7 +9,6 @@ import java.time.format.DateTimeFormatter;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
-import java.util.Optional;
 import lombok.extern.slf4j.Slf4j;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
@@ -20,12 +19,11 @@ import org.springframework.web.client.RestClientException;
 
 @Slf4j
 @Component
-public class TmapRouteClient {
+public class TmapTransitClient {
 
   private static final int CONNECT_TIMEOUT_MILLIS = 2_000;
   private static final int READ_TIMEOUT_MILLIS = 5_000;
   private static final String APP_KEY_HEADER = "appKey";
-  private static final int RESULT_COUNT = 1;
   private static final int ROUTE_SEARCH_COUNT = 5;
   private static final int TOO_CLOSE_STATUS = 11;
   private static final DateTimeFormatter SEARCH_DATE_TIME_FORMAT =
@@ -35,7 +33,7 @@ public class TmapRouteClient {
   private final String transitRouteUri;
   private final String appKey;
 
-  public TmapRouteClient(TmapProperties tmapProperties) {
+  public TmapTransitClient(TmapProperties tmapProperties) {
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
     requestFactory.setConnectTimeout(CONNECT_TIMEOUT_MILLIS);
     requestFactory.setReadTimeout(READ_TIMEOUT_MILLIS);
@@ -44,30 +42,23 @@ public class TmapRouteClient {
     this.appKey = tmapProperties.appKey();
   }
 
-  public Optional<TmapRoute> findTransitRoute(
+  public List<TravelRoute> findTransitRoutes(
       double startLatitude,
       double startLongitude,
       double endLatitude,
       double endLongitude,
       LocalDateTime departAt) {
-    return requestItineraries(
-            startLatitude, startLongitude, endLatitude, endLongitude, departAt, RESULT_COUNT)
-        .map(itineraries -> toRoute(itineraries.getFirst()));
+    return toRoutes(
+        requestItineraries(
+            startLatitude,
+            startLongitude,
+            endLatitude,
+            endLongitude,
+            departAt,
+            ROUTE_SEARCH_COUNT));
   }
 
-  public List<TmapTransitRoute> findTransitRoutes(
-      double startLatitude,
-      double startLongitude,
-      double endLatitude,
-      double endLongitude,
-      LocalDateTime departAt) {
-    return requestItineraries(
-            startLatitude, startLongitude, endLatitude, endLongitude, departAt, ROUTE_SEARCH_COUNT)
-        .map(this::toTransitRoutes)
-        .orElseGet(List::of);
-  }
-
-  private Optional<List<TmapTransitRouteResponse.Itinerary>> requestItineraries(
+  private List<TmapTransitRouteResponse.Itinerary> requestItineraries(
       double startLatitude,
       double startLongitude,
       double endLatitude,
@@ -109,7 +100,7 @@ public class TmapRouteClient {
       int status = response.result().status();
       log.info("[지도 연동] 대중교통 경로 없음, status={}, elapsedMs={}", status, elapsedMs);
       if (status == TOO_CLOSE_STATUS) {
-        return Optional.empty();
+        throw ApiException.of(ErrorCode.MEETING_MAP_TOO_CLOSE);
       }
       throw ApiException.of(ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND);
     }
@@ -121,7 +112,7 @@ public class TmapRouteClient {
     }
 
     log.info("[지도 연동] 대중교통 경로 조회 성공, elapsedMs={}", elapsedMs);
-    return Optional.of(itineraries);
+    return itineraries;
   }
 
   private Map<String, Object> requestBody(
@@ -158,18 +149,17 @@ public class TmapRouteClient {
     return itinerary.legs() != null && !itinerary.legs().isEmpty();
   }
 
-  private List<TmapTransitRoute> toTransitRoutes(
-      List<TmapTransitRouteResponse.Itinerary> itineraries) {
-    return itineraries.stream().filter(this::hasLegs).map(this::toTransitRoute).toList();
+  private List<TravelRoute> toRoutes(List<TmapTransitRouteResponse.Itinerary> itineraries) {
+    return itineraries.stream().filter(this::hasLegs).map(this::toRoute).toList();
   }
 
-  private TmapTransitRoute toTransitRoute(TmapTransitRouteResponse.Itinerary itinerary) {
-    return new TmapTransitRoute(
+  private TravelRoute toRoute(TmapTransitRouteResponse.Itinerary itinerary) {
+    return new TravelRoute(
         itinerary.totalTime(),
         totalFare(itinerary),
         itinerary.transferCount(),
         itinerary.pathType(),
-        itinerary.legs().stream().map(this::toTransitLeg).toList());
+        itinerary.legs().stream().map(this::toLeg).toList());
   }
 
   private int totalFare(TmapTransitRouteResponse.Itinerary itinerary) {
@@ -179,8 +169,8 @@ public class TmapRouteClient {
     return itinerary.fare().regular().totalFare();
   }
 
-  private TmapTransitRoute.Leg toTransitLeg(TmapTransitRouteResponse.Leg leg) {
-    return new TmapTransitRoute.Leg(
+  private TravelRoute.Leg toLeg(TmapTransitRouteResponse.Leg leg) {
+    return new TravelRoute.Leg(
         toTransportType(leg.mode()),
         leg.route(),
         leg.routeColor(),
@@ -212,21 +202,6 @@ public class TmapRouteClient {
     return place != null ? place.lon() : null;
   }
 
-  private TmapRoute toRoute(TmapTransitRouteResponse.Itinerary itinerary) {
-    List<TmapRoute.Leg> legs = itinerary.legs().stream().map(this::toLeg).toList();
-    return new TmapRoute(itinerary.totalTime(), legs);
-  }
-
-  private TmapRoute.Leg toLeg(TmapTransitRouteResponse.Leg leg) {
-    return new TmapRoute.Leg(
-        toTransportType(leg.mode()),
-        leg.route(),
-        placeName(leg.start()),
-        placeName(leg.end()),
-        leg.sectionTime(),
-        stationCount(leg.passStopList()));
-  }
-
   private TransportType toTransportType(String mode) {
     if (mode == null) {
       return TransportType.ETC;
@@ -241,12 +216,5 @@ public class TmapRouteClient {
 
   private String placeName(TmapTransitRouteResponse.Place place) {
     return place != null ? place.name() : null;
-  }
-
-  private int stationCount(TmapTransitRouteResponse.PassStopList passStopList) {
-    if (passStopList == null || passStopList.stations() == null) {
-      return 0;
-    }
-    return Math.max(passStopList.stations().size() - 1, 0);
   }
 }

@@ -13,9 +13,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dnd.puzzlemeet.TestcontainersConfiguration;
-import com.dnd.puzzlemeet.domain.meeting.client.TmapRoute;
-import com.dnd.puzzlemeet.domain.meeting.client.TmapRouteClient;
-import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitRoute;
+import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitClient;
+import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
@@ -32,7 +31,8 @@ import com.dnd.puzzlemeet.global.security.service.JwtProvider;
 import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
-import java.util.Optional;
+import java.util.stream.Collectors;
+import java.util.stream.IntStream;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
@@ -57,7 +57,7 @@ class MeetingControllerTest {
   @Autowired private MeetingMemberRouteRepository meetingMemberRouteRepository;
   @Autowired private MemberImageRepository memberImageRepository;
   @Autowired private JwtProvider jwtProvider;
-  @MockitoBean private TmapRouteClient tmapRouteClient;
+  @MockitoBean private TmapTransitClient tmapTransitClient;
 
   @Test
   @DisplayName("인증된 참여자가 약속방 닉네임을 수정한다")
@@ -120,11 +120,6 @@ class MeetingControllerTest {
     MeetingMember member = saveMeetingMember("기본닉네임");
     String accessToken = jwtProvider.createAccessToken(member.getUser().getId());
     Long meetingId = member.getMeeting().getId();
-    given(
-            tmapRouteClient.findTransitRoute(
-                anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
-        .willReturn(Optional.of(transitRoute()));
-
     mockMvc
         .perform(
             post("/api/v1/meetings/{meetingId}/members/me/departure", meetingId)
@@ -149,11 +144,6 @@ class MeetingControllerTest {
     MeetingMember member = saveMeetingMember("기본닉네임");
     String accessToken = jwtProvider.createAccessToken(member.getUser().getId());
     Long meetingId = member.getMeeting().getId();
-    given(
-            tmapRouteClient.findTransitRoute(
-                anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
-        .willReturn(Optional.of(transitRoute()));
-
     mockMvc.perform(
         post("/api/v1/meetings/{meetingId}/members/me/departure", meetingId)
             .header("Authorization", "Bearer " + accessToken)
@@ -206,7 +196,7 @@ class MeetingControllerTest {
             new MeetingMember(meeting, guestUser, MeetingMemberRole.GUEST, "참여자닉네임"));
     memberImageRepository.save(new MemberImage(guest, "https://img.kakao.com/guest.png", true));
     meetingMemberRouteRepository.save(
-        new MeetingMemberRoute(guest, 1, "서울대학교", TransportType.WALK, "도보", 10));
+        new MeetingMemberRoute(guest, 1, TransportType.WALK, null, null, "태릉입구역", 0, 600));
     meetingMemberRepository.flush();
 
     String accessToken = jwtProvider.createAccessToken(guestUser.getId());
@@ -248,17 +238,29 @@ class MeetingControllerTest {
         {
           "departure": {"placeName": "서울대학교", "latitude": 37.5665, "longitude": 126.9780},
           "notificationSettings": {"locationPermission": true, "friendArrival": true, "chatBubble": false},
-          "nicknameSetting": {"enabled": true, "nickname": "김땡땡"}
+          "nicknameSetting": {"enabled": true, "nickname": "김땡땡"},
+          "route": {
+            "totalTime": 2400,
+            "steps": [
+              {"type": "WALK", "time": 600, "station": {"start": null, "end": "태릉입구역"}},
+              {
+                "type": "SUBWAY",
+                "time": 1800,
+                "line": "수도권6호선",
+                "station": {"start": "태릉입구역", "end": "디지털미디어시티역"},
+                "stations": %s
+              }
+            ]
+          }
         }
-        """;
+        """
+        .formatted(stationNamesJson(27));
   }
 
-  private TmapRoute transitRoute() {
-    return new TmapRoute(
-        2400,
-        List.of(
-            new TmapRoute.Leg(TransportType.WALK, null, null, "태릉입구역", 600, 0),
-            new TmapRoute.Leg(TransportType.SUBWAY, "수도권6호선", "태릉입구역", "디지털미디어시티역", 1800, 27)));
+  private String stationNamesJson(int stationCount) {
+    return IntStream.rangeClosed(0, stationCount)
+        .mapToObj(index -> "\"역" + index + "\"")
+        .collect(Collectors.joining(", ", "[", "]"));
   }
 
   @Test
@@ -267,7 +269,7 @@ class MeetingControllerTest {
     MeetingMember member = saveMeetingMember("기본닉네임");
     String accessToken = jwtProvider.createAccessToken(member.getUser().getId());
     given(
-            tmapRouteClient.findTransitRoutes(
+            tmapTransitClient.findTransitRoutes(
                 anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
         .willReturn(List.of(transitRouteWithFare()));
 
@@ -321,14 +323,14 @@ class MeetingControllerTest {
         .andExpect(jsonPath("$.code").value("MEETING_MEMBER_NOT_FOUND"));
   }
 
-  private TmapTransitRoute transitRouteWithFare() {
-    return new TmapTransitRoute(
+  private TravelRoute transitRouteWithFare() {
+    return new TravelRoute(
         2400,
         1850,
         1,
         1,
         List.of(
-            new TmapTransitRoute.Leg(
+            new TravelRoute.Leg(
                 TransportType.SUBWAY,
                 "수도권6호선",
                 "CD7C2F",

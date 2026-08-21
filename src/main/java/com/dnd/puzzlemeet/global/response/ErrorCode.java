@@ -23,7 +23,9 @@ public enum ErrorCode {
   MEETING_ARRIVAL_LOCATION_INVALID(
       HttpStatus.BAD_REQUEST, "MEETING_ARRIVAL_LOCATION_INVALID", "현재 위치가 약속 장소 도착 반경 밖입니다."),
   MEETING_MAP_ROUTE_NOT_FOUND(
-      HttpStatus.BAD_REQUEST, "MEETING_MAP_ROUTE_NOT_FOUND", "출발지에서 약속 장소까지 대중교통 경로를 찾을 수 없습니다."),
+      HttpStatus.BAD_REQUEST, "MEETING_MAP_ROUTE_NOT_FOUND", "출발지에서 약속 장소까지 가는 경로를 찾을 수 없습니다."),
+  MEETING_MAP_TOO_CLOSE(
+      HttpStatus.BAD_REQUEST, "MEETING_MAP_TOO_CLOSE", "이동 거리가 너무 가까워 대중교통 경로가 없습니다. 도보로 이동해 보세요."),
   MEETING_HOST_CANNOT_LEAVE(
       HttpStatus.BAD_REQUEST, "MEETING_HOST_CANNOT_LEAVE", "방장은 약속방을 나갈 수 없습니다. 약속을 삭제해 주세요."),
   MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED(

@@ -3,6 +3,7 @@ package com.dnd.puzzlemeet.domain.meeting.dto;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRoute;
 import com.dnd.puzzlemeet.domain.meeting.entity.TransportType;
+import com.dnd.puzzlemeet.domain.meeting.entity.TravelMode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.time.LocalDateTime;
@@ -23,7 +24,8 @@ public record MeetingMemberDepartureResponse(
             example = "2026-08-20T13:20:00",
             requiredMode = RequiredMode.REQUIRED)
         LocalDateTime recommendedDepartureTime,
-    @Schema(description = "이동 경로 목록", requiredMode = RequiredMode.REQUIRED) List<Route> routes) {
+    @Schema(description = "이동 경로 목록", requiredMode = RequiredMode.REQUIRED) List<Route> routes,
+    @Schema(description = "선택한 이동수단", example = "TRANSIT", nullable = true) TravelMode travelMode) {
 
   private static final int SECONDS_PER_MINUTE = 60;
 
@@ -42,7 +44,8 @@ public record MeetingMemberDepartureResponse(
         new NicknameSetting(member.isCustomNickname(), member.getNickname()),
         totalEstimatedMinutes(member),
         recommendedDepartureTime(member),
-        routes.stream().map(Route::from).toList());
+        routes.stream().map(route -> Route.of(route, member.getDepartureName())).toList(),
+        member.getTravelMode());
   }
 
   private static LocalDateTime recommendedDepartureTime(MeetingMember member) {
@@ -103,14 +106,57 @@ public record MeetingMemberDepartureResponse(
               description = "해당 경로 예상 소요 시간(분)",
               example = "30",
               requiredMode = RequiredMode.REQUIRED)
-          int estimatedTime) {
+          int estimatedTime,
+      @Schema(description = "승하차 역·정류장. 도보 구간에는 값이 없다", nullable = true) Station station) {
 
-    public static Route from(MeetingMemberRoute route) {
+    private static final int FIRST_ROUTE_INDEX = 1;
+    private static final String BOARDING_SUFFIX = " 승차";
+    private static final String WALK_CONTENT = "도보";
+    private static final String CAR_CONTENT = "차량 이동";
+    private static final String ETC_CONTENT = "이동";
+
+    public static Route of(MeetingMemberRoute route, String departureName) {
       return new Route(
-          route.getContent(),
+          content(route, departureName),
           route.getTransportType(),
-          route.getTransportContent(),
-          route.getEstimatedTimeMinutes());
+          transportContent(route),
+          estimatedMinutes(route),
+          boarding(route) ? new Station(route.getStartName(), route.getEndName()) : null);
+    }
+
+    private static boolean boarding(MeetingMemberRoute route) {
+      TransportType type = route.getTransportType();
+      return type != TransportType.WALK && type != TransportType.CAR;
+    }
+
+    private static String content(MeetingMemberRoute route, String departureName) {
+      if (boarding(route)) {
+        return route.getStartName() + " " + route.getRouteName() + BOARDING_SUFFIX;
+      }
+      if (route.getRouteIndex() == FIRST_ROUTE_INDEX) {
+        return departureName;
+      }
+      return route.getStartName() != null ? route.getStartName() : route.getEndName();
+    }
+
+    private static String transportContent(MeetingMemberRoute route) {
+      return switch (route.getTransportType()) {
+        case WALK -> WALK_CONTENT;
+        case CAR -> CAR_CONTENT;
+        case SUBWAY -> route.getStationCount() + "개 역 이동";
+        case BUS -> route.getStationCount() + "개 정류장 이동";
+        case ETC -> route.getRouteName() != null ? route.getRouteName() : ETC_CONTENT;
+      };
+    }
+
+    private static int estimatedMinutes(MeetingMemberRoute route) {
+      return (int) Math.round((double) route.getSectionTimeSeconds() / SECONDS_PER_MINUTE);
     }
   }
+
+  public record Station(
+      @Schema(description = "승차 역·정류장", example = "태릉입구역", requiredMode = RequiredMode.REQUIRED)
+          String start,
+      @Schema(description = "하차 역·정류장", example = "디지털미디어시티역", requiredMode = RequiredMode.REQUIRED)
+          String end) {}
 }
