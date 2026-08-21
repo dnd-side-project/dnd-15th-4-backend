@@ -16,9 +16,15 @@ public record MeetingRouteSearchResponse(
   public record Route(
       @Schema(description = "총 소요시간(초)", example = "3780", requiredMode = RequiredMode.REQUIRED)
           int totalTime,
-      @Schema(description = "요금(원)", example = "1850", requiredMode = RequiredMode.REQUIRED)
+      @Schema(
+              description = "요금(원). 대중교통은 운임, 차량은 예상 택시 요금, 도보는 0이다",
+              example = "1850",
+              requiredMode = RequiredMode.REQUIRED)
           int fare,
-      @Schema(description = "환승 횟수", example = "2", requiredMode = RequiredMode.REQUIRED)
+      @Schema(
+              description = "환승 횟수. 차량과 도보는 0이다",
+              example = "2",
+              requiredMode = RequiredMode.REQUIRED)
           int transferCount,
       @Schema(
               description =

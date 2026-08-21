@@ -336,6 +336,73 @@ class MeetingServiceTest {
   }
 
   @Test
+  @DisplayName("예상 소요시간이 1시간 미만이면 경로를 다시 조회하지 않는다")
+  void skipsSecondTransitSearchForShortRoute() {
+    LocalDateTime meetingAt = LocalDateTime.now().plusHours(3);
+    MeetingMember member = activeMember("효창", meetingAt);
+    givenActiveMember(member);
+    givenTransitRoutes(transitRoutes());
+
+    meetingService.searchRoutes(100L, 10L, searchRequest(37.5045, 127.0247, TravelMode.TRANSIT));
+
+    ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
+    verify(tmapTransitClient)
+        .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
+    assertThat(departAt.getValue()).isEqualTo(meetingAt);
+  }
+
+  @Test
+  @DisplayName("약속 시각이 이미 지났으면 현재 시각 기준으로 한 번만 조회한다")
+  void searchesTransitRoutesOnceForPastMeeting() {
+    MeetingMember member = activeMember("효창", LocalDateTime.now().minusHours(1));
+    givenActiveMember(member);
+    givenTransitRoutes(transitRoutes());
+
+    meetingService.searchRoutes(100L, 10L, searchRequest(37.5045, 127.0247, TravelMode.TRANSIT));
+
+    ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
+    verify(tmapTransitClient)
+        .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
+    assertThat(departAt.getValue()).isNull();
+  }
+
+  @Test
+  @DisplayName("역산한 출발 시각이 이미 지났으면 현재 시각 기준으로 다시 조회한다")
+  void searchesTransitRoutesAgainWithoutDepartureTimeWhenReQueryTimeHasPassed() {
+    LocalDateTime meetingAt = LocalDateTime.now().plusMinutes(30);
+    MeetingMember member = activeMember("효창", meetingAt);
+    givenActiveMember(member);
+    givenTransitRoutes(longTransitRoutes());
+
+    meetingService.searchRoutes(100L, 10L, searchRequest(37.5045, 127.0247, TravelMode.TRANSIT));
+
+    ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
+    verify(tmapTransitClient, times(2))
+        .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
+    assertThat(departAt.getAllValues().get(0)).isEqualTo(meetingAt);
+    assertThat(departAt.getAllValues().get(1)).isNull();
+  }
+
+  @Test
+  @DisplayName("약속 시각이 이미 지났으면 차량 경로도 도착 시각 없이 조회한다")
+  void searchesCarRouteWithoutArrivalTimeForPastMeeting() {
+    MeetingMember member = activeMember("효창", LocalDateTime.now().minusHours(1));
+    givenActiveMember(member);
+    given(
+            tmapCarClient.findCarRoute(
+                anyDouble(), anyDouble(), anyDouble(), anyDouble(), any(), any()))
+        .willReturn(carRoute());
+
+    meetingService.searchRoutes(100L, 10L, searchRequest(37.5045, 127.0247, TravelMode.CAR));
+
+    ArgumentCaptor<LocalDateTime> arriveAt = ArgumentCaptor.forClass(LocalDateTime.class);
+    verify(tmapCarClient)
+        .findCarRoute(
+            anyDouble(), anyDouble(), anyDouble(), anyDouble(), any(), arriveAt.capture());
+    assertThat(arriveAt.getValue()).isNull();
+  }
+
+  @Test
   @DisplayName("차량으로 조회하면 약속 시각 도착 기준으로 예상 택시비가 담긴 경로 한 건이 반환된다")
   void searchesCarRouteWithTaxiFare() {
     LocalDateTime meetingAt = LocalDateTime.now().plusHours(3);
