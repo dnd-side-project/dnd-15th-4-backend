@@ -34,8 +34,10 @@ Java 21 / Spring Boot 4.0.7 / Spring Framework 7 / MySQL.
 ### 2. 에러는 `throw ApiException.of(ErrorCode.XXX)`로 던진다
 
 - `GlobalExceptionHandler`가 로깅과 에러 응답 조립을 책임진다.
-  컨트롤러에서 `ApiResult.fail(...)`을 직접 반환하지 않는다
-- `success(...)`와 `fail(...)`은 둘 다 `ResponseEntity`를 반환한다. 다시 감싸지 않는다
+  성공은 `ApiResult`, 에러는 `ErrorResult`로 타입이 다르고 `ApiResult`에는 `fail()`이 없다.
+  컨트롤러에서 에러 본문을 직접 반환하면 컴파일되지 않는다
+- `ApiResult.success(...)`와 `ErrorResult.of(...)`는 둘 다 `ResponseEntity`를 반환한다.
+  다시 감싸지 않는다
 
 ### 3. 원격에 올리기 전에 사람에게 확인받는다
 

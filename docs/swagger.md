@@ -27,7 +27,7 @@ springdoc-openapi가 스펙을 `/v3/api-docs`로, Swagger UI를 `/swagger-ui.htm
   2개 이상이면 `@ApiErrorCodeExamples({ErrorCode.AUTH_TOKEN_INVALID, ErrorCode.USER_NOT_FOUND})`를 쓴다.
   둘 다 요소 이름이 `value()`라 위치 인자로 쓴다
 - **한 메서드에 둘을 같이 붙이지 않는다.** `SwaggerConfig`가 복수를 먼저 보고 단수를 무시한다
-- status·code·message와 예시 JSON은 넘긴 상수에서 꺼내 만든다. 예시를 직접 쓰지 않는다
+- code·message와 예시 JSON은 넘긴 상수에서 꺼내 만든다. 예시를 직접 쓰지 않는다
 - 같은 status인 코드는 하나의 응답 아래 예시 여러 개로 묶인다
 - 컨트롤러가 직접 던지지 않아도 **FE가 code로 분기해야 하는 것은 적는다.**
   서비스에서 던지는 코드도 포함이다
