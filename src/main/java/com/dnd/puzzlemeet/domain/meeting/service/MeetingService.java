@@ -7,6 +7,7 @@ import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInviteCodeResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
@@ -475,6 +476,20 @@ public class MeetingService {
         arrivedAt,
         earlyArrivalMinutes,
         late);
+  }
+
+  @Transactional(readOnly = true)
+  public MeetingInviteCodeResponse getInviteCode(Long userId, Long meetingId) {
+    Meeting meeting =
+        meetingRepository
+            .findById(meetingId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
+
+    if (!meeting.getHostUser().getId().equals(userId)) {
+      throw ApiException.of(ErrorCode.AUTH_FORBIDDEN);
+    }
+
+    return MeetingInviteCodeResponse.from(meeting);
   }
 
   @Transactional
