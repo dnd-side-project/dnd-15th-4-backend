@@ -16,6 +16,7 @@ import com.dnd.puzzlemeet.domain.meeting.client.TmapPedestrianClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInviteCodeResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureResponse;
@@ -230,6 +231,46 @@ class MeetingServiceTest {
 
     ApiException exception =
         assertThrows(ApiException.class, () -> meetingService.getMeetingInProgress(999L, 10L));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.AUTH_FORBIDDEN);
+  }
+
+  @Test
+  @DisplayName("방장이 약속방의 초대 코드를 조회한다")
+  void returnsInviteCode() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
+
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+
+    MeetingInviteCodeResponse response = meetingService.getInviteCode(100L, 10L);
+
+    assertThat(response.inviteCode()).isEqualTo("ABCD1234");
+  }
+
+  @Test
+  @DisplayName("존재하지 않는 약속의 초대 코드를 조회하면 MEETING_NOT_FOUND 예외가 발생한다")
+  void throwsWhenInviteCodeMeetingNotFound() {
+    given(meetingRepository.findById(10L)).willReturn(Optional.empty());
+
+    ApiException exception =
+        assertThrows(ApiException.class, () -> meetingService.getInviteCode(100L, 10L));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_NOT_FOUND);
+  }
+
+  @Test
+  @DisplayName("방장이 아니면 초대 코드를 조회할 때 AUTH_FORBIDDEN 예외가 발생한다")
+  void throwsWhenInviteCodeRequesterNotHost() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
+
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+
+    ApiException exception =
+        assertThrows(ApiException.class, () -> meetingService.getInviteCode(999L, 10L));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.AUTH_FORBIDDEN);
   }

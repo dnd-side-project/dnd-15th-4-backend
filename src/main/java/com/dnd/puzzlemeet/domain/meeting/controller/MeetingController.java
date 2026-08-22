@@ -3,6 +3,7 @@ package com.dnd.puzzlemeet.domain.meeting.controller;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInviteCodeResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingListResponse;
@@ -71,6 +72,18 @@ public class MeetingController {
           MultipartFile image) {
     return ApiResult.success(
         SuccessCode.CREATED, meetingService.createMeeting(principal.id(), request, image));
+  }
+
+  @Operation(summary = "약속방 초대 코드 조회", description = "방장이 자신이 만든 약속방의 초대 코드를 조회한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.AUTH_FORBIDDEN
+  })
+  @GetMapping("/{meetingId}/invite-code")
+  public ResponseEntity<ApiResult<MeetingInviteCodeResponse>> getInviteCode(
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long meetingId) {
+    return ApiResult.success(meetingService.getInviteCode(principal.id(), meetingId));
   }
 
   @Operation(summary = "초대 코드로 약속 조회", description = "초대 코드로 약속 정보를 조회한다. 참여하기 전 미리 보기용으로 사용된다.")
