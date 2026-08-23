@@ -118,7 +118,12 @@ class MeetingServiceTest {
     Meeting meeting = waitingMeeting();
     ReflectionTestUtils.setField(meeting, "id", 10L);
     MeetingMember member =
-        new MeetingMember(meeting, meeting.getHostUser(), MeetingMemberRole.HOST, "효창");
+        new MeetingMember(
+            meeting,
+            meeting.getHostUser(),
+            MeetingMemberRole.HOST,
+            "효창",
+            "https://img.kakao.com/host.png");
 
     given(meetingRepository.findByInviteCode("ABCD1234")).willReturn(Optional.of(meeting));
     given(meetingMemberRepository.findAllByMeetingIdInFetchUser(List.of(10L)))
@@ -171,7 +176,12 @@ class MeetingServiceTest {
     meeting.complete();
 
     MeetingMember member =
-        new MeetingMember(meeting, meeting.getHostUser(), MeetingMemberRole.HOST, "효창");
+        new MeetingMember(
+            meeting,
+            meeting.getHostUser(),
+            MeetingMemberRole.HOST,
+            "효창",
+            "https://img.kakao.com/host.png");
     ReflectionTestUtils.setField(member, "id", 1L);
 
     PuzzlePage page = new PuzzlePage(meeting, 1);
@@ -296,7 +306,12 @@ class MeetingServiceTest {
     Meeting meeting = waitingMeeting();
     ReflectionTestUtils.setField(meeting, "id", 10L);
     MeetingMember member =
-        new MeetingMember(meeting, meeting.getHostUser(), MeetingMemberRole.HOST, "이전닉네임");
+        new MeetingMember(
+            meeting,
+            meeting.getHostUser(),
+            MeetingMemberRole.HOST,
+            "이전닉네임",
+            "https://img.kakao.com/host.png");
     given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
     given(meetingMemberRepository.findByMeetingIdAndUserId(10L, 100L))
         .willReturn(Optional.of(member));
@@ -401,7 +416,12 @@ class MeetingServiceTest {
     Meeting meeting = waitingMeeting();
     ReflectionTestUtils.setField(meeting, "id", 10L);
     MeetingMember member =
-        new MeetingMember(meeting, meeting.getHostUser(), MeetingMemberRole.HOST, "효창");
+        new MeetingMember(
+            meeting,
+            meeting.getHostUser(),
+            MeetingMemberRole.HOST,
+            "효창",
+            "https://img.kakao.com/host.png");
     member.updateCurrentLocation(BigDecimal.valueOf(37.5283), BigDecimal.valueOf(126.9320));
     given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
     given(meetingMemberRepository.findByMeetingIdAndUserId(10L, 100L))
@@ -420,7 +440,12 @@ class MeetingServiceTest {
     Meeting meeting = waitingMeeting();
     ReflectionTestUtils.setField(meeting, "id", 10L);
     MeetingMember member =
-        new MeetingMember(meeting, meeting.getHostUser(), MeetingMemberRole.HOST, "효창");
+        new MeetingMember(
+            meeting,
+            meeting.getHostUser(),
+            MeetingMemberRole.HOST,
+            "효창",
+            "https://img.kakao.com/host.png");
     member.updateCurrentLocation(BigDecimal.valueOf(37.6), BigDecimal.valueOf(126.9320));
     given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
     given(meetingMemberRepository.findByMeetingIdAndUserId(10L, 100L))
@@ -918,7 +943,12 @@ class MeetingServiceTest {
     ReflectionTestUtils.setField(meeting, "id", 10L);
     ReflectionTestUtils.setField(meeting, "meetingAt", meetingAt);
     MeetingMember member =
-        new MeetingMember(meeting, meeting.getHostUser(), MeetingMemberRole.HOST, nickname);
+        new MeetingMember(
+            meeting,
+            meeting.getHostUser(),
+            MeetingMemberRole.HOST,
+            nickname,
+            "https://img.kakao.com/host.png");
     ReflectionTestUtils.setField(member, "id", 1L);
     return member;
   }
@@ -927,7 +957,9 @@ class MeetingServiceTest {
     Meeting meeting = waitingMeeting();
     ReflectionTestUtils.setField(meeting, "id", 10L);
     User guest = new User(200L, nickname, "https://img.kakao.com/b.jpg");
-    MeetingMember member = new MeetingMember(meeting, guest, MeetingMemberRole.GUEST, nickname);
+    MeetingMember member =
+        new MeetingMember(
+            meeting, guest, MeetingMemberRole.GUEST, nickname, "https://img.kakao.com/guest.png");
     ReflectionTestUtils.setField(member, "id", 1L);
     return member;
   }

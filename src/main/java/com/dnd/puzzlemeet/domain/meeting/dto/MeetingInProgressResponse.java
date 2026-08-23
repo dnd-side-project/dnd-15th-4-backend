@@ -55,7 +55,7 @@ public record MeetingInProgressResponse(
       return new Participant(
           member.getUser().getId(),
           member.getNickname(),
-          member.getUser().getProfileImageUrl(),
+          member.getProfileImageUrl(),
           member.getDepartedAt() != null,
           member.getDepartedAt(),
           member.getStatus() == MeetingMemberStatus.ARRIVED,

@@ -228,7 +228,9 @@ class UserWithdrawalServiceTest {
   }
 
   private MeetingMember meetingMember(User user) {
-    MeetingMember meetingMember = new MeetingMember(null, user, MeetingMemberRole.GUEST, "약속 닉네임");
+    MeetingMember meetingMember =
+        new MeetingMember(
+            null, user, MeetingMemberRole.GUEST, "약속 닉네임", "https://img.kakao.com/profile.png");
     ReflectionTestUtils.setField(meetingMember, "id", 10L);
     meetingMember.depart(TransportType.SUBWAY, "2호선");
     meetingMember.arrive();
