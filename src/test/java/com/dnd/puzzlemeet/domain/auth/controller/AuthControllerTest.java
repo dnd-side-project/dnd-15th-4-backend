@@ -28,6 +28,19 @@ class AuthControllerTest {
   @Autowired private MockMvc mockMvc;
 
   @Test
+  @DisplayName("로그인을 시작하면 카카오 인가 페이지에 계정 선택을 요청한다")
+  void authorizeRequestsKakaoAccountSelection() throws Exception {
+    mockMvc
+        .perform(get("/api/v1/auth/kakao/authorize"))
+        .andExpect(status().isFound())
+        .andExpect(
+            header()
+                .string(
+                    HttpHeaders.LOCATION,
+                    org.hamcrest.Matchers.containsString("prompt=select_account")));
+  }
+
+  @Test
   @DisplayName("로그인을 시작하면 state 쿠키를 심고 카카오 인가 페이지로 리다이렉트한다")
   void authorizeRedirectsToKakaoWithState() throws Exception {
     mockMvc

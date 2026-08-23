@@ -33,6 +33,7 @@ public class AuthService {
 
   private static final String HASH_ALGORITHM = "SHA-256";
   private static final String RESPONSE_TYPE_CODE = "code";
+  private static final String PROMPT_SELECT_ACCOUNT = "select_account";
 
   private final UserRepository userRepository;
   private final RefreshTokenRepository refreshTokenRepository;
@@ -48,6 +49,7 @@ public class AuthService {
         .queryParam("client_id", kakaoProperties.clientId())
         .queryParam("redirect_uri", kakaoProperties.redirectUri())
         .queryParam("state", state)
+        .queryParam("prompt", PROMPT_SELECT_ACCOUNT)
         .encode()
         .build()
         .toUri();
