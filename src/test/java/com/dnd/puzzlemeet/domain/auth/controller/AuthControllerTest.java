@@ -93,4 +93,39 @@ class AuthControllerTest {
         .perform(post("/api/v1/auth/reissue").contentType(MediaType.APPLICATION_JSON))
         .andExpect(status().isUnauthorized());
   }
+
+  @Test
+  @DisplayName("refresh token 쿠키 없이 로그아웃해도 쿠키를 만료시키고 성공으로 응답한다")
+  void logoutWithoutRefreshTokenCookieSucceeds() throws Exception {
+    mockMvc
+        .perform(post("/api/v1/auth/logout").contentType(MediaType.APPLICATION_JSON))
+        .andExpect(status().isOk())
+        .andExpect(
+            header()
+                .string(
+                    HttpHeaders.SET_COOKIE,
+                    org.hamcrest.Matchers.containsString("refresh_token=;")));
+  }
+
+  @Test
+  @DisplayName("이미 삭제된 refresh token으로 로그아웃해도 성공으로 응답한다")
+  void logoutWithUnknownRefreshTokenSucceeds() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/auth/logout")
+                .contentType(MediaType.APPLICATION_JSON)
+                .cookie(new Cookie("refresh_token", "already-deleted-refresh-token")))
+        .andExpect(status().isOk());
+  }
+
+  @Test
+  @DisplayName("access token이 유효하지 않아도 로그아웃은 성공한다")
+  void logoutWithInvalidAccessTokenSucceeds() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/auth/logout")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header(HttpHeaders.AUTHORIZATION, "Bearer expired-access-token"))
+        .andExpect(status().isOk());
+  }
 }

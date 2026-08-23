@@ -12,7 +12,6 @@ import com.dnd.puzzlemeet.global.exception.ApiException;
 import com.dnd.puzzlemeet.global.response.ApiResult;
 import com.dnd.puzzlemeet.global.response.ErrorCode;
 import com.dnd.puzzlemeet.global.security.FrontendProperties;
-import com.dnd.puzzlemeet.global.security.UserPrincipal;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -26,7 +25,6 @@ import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
-import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.web.bind.annotation.CookieValue;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -120,7 +118,9 @@ public class AuthController {
   @Operation(
       summary = "로그아웃",
       description =
-          "refresh token 쿠키에 해당하는 세션 하나만 삭제하고 쿠키를 만료시킨다. Content-Type이 application/json이어야 한다.",
+          "refresh token 쿠키에 해당하는 세션 하나만 삭제하고 쿠키를 만료시킨다."
+              + " access token 없이도 호출할 수 있고, 쿠키가 없거나 이미 삭제된 세션이어도 성공으로 응답한다."
+              + " Content-Type이 application/json이어야 한다.",
       requestBody =
           @RequestBody(
               description =
@@ -129,17 +129,12 @@ public class AuthController {
                   @Content(
                       mediaType = MediaType.APPLICATION_JSON_VALUE,
                       schema = @Schema(example = "{}"))))
-  @ApiErrorCodeExamples({
-    ErrorCode.AUTH_TOKEN_INVALID,
-    ErrorCode.AUTH_REFRESH_TOKEN_INVALID,
-    ErrorCode.UNSUPPORTED_MEDIA_TYPE
-  })
+  @ApiErrorCodeExamples({ErrorCode.UNSUPPORTED_MEDIA_TYPE})
   @PostMapping(value = "/logout", consumes = MediaType.APPLICATION_JSON_VALUE)
   public ResponseEntity<ApiResult<Void>> logout(
-      @AuthenticationPrincipal UserPrincipal principal,
       @CookieValue(name = REFRESH_TOKEN_COOKIE, required = false) String refreshToken,
       HttpServletResponse response) {
-    authService.logout(principal.id(), refreshToken);
+    authService.logout(refreshToken);
     response.addHeader(HttpHeaders.SET_COOKIE, authCookieProvider.expiredRefreshToken().toString());
     return ApiResult.success(null);
   }

@@ -120,12 +120,13 @@ public class AuthService {
   }
 
   @Transactional
-  public void logout(Long userId, String rawRefreshToken) {
-    requireRefreshTokenPresent(rawRefreshToken);
+  public void logout(String rawRefreshToken) {
+    if (!StringUtils.hasText(rawRefreshToken)) {
+      return;
+    }
 
     refreshTokenRepository
         .findByTokenHash(hash(rawRefreshToken))
-        .filter(refreshToken -> refreshToken.getUser().getId().equals(userId))
         .ifPresent(refreshTokenRepository::delete);
   }
 
