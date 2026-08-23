@@ -27,7 +27,7 @@ public record MeetingResultResponse(
           representativeMemberImage.getImageUrl(),
           representativeMemberImage.getMeetingMember().getUser().getId(),
           representativeMemberImage.getMeetingMember().getNickname(),
-          representativeMemberImage.getMeetingMember().getUser().getProfileImageUrl());
+          representativeMemberImage.getMeetingMember().getProfileImageUrl());
     }
   }
 

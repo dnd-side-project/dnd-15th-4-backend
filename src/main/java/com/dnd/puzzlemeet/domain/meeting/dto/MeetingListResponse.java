@@ -53,7 +53,7 @@ public record MeetingListResponse(
 
     public static Participant from(MeetingMember member) {
       return new Participant(
-          member.getUser().getId(), member.getNickname(), member.getUser().getProfileImageUrl());
+          member.getUser().getId(), member.getNickname(), member.getProfileImageUrl());
     }
   }
 }

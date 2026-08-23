@@ -193,7 +193,12 @@ class MeetingControllerTest {
     User guestUser = userRepository.save(new User(200L, "참여자닉네임", "https://img.kakao.com/b.jpg"));
     MeetingMember guest =
         meetingMemberRepository.save(
-            new MeetingMember(meeting, guestUser, MeetingMemberRole.GUEST, "참여자닉네임"));
+            new MeetingMember(
+                meeting,
+                guestUser,
+                MeetingMemberRole.GUEST,
+                "참여자닉네임",
+                "https://img.kakao.com/guest-profile.png"));
     memberImageRepository.save(new MemberImage(guest, "https://img.kakao.com/guest.png", true));
     meetingMemberRouteRepository.save(
         new MeetingMemberRoute(guest, 1, TransportType.WALK, null, null, "태릉입구역", 0, 600));
@@ -361,6 +366,11 @@ class MeetingControllerTest {
                 "ABCD1234",
                 null));
     return meetingMemberRepository.save(
-        new MeetingMember(meeting, user, MeetingMemberRole.HOST, nickname));
+        new MeetingMember(
+            meeting,
+            user,
+            MeetingMemberRole.HOST,
+            nickname,
+            "https://img.kakao.com/host-profile.png"));
   }
 }

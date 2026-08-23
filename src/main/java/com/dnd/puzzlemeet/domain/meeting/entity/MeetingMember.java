@@ -77,6 +77,9 @@ public class MeetingMember extends BaseTimeEntity {
   @Column(nullable = false, length = 50)
   private String nickname;
 
+  @Column(nullable = false, length = 500)
+  private String profileImageUrl;
+
   @Column(nullable = false)
   private boolean isCustomNickname;
 
@@ -98,11 +101,13 @@ public class MeetingMember extends BaseTimeEntity {
   @Column(nullable = false)
   private boolean isChatBubbleNotificationEnabled;
 
-  public MeetingMember(Meeting meeting, User user, MeetingMemberRole role, String nickname) {
+  public MeetingMember(
+      Meeting meeting, User user, MeetingMemberRole role, String nickname, String profileImageUrl) {
     this.meeting = meeting;
     this.user = user;
     this.role = role;
     this.nickname = nickname;
+    this.profileImageUrl = profileImageUrl;
     this.status = MeetingMemberStatus.NOT_STARTED;
   }
 

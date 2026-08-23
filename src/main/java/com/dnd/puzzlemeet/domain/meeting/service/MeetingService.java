@@ -471,7 +471,7 @@ public class MeetingService {
     return new MeetingResultResponse.RankingEntry(
         member.getUser().getId(),
         member.getNickname(),
-        member.getUser().getProfileImageUrl(),
+        member.getProfileImageUrl(),
         arrived,
         arrivedAt,
         earlyArrivalMinutes,
@@ -850,7 +850,8 @@ public class MeetingService {
   private void registerMember(
       Meeting meeting, User user, MeetingMemberRole role, String nickname, MultipartFile image) {
     String resolvedNickname = nickname != null ? nickname : user.getNickname();
-    MeetingMember member = new MeetingMember(meeting, user, role, resolvedNickname);
+    MeetingMember member =
+        new MeetingMember(meeting, user, role, resolvedNickname, pickRandomProfileImageUrl());
     meetingMemberRepository.save(member);
 
     boolean hasImage = image != null && !image.isEmpty();
@@ -942,6 +943,11 @@ public class MeetingService {
                 * Math.pow(Math.sin(longitudeDifference / 2), 2);
     double centralAngle = 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
     return EARTH_RADIUS_M * centralAngle;
+  }
+
+  private String pickRandomProfileImageUrl() {
+    String[] urls = DefaultProfileImageUrls.URLS;
+    return urls[RANDOM.nextInt(urls.length)];
   }
 
   private String uploadMemberImage(MultipartFile image) {
