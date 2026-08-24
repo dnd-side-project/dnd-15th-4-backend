@@ -1,6 +1,10 @@
 package com.dnd.puzzlemeet.domain.place.controller;
 
+import com.dnd.puzzlemeet.domain.place.dto.PlaceDetailResponse;
+import com.dnd.puzzlemeet.domain.place.dto.PlaceNearbySearchRequest;
+import com.dnd.puzzlemeet.domain.place.dto.PlaceNearbySearchResponse;
 import com.dnd.puzzlemeet.domain.place.dto.PlaceSearchResponse;
+import com.dnd.puzzlemeet.domain.place.service.NearbyPlaceService;
 import com.dnd.puzzlemeet.domain.place.service.PlaceService;
 import com.dnd.puzzlemeet.global.annotation.ApiErrorCodeExamples;
 import com.dnd.puzzlemeet.global.response.ApiResult;
@@ -8,6 +12,7 @@ import com.dnd.puzzlemeet.global.response.ErrorCode;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.Max;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
@@ -15,6 +20,9 @@ import jakarta.validation.constraints.Size;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.GetMapping;
+import org.springframework.web.bind.annotation.PathVariable;
+import org.springframework.web.bind.annotation.PostMapping;
+import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
@@ -26,8 +34,11 @@ import org.springframework.web.bind.annotation.RestController;
 public class PlaceController {
 
   private final PlaceService placeService;
+  private final NearbyPlaceService nearbyPlaceService;
 
-  @Operation(summary = "장소 검색", description = "키워드로 장소를 검색한다. 검색 결과가 없으면 빈 목록을 반환한다.")
+  @Operation(
+      summary = "목적지 검색",
+      description = "약속 목적지 선정을 위해 키워드로 장소를 검색한다. 검색 결과가 없으면 빈 목록을 반환한다.")
   @ApiErrorCodeExamples({
     ErrorCode.AUTH_TOKEN_INVALID,
     ErrorCode.INVALID_INPUT_VALUE,
@@ -49,8 +60,47 @@ public class PlaceController {
       @Parameter(description = "페이지당 조회 개수", example = "20")
           @RequestParam(defaultValue = "20")
           @Min(1)
-          @Max(200)
+          @Max(150)
           int size) {
     return ApiResult.success(placeService.searchPlaces(keyword, page, size));
+  }
+
+  @Operation(
+      summary = "주변 장소 검색",
+      description = "현재 위치를 기준으로 거리순 주변 장소를 검색한다. 검색 결과가 없으면 빈 목록을 반환한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.INVALID_INPUT_VALUE,
+    ErrorCode.MALFORMED_REQUEST_BODY,
+    ErrorCode.PLACE_SEARCH_UNAVAILABLE
+  })
+  @PostMapping("/nearby")
+  public ResponseEntity<ApiResult<PlaceNearbySearchResponse>> searchNearbyPlaces(
+      @Valid @RequestBody PlaceNearbySearchRequest request) {
+    return ApiResult.success(
+        nearbyPlaceService.searchNearbyPlaces(
+            request.latitude(),
+            request.longitude(),
+            request.radiusKm(),
+            request.categories(),
+            request.page(),
+            request.size()));
+  }
+
+  @Operation(summary = "장소 상세 조회", description = "검색 결과에서 선택한 장소의 상세 정보를 조회한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.INVALID_INPUT_VALUE,
+    ErrorCode.PLACE_NOT_FOUND,
+    ErrorCode.PLACE_SEARCH_UNAVAILABLE
+  })
+  @GetMapping("/{placeId}")
+  public ResponseEntity<ApiResult<PlaceDetailResponse>> getPlaceDetail(
+      @Parameter(description = "조회할 장소 식별자", example = "26338954")
+          @PathVariable
+          @NotBlank
+          @Size(max = 100)
+          String placeId) {
+    return ApiResult.success(placeService.getPlaceDetail(placeId));
   }
 }
