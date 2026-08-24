@@ -168,13 +168,16 @@ public class MeetingController {
         meetingService.updateMemberPuzzleImage(principal.id(), meetingId, image));
   }
 
-  @Operation(summary = "출발 설정 등록", description = "인증된 참여자의 출발지·알림 설정·닉네임과 이동 경로 조회로 고른 경로를 등록한다.")
+  @Operation(
+      summary = "출발 설정 등록",
+      description = "인증된 참여자의 출발지·알림 설정·닉네임과 이동 경로 조회로 고른 경로를 등록하고 출발 처리한다. 약속 당일에만 호출할 수 있다.")
   @ApiErrorCodeExamples({
     ErrorCode.AUTH_TOKEN_INVALID,
     ErrorCode.INVALID_INPUT_VALUE,
     ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND,
     ErrorCode.MEETING_NOT_FOUND,
     ErrorCode.MEETING_MEMBER_NOT_FOUND,
+    ErrorCode.MEETING_NOT_STARTED,
     ErrorCode.MEETING_DEPARTURE_ALREADY_SET,
     ErrorCode.MEETING_MEMBER_NOT_ACTIVE
   })

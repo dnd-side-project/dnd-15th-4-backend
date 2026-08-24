@@ -55,6 +55,7 @@ import com.dnd.puzzlemeet.global.exception.ApiException;
 import com.dnd.puzzlemeet.global.response.ErrorCode;
 import com.dnd.puzzlemeet.global.s3.AmazonS3Manager;
 import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.ArrayList;
 import java.util.List;
@@ -460,7 +461,7 @@ class MeetingServiceTest {
   @Test
   @DisplayName("출발 설정을 등록하면 이동 경로가 저장되고 예상 소요시간이 초 단위로 갱신된다")
   void createsDepartureWithTransitRoute() {
-    MeetingMember member = activeMember("효창");
+    MeetingMember member = activeMemberMeetingToday("효창");
     givenActiveMember(member);
     givenRouteSaveEchoesArgument();
 
@@ -478,7 +479,7 @@ class MeetingServiceTest {
     assertThat(member.getEstimatedDurationSeconds()).isEqualTo(2400);
     assertThat(member.getTransportType()).isEqualTo(TransportType.SUBWAY);
     assertThat(member.getTransportLine()).isEqualTo("수도권6호선");
-    assertThat(member.getStatus()).isEqualTo(MeetingMemberStatus.NOT_STARTED);
+    assertThat(member.getStatus()).isEqualTo(MeetingMemberStatus.MOVING);
     assertThat(response.totalEstimatedTime()).isEqualTo(40);
     assertThat(response.routes()).hasSize(2);
     assertThat(response.routes().get(0).content()).isEqualTo("서울대학교");
@@ -491,6 +492,54 @@ class MeetingServiceTest {
     assertThat(response.routes().get(1).station().end()).isEqualTo("디지털미디어시티역");
     assertThat(response.nicknameSetting().enabled()).isTrue();
     assertThat(response.nicknameSetting().nickname()).isEqualTo("김땡땡");
+  }
+
+  @Test
+  @DisplayName("출발 설정을 등록하면 이동 중으로 전이되고 출발 시각이 기록된다")
+  void marksMemberAsMovingWhenDepartureIsCreated() {
+    MeetingMember member = activeMemberMeetingToday("효창");
+    givenActiveMember(member);
+    givenRouteSaveEchoesArgument();
+    LocalDateTime before = LocalDateTime.now();
+
+    meetingService.createDeparture(
+        100L,
+        10L,
+        departureRequest(
+            "서울대학교",
+            37.5665,
+            126.9780,
+            new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null),
+            transitRouteRequest()));
+
+    assertThat(member.getStatus()).isEqualTo(MeetingMemberStatus.MOVING);
+    assertThat(member.getDepartedAt()).isNotNull();
+    assertThat(member.getDepartedAt()).isBetween(before, LocalDateTime.now());
+  }
+
+  @Test
+  @DisplayName("약속 당일이 아니면 출발 설정 등록에 실패한다")
+  void rejectsDepartureBeforeMeetingDay() {
+    MeetingMember member = activeMember("효창", LocalDate.now().plusDays(2).atTime(18, 0));
+    givenActiveMember(member);
+
+    ApiException exception =
+        assertThrows(
+            ApiException.class,
+            () ->
+                meetingService.createDeparture(
+                    100L,
+                    10L,
+                    departureRequest(
+                        "서울대학교",
+                        37.5665,
+                        126.9780,
+                        new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null),
+                        transitRouteRequest())));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_NOT_STARTED);
+    assertThat(member.getStatus()).isEqualTo(MeetingMemberStatus.NOT_STARTED);
+    assertThat(member.getDepartedAt()).isNull();
   }
 
   @Test
@@ -673,7 +722,7 @@ class MeetingServiceTest {
   @Test
   @DisplayName("차량으로 출발 설정하면 선택한 이동수단이 저장되고 차량 이동으로 표시된다")
   void createsDepartureWithCarRoute() {
-    MeetingMember member = activeMember("효창");
+    MeetingMember member = activeMemberMeetingToday("효창");
     givenActiveMember(member);
     givenRouteSaveEchoesArgument();
 
@@ -720,7 +769,7 @@ class MeetingServiceTest {
   @Test
   @DisplayName("닉네임 사용에 동의했는데 닉네임이 비어 있으면 출발 설정에 실패한다")
   void rejectsDepartureWhenCustomNicknameIsBlank() {
-    MeetingMember member = activeMember("효창");
+    MeetingMember member = activeMemberMeetingToday("효창");
     givenActiveMember(member);
 
     ApiException exception =
@@ -743,7 +792,7 @@ class MeetingServiceTest {
   @Test
   @DisplayName("닉네임 사용에 동의하지 않으면 약속방 닉네임이 사용자 기본 닉네임으로 저장된다")
   void fallsBackToUserNicknameWhenCustomNicknameDisabled() {
-    MeetingMember member = activeMember("이전닉네임");
+    MeetingMember member = activeMemberMeetingToday("이전닉네임");
     givenActiveMember(member);
     givenRouteSaveEchoesArgument();
 
@@ -766,7 +815,7 @@ class MeetingServiceTest {
   @Test
   @DisplayName("이미 출발 설정을 마친 참여자가 다시 등록하면 실패한다")
   void rejectsDuplicatedDeparture() {
-    MeetingMember member = activeMember("효창");
+    MeetingMember member = activeMemberMeetingToday("효창");
     member.updateDeparture(
         "서울대학교", BigDecimal.valueOf(37.5665), BigDecimal.valueOf(126.9780), TravelMode.TRANSIT);
     givenActiveMember(member);
@@ -882,7 +931,7 @@ class MeetingServiceTest {
   @Test
   @DisplayName("출발지가 약속 장소와 너무 가까우면 도보 한 구간으로 출발 설정이 완료된다")
   void createsWalkingRouteWhenDepartureIsTooClose() {
-    MeetingMember member = activeMember("효창");
+    MeetingMember member = activeMemberMeetingToday("효창");
     givenActiveMember(member);
     givenRouteSaveEchoesArgument();
 
@@ -936,6 +985,10 @@ class MeetingServiceTest {
 
   private MeetingMember activeMember(String nickname) {
     return activeMember(nickname, LocalDateTime.now().plusHours(3));
+  }
+
+  private MeetingMember activeMemberMeetingToday(String nickname) {
+    return activeMember(nickname, LocalDate.now().atTime(23, 30));
   }
 
   private MeetingMember activeMember(String nickname, LocalDateTime meetingAt) {

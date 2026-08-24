@@ -111,10 +111,8 @@ public class MeetingMember extends BaseTimeEntity {
     this.status = MeetingMemberStatus.NOT_STARTED;
   }
 
-  public void depart(TransportType transportType, String transportLine) {
+  public void depart() {
     this.status = MeetingMemberStatus.MOVING;
-    this.transportType = transportType;
-    this.transportLine = transportLine;
     this.departedAt = LocalDateTime.now();
   }
 
