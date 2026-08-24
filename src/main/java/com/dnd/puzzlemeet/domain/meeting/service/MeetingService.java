@@ -634,6 +634,9 @@ public class MeetingService {
     lockActiveUser(userId);
 
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
+    if (!member.getMeeting().getMeetingAt().toLocalDate().equals(LocalDate.now())) {
+      throw ApiException.of(ErrorCode.MEETING_NOT_STARTED);
+    }
     if (member.getDepartureName() != null) {
       throw ApiException.of(ErrorCode.MEETING_DEPARTURE_ALREADY_SET);
     }

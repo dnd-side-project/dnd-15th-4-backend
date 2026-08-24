@@ -29,7 +29,7 @@ import com.dnd.puzzlemeet.domain.user.entity.User;
 import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
 import com.dnd.puzzlemeet.global.security.service.JwtProvider;
 import java.math.BigDecimal;
-import java.time.LocalDateTime;
+import java.time.LocalDate;
 import java.util.List;
 import java.util.stream.Collectors;
 import java.util.stream.IntStream;
@@ -357,7 +357,7 @@ class MeetingControllerTest {
             new Meeting(
                 user,
                 "한강 피크닉",
-                LocalDateTime.of(2026, 8, 20, 14, 0),
+                LocalDate.now().atTime(14, 0),
                 "서울 여의도 한강공원",
                 null,
                 BigDecimal.valueOf(37.5283),
