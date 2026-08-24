@@ -357,7 +357,7 @@ class MeetingControllerTest {
             new Meeting(
                 user,
                 "한강 피크닉",
-                LocalDate.now().atTime(14, 0),
+                LocalDate.now().atTime(23, 30),
                 "서울 여의도 한강공원",
                 null,
                 BigDecimal.valueOf(37.5283),
