@@ -543,6 +543,56 @@ class MeetingServiceTest {
   }
 
   @Test
+  @DisplayName("다른 활성 약속에서 이동 중인 참여자는 출발 설정 등록에 실패한다")
+  void rejectsDepartureWhenMemberIsMovingInOtherActiveMeeting() {
+    MeetingMember member = activeMemberMeetingToday("효창");
+    givenActiveMember(member);
+    given(meetingMemberRepository.existsMovingMemberInOtherActiveMeeting(100L, 10L))
+        .willReturn(true);
+
+    ApiException exception =
+        assertThrows(
+            ApiException.class,
+            () ->
+                meetingService.createDeparture(
+                    100L,
+                    10L,
+                    departureRequest(
+                        "서울대학교",
+                        37.5665,
+                        126.9780,
+                        new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null),
+                        transitRouteRequest())));
+
+    assertThat(exception.getErrorCode())
+        .isEqualTo(ErrorCode.MEETING_MEMBER_MOVING_IN_OTHER_MEETING);
+    assertThat(member.getStatus()).isEqualTo(MeetingMemberStatus.NOT_STARTED);
+    verify(meetingMemberRouteRepository, never()).saveAll(any());
+  }
+
+  @Test
+  @DisplayName("다른 활성 약속에 이동 중인 참여자가 없으면 출발 설정을 등록할 수 있다")
+  void allowsDepartureWhenMemberIsNotMovingInOtherActiveMeeting() {
+    MeetingMember member = activeMemberMeetingToday("효창");
+    givenActiveMember(member);
+    given(meetingMemberRepository.existsMovingMemberInOtherActiveMeeting(100L, 10L))
+        .willReturn(false);
+    givenRouteSaveEchoesArgument();
+
+    meetingService.createDeparture(
+        100L,
+        10L,
+        departureRequest(
+            "서울대학교",
+            37.5665,
+            126.9780,
+            new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null),
+            transitRouteRequest()));
+
+    assertThat(member.getStatus()).isEqualTo(MeetingMemberStatus.MOVING);
+  }
+
+  @Test
   @DisplayName("출발지 좌표로 조회하면 약속 장소까지 가는 경로가 구간별로 반환된다")
   void searchesTransitRoutesToMeetingDestination() {
     MeetingMember member = activeMember("효창", LocalDateTime.now().plusHours(3));

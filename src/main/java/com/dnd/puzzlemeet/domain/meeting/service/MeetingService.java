@@ -640,6 +640,9 @@ public class MeetingService {
     if (member.getDepartureName() != null) {
       throw ApiException.of(ErrorCode.MEETING_DEPARTURE_ALREADY_SET);
     }
+    if (meetingMemberRepository.existsMovingMemberInOtherActiveMeeting(userId, meetingId)) {
+      throw ApiException.of(ErrorCode.MEETING_MEMBER_MOVING_IN_OTHER_MEETING);
+    }
 
     MeetingMemberDepartureCreateRequest.NicknameSetting nicknameSetting = request.nicknameSetting();
     applyNicknameSetting(member, nicknameSetting.enabled(), nicknameSetting.nickname());

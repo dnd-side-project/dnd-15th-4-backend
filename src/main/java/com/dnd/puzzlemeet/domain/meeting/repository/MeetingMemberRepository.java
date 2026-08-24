@@ -17,6 +17,21 @@ public interface MeetingMemberRepository extends JpaRepository<MeetingMember, Lo
 
   @Query(
       """
+      select case when count(mm) > 0 then true else false end
+      from MeetingMember mm
+      where mm.user.id = :userId
+        and mm.meeting.id <> :meetingId
+        and mm.status = com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberStatus.MOVING
+        and mm.meeting.status in (
+          com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus.WAITING,
+          com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus.IN_PROGRESS
+        )
+      """)
+  boolean existsMovingMemberInOtherActiveMeeting(
+      @Param("userId") Long userId, @Param("meetingId") Long meetingId);
+
+  @Query(
+      """
       select mm from MeetingMember mm
       join fetch mm.user
       where mm.meeting.id in :meetingIds

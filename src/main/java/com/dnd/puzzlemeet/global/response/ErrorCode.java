@@ -77,6 +77,8 @@ public enum ErrorCode {
       HttpStatus.CONFLICT, "MEETING_MEMBER_NOT_ACTIVE", "활성 상태의 약속 참여자만 요청할 수 있습니다."),
   MEETING_DEPARTURE_ALREADY_SET(
       HttpStatus.CONFLICT, "MEETING_DEPARTURE_ALREADY_SET", "이미 출발 설정을 완료했습니다."),
+  MEETING_MEMBER_MOVING_IN_OTHER_MEETING(
+      HttpStatus.CONFLICT, "MEETING_MEMBER_MOVING_IN_OTHER_MEETING", "다른 약속으로 이동 중이라 출발할 수 없습니다."),
   FAVORITE_SEARCH_ALREADY_EXISTS(
       HttpStatus.CONFLICT, "FAVORITE_SEARCH_ALREADY_EXISTS", "이미 등록된 장소 즐겨찾기입니다."),
   FAVORITE_SEARCH_LIMIT_EXCEEDED(
