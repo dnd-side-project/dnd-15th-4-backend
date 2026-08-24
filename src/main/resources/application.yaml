@@ -42,6 +42,7 @@ tmap:
   car-route-uri: https://apis.openapi.sk.com/tmap/routes/prediction
   pedestrian-route-uri: https://apis.openapi.sk.com/tmap/routes/pedestrian
   poi-search-uri: https://apis.openapi.sk.com/tmap/pois
+  poi-around-search-uri: https://apis.openapi.sk.com/tmap/pois/search/around
 
 frontend:
   login-redirect-uri: ${FRONTEND_LOGIN_REDIRECT_URI}

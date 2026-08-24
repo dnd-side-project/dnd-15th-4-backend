@@ -63,6 +63,7 @@ public enum ErrorCode {
       HttpStatus.NOT_FOUND, "MEETING_MEMBER_NOT_FOUND", "약속 참여자 정보를 찾을 수 없습니다."),
   MEETING_DEPARTURE_NOT_FOUND(
       HttpStatus.NOT_FOUND, "MEETING_DEPARTURE_NOT_FOUND", "출발 설정을 찾을 수 없습니다."),
+  PLACE_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_NOT_FOUND", "존재하지 않는 장소입니다."),
   REACTION_PRESET_NOT_FOUND(
       HttpStatus.NOT_FOUND, "REACTION_PRESET_NOT_FOUND", "존재하지 않거나 비활성화된 리액션 프리셋입니다."),
 

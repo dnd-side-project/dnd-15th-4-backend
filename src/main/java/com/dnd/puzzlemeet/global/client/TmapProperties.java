@@ -11,4 +11,5 @@ public record TmapProperties(
     @NotBlank String transitRouteUri,
     @NotBlank String carRouteUri,
     @NotBlank String pedestrianRouteUri,
-    @NotBlank String poiSearchUri) {}
+    @NotBlank String poiSearchUri,
+    @NotBlank String poiAroundSearchUri) {}

@@ -15,11 +15,15 @@ public record TmapPoiSearchResponse(SearchPoiInfo searchPoiInfo) {
       String frontLon,
       String noorLat,
       String noorLon,
+      String radius,
       String upperAddrName,
       String middleAddrName,
       String lowerAddrName,
       String firstNo,
       String secondNo,
+      String roadName,
+      String buildingNo1,
+      String buildingNo2,
       NewAddressList newAddressList) {}
 
   public record NewAddressList(List<NewAddress> newAddress) {}

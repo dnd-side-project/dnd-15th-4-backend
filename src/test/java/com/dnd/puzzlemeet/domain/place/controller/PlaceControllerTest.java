@@ -1,14 +1,21 @@
 package com.dnd.puzzlemeet.domain.place.controller;
 
+import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.ArgumentMatchers.anyInt;
+import static org.mockito.ArgumentMatchers.anyList;
 import static org.mockito.ArgumentMatchers.anyString;
 import static org.mockito.BDDMockito.given;
+import static org.mockito.BDDMockito.then;
+import static org.mockito.Mockito.never;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
+import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.post;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.jsonPath;
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dnd.puzzlemeet.TestcontainersConfiguration;
+import com.dnd.puzzlemeet.domain.place.client.TmapNearbyPlaceSearchResult;
 import com.dnd.puzzlemeet.domain.place.client.TmapPlaceClient;
+import com.dnd.puzzlemeet.domain.place.client.TmapPlaceDetailResult;
 import com.dnd.puzzlemeet.domain.place.client.TmapPlaceSearchResult;
 import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
 import com.dnd.puzzlemeet.global.security.service.JwtProvider;
@@ -19,6 +26,7 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.test.context.SpringBootTest;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
+import org.springframework.http.MediaType;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 
@@ -41,7 +49,7 @@ class PlaceControllerTest {
         .perform(
             get("/api/v1/places")
                 .param("keyword", "강남역")
-                .param("size", "201")
+                .param("size", "151")
                 .header("Authorization", "Bearer " + accessToken()))
         .andExpect(status().isBadRequest())
         .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
@@ -135,6 +143,123 @@ class PlaceControllerTest {
         .andExpect(jsonPath("$.data.places").isEmpty())
         .andExpect(jsonPath("$.data.hasNext").value(false))
         .andExpect(jsonPath("$.data.totalCount").value(0));
+  }
+
+  @Test
+  @DisplayName("현재 위치 주변의 장소 목록과 거리 정보가 반환된다")
+  void searchNearbyPlacesReturnsPlacesWithDistance() throws Exception {
+    given(
+            tmapPlaceClient.searchNearbyPlaces(
+                anyDouble(), anyDouble(), anyInt(), anyList(), anyInt(), anyInt()))
+        .willReturn(
+            new TmapNearbyPlaceSearchResult(
+                48,
+                1,
+                List.of(
+                    new TmapNearbyPlaceSearchResult.Place(
+                        "26338954",
+                        "또봉이통닭 사당역점",
+                        "서울 동작구 사당동 1031-29",
+                        "서울 동작구 동작대로7길 12",
+                        37.4767,
+                        126.9819,
+                        85))));
+
+    mockMvc
+        .perform(
+            post("/api/v1/places/nearby")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "latitude": 37.4765,
+                      "longitude": 126.9816,
+                      "radiusKm": 1,
+                      "categories": ["RESTAURANT", "CAFE", "TRANSIT"],
+                      "page": 0,
+                      "size": 20
+                    }
+                    """)
+                .header("Authorization", "Bearer " + accessToken()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.places[0].placeId").value("26338954"))
+        .andExpect(jsonPath("$.data.places[0].placeName").value("또봉이통닭 사당역점"))
+        .andExpect(jsonPath("$.data.places[0].distanceMeters").value(85))
+        .andExpect(jsonPath("$.data.page").value(0))
+        .andExpect(jsonPath("$.data.size").value(20))
+        .andExpect(jsonPath("$.data.hasNext").value(false))
+        .andExpect(jsonPath("$.data.totalCount").value(48));
+
+    then(tmapPlaceClient).should(never()).getPlaceDetail(anyString());
+  }
+
+  @Test
+  @DisplayName("주변 검색 요청의 현재 위치가 범위를 벗어나면 입력값 검증에 실패한다")
+  void searchNearbyPlacesRejectsInvalidCoordinates() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/places/nearby")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"latitude\": 91, \"longitude\": 126.9816}")
+                .header("Authorization", "Bearer " + accessToken()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+  }
+
+  @Test
+  @DisplayName("주변 검색 요청 본문이 없으면 본문 파싱 실패로 응답한다")
+  void searchNearbyPlacesRequiresBody() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/places/nearby")
+                .contentType(MediaType.APPLICATION_JSON)
+                .header("Authorization", "Bearer " + accessToken()))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("MALFORMED_REQUEST_BODY"));
+  }
+
+  @Test
+  @DisplayName("인증하지 않은 사용자는 주변 장소를 검색할 수 없다")
+  void searchNearbyPlacesRequiresAuthentication() throws Exception {
+    mockMvc
+        .perform(
+            post("/api/v1/places/nearby")
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"latitude\": 37.4765, \"longitude\": 126.9816}"))
+        .andExpect(status().isUnauthorized())
+        .andExpect(jsonPath("$.code").value("AUTH_TOKEN_INVALID"));
+  }
+
+  @Test
+  @DisplayName("선택한 장소의 업종과 운영 상세 정보가 반환된다")
+  void getPlaceDetailReturnsDisplayInformation() throws Exception {
+    given(tmapPlaceClient.getPlaceDetail("26338954"))
+        .willReturn(
+            new TmapPlaceDetailResult(
+                "26338954",
+                "또봉이통닭 사당역점",
+                "한식",
+                "서울 동작구 사당동 1031-29",
+                "서울 동작구 동작대로7길 12",
+                37.4767,
+                126.9819,
+                "02-123-4567",
+                "매일 15:00~24:00",
+                false,
+                true,
+                false,
+                null));
+
+    mockMvc
+        .perform(get("/api/v1/places/26338954").header("Authorization", "Bearer " + accessToken()))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.placeId").value("26338954"))
+        .andExpect(jsonPath("$.data.placeName").value("또봉이통닭 사당역점"))
+        .andExpect(jsonPath("$.data.categoryName").value("한식"))
+        .andExpect(jsonPath("$.data.businessHoursText").value("매일 15:00~24:00"))
+        .andExpect(jsonPath("$.data.open24HoursOnWeekdays").value(false))
+        .andExpect(jsonPath("$.data.openYearRound").value(true))
+        .andExpect(jsonPath("$.data.parkingAvailable").value(false));
   }
 
   private String accessToken() {
