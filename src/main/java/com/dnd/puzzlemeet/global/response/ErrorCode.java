@@ -64,6 +64,8 @@ public enum ErrorCode {
   MEETING_DEPARTURE_NOT_FOUND(
       HttpStatus.NOT_FOUND, "MEETING_DEPARTURE_NOT_FOUND", "출발 설정을 찾을 수 없습니다."),
   PLACE_NOT_FOUND(HttpStatus.NOT_FOUND, "PLACE_NOT_FOUND", "존재하지 않는 장소입니다."),
+  FAVORITE_SEARCH_NOT_FOUND(
+      HttpStatus.NOT_FOUND, "FAVORITE_SEARCH_NOT_FOUND", "존재하지 않는 장소 즐겨찾기입니다."),
   REACTION_PRESET_NOT_FOUND(
       HttpStatus.NOT_FOUND, "REACTION_PRESET_NOT_FOUND", "존재하지 않거나 비활성화된 리액션 프리셋입니다."),
 
@@ -75,6 +77,10 @@ public enum ErrorCode {
       HttpStatus.CONFLICT, "MEETING_MEMBER_NOT_ACTIVE", "활성 상태의 약속 참여자만 요청할 수 있습니다."),
   MEETING_DEPARTURE_ALREADY_SET(
       HttpStatus.CONFLICT, "MEETING_DEPARTURE_ALREADY_SET", "이미 출발 설정을 완료했습니다."),
+  FAVORITE_SEARCH_ALREADY_EXISTS(
+      HttpStatus.CONFLICT, "FAVORITE_SEARCH_ALREADY_EXISTS", "이미 등록된 장소 즐겨찾기입니다."),
+  FAVORITE_SEARCH_LIMIT_EXCEEDED(
+      HttpStatus.CONFLICT, "FAVORITE_SEARCH_LIMIT_EXCEEDED", "장소 즐겨찾기는 최대 5개까지 등록할 수 있습니다."),
   USER_WITHDRAWAL_BLOCKED_BY_HOSTED_MEETING(
       HttpStatus.CONFLICT,
       "USER_WITHDRAWAL_BLOCKED_BY_HOSTED_MEETING",

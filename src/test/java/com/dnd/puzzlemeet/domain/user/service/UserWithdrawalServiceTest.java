@@ -21,6 +21,7 @@ import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
+import com.dnd.puzzlemeet.domain.user.repository.FavoriteSearchRepository;
 import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
 import com.dnd.puzzlemeet.global.exception.ApiException;
 import com.dnd.puzzlemeet.global.response.ErrorCode;
@@ -51,6 +52,7 @@ class UserWithdrawalServiceTest {
   @Mock private MeetingMemberRouteRepository meetingMemberRouteRepository;
   @Mock private MemberImageRepository memberImageRepository;
   @Mock private RefreshTokenRepository refreshTokenRepository;
+  @Mock private FavoriteSearchRepository favoriteSearchRepository;
   @Mock private KakaoUnlinkClient kakaoUnlinkClient;
   @Mock private AmazonS3Manager amazonS3Manager;
   @Mock private EntityManager entityManager;
@@ -67,6 +69,7 @@ class UserWithdrawalServiceTest {
             meetingMemberRouteRepository,
             memberImageRepository,
             refreshTokenRepository,
+            favoriteSearchRepository,
             kakaoUnlinkClient,
             amazonS3Manager,
             entityManager);
@@ -97,11 +100,13 @@ class UserWithdrawalServiceTest {
     InOrder inOrder =
         inOrder(
             meetingMemberRouteRepository,
+            favoriteSearchRepository,
             refreshTokenRepository,
             entityManager,
             kakaoUnlinkClient,
             amazonS3Manager);
     inOrder.verify(meetingMemberRouteRepository).deleteAllByMeetingMemberIdIn(List.of(10L));
+    inOrder.verify(favoriteSearchRepository).deleteAllByUserId(1L);
     inOrder.verify(refreshTokenRepository).deleteAllByUserId(1L);
     inOrder.verify(entityManager).flush();
     inOrder.verify(kakaoUnlinkClient).unlink(100L);
@@ -183,6 +188,7 @@ class UserWithdrawalServiceTest {
     assertThat(exception.getErrorCode())
         .isEqualTo(ErrorCode.USER_WITHDRAWAL_BLOCKED_BY_HOSTED_MEETING);
     verifyNoInteractions(kakaoUnlinkClient);
+    verify(favoriteSearchRepository, never()).deleteAllByUserId(1L);
     verify(refreshTokenRepository, never()).deleteAllByUserId(1L);
     assertThat(user.getKakaoId()).isEqualTo(100L);
     assertThat(user.getDeletedAt()).isNull();
@@ -201,7 +207,9 @@ class UserWithdrawalServiceTest {
 
     assertThrows(IllegalStateException.class, () -> userWithdrawalService.withdraw(1L));
 
-    InOrder inOrder = inOrder(refreshTokenRepository, entityManager, kakaoUnlinkClient);
+    InOrder inOrder =
+        inOrder(favoriteSearchRepository, refreshTokenRepository, entityManager, kakaoUnlinkClient);
+    inOrder.verify(favoriteSearchRepository).deleteAllByUserId(1L);
     inOrder.verify(refreshTokenRepository).deleteAllByUserId(1L);
     inOrder.verify(entityManager).flush();
     inOrder.verify(kakaoUnlinkClient).unlink(100L);
