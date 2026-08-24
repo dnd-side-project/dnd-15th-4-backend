@@ -478,7 +478,7 @@ class MeetingServiceTest {
     assertThat(member.getEstimatedDurationSeconds()).isEqualTo(2400);
     assertThat(member.getTransportType()).isEqualTo(TransportType.SUBWAY);
     assertThat(member.getTransportLine()).isEqualTo("수도권6호선");
-    assertThat(member.getStatus()).isEqualTo(MeetingMemberStatus.NOT_STARTED);
+    assertThat(member.getStatus()).isEqualTo(MeetingMemberStatus.MOVING);
     assertThat(response.totalEstimatedTime()).isEqualTo(40);
     assertThat(response.routes()).hasSize(2);
     assertThat(response.routes().get(0).content()).isEqualTo("서울대학교");
@@ -491,6 +491,29 @@ class MeetingServiceTest {
     assertThat(response.routes().get(1).station().end()).isEqualTo("디지털미디어시티역");
     assertThat(response.nicknameSetting().enabled()).isTrue();
     assertThat(response.nicknameSetting().nickname()).isEqualTo("김땡땡");
+  }
+
+  @Test
+  @DisplayName("출발 설정을 등록하면 이동 중으로 전이되고 출발 시각이 기록된다")
+  void marksMemberAsMovingWhenDepartureIsCreated() {
+    MeetingMember member = activeMember("효창");
+    givenActiveMember(member);
+    givenRouteSaveEchoesArgument();
+    LocalDateTime before = LocalDateTime.now();
+
+    meetingService.createDeparture(
+        100L,
+        10L,
+        departureRequest(
+            "서울대학교",
+            37.5665,
+            126.9780,
+            new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null),
+            transitRouteRequest()));
+
+    assertThat(member.getStatus()).isEqualTo(MeetingMemberStatus.MOVING);
+    assertThat(member.getDepartedAt()).isNotNull();
+    assertThat(member.getDepartedAt()).isBetween(before, LocalDateTime.now());
   }
 
   @Test

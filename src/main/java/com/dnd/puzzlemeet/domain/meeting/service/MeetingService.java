@@ -648,6 +648,7 @@ public class MeetingService {
         notificationSettings.chatBubble());
 
     MeetingMemberDepartureCreateRequest.Departure departure = request.departure();
+    member.depart();
     return applyDeparture(
         member,
         departure.placeName(),
