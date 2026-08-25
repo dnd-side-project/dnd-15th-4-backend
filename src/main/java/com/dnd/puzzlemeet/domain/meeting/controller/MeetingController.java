@@ -170,7 +170,9 @@ public class MeetingController {
 
   @Operation(
       summary = "출발 설정 등록",
-      description = "인증된 참여자의 출발지·알림 설정·닉네임과 이동 경로 조회로 고른 경로를 등록하고 출발 처리한다. 약속 당일에만 호출할 수 있다.")
+      description =
+          "인증된 참여자의 출발지·알림 설정·닉네임과 이동 경로 조회로 고른 경로를 등록하고 출발 처리한다. "
+              + "약속 당일이며 약속방이 대기 또는 진행 중일 때만 호출할 수 있다. 다른 대기 또는 진행 중인 약속에서 이동 중이면 출발할 수 없다.")
   @ApiErrorCodeExamples({
     ErrorCode.AUTH_TOKEN_INVALID,
     ErrorCode.INVALID_INPUT_VALUE,
@@ -179,6 +181,7 @@ public class MeetingController {
     ErrorCode.MEETING_MEMBER_NOT_FOUND,
     ErrorCode.MEETING_NOT_STARTED,
     ErrorCode.MEETING_DEPARTURE_ALREADY_SET,
+    ErrorCode.MEETING_MEMBER_MOVING_IN_OTHER_MEETING,
     ErrorCode.MEETING_MEMBER_NOT_ACTIVE
   })
   @PostMapping("/{meetingId}/members/me/departure")
