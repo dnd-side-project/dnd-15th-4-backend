@@ -19,6 +19,7 @@ public interface MemberImageRepository extends JpaRepository<MemberImage, Long> 
       """
       select mi from MemberImage mi
       join fetch mi.meetingMember mm
+      join fetch mm.user
       where mm.meeting.id = :meetingId
       """)
   List<MemberImage> findAllByMeetingId(@Param("meetingId") Long meetingId);
