@@ -62,6 +62,7 @@ import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Objects;
+import java.util.Set;
 import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
@@ -450,15 +451,29 @@ public class MeetingService {
 
     List<MeetingResultResponse.PuzzleFeedItem> puzzleFeed =
         puzzlePages.stream()
-            .filter(
-                page ->
-                    isPuzzleCompleted(puzzlePiecesByPageId.getOrDefault(page.getId(), List.of())))
-            .map(PuzzlePage::getRepresentativeMemberImage)
-            .filter(Objects::nonNull)
-            .map(MeetingResultResponse.PuzzleFeedItem::from)
+            .map(
+                page -> {
+                  List<PuzzlePiece> pieces =
+                      puzzlePiecesByPageId.getOrDefault(page.getId(), List.of());
+                  return MeetingResultResponse.PuzzleFeedItem.of(
+                      page, pieces, isPuzzleCompleted(pieces));
+                })
             .toList();
 
-    return new MeetingResultResponse(puzzleFeed, rankings, myDepartedAt);
+    Set<Long> representativeImageIds =
+        puzzlePages.stream()
+            .map(PuzzlePage::getRepresentativeMemberImage)
+            .filter(Objects::nonNull)
+            .map(MemberImage::getId)
+            .collect(Collectors.toSet());
+
+    List<MeetingResultResponse.UnselectedImage> unselectedImages =
+        memberImageRepository.findAllByMeetingId(meetingId).stream()
+            .filter(image -> !representativeImageIds.contains(image.getId()))
+            .map(MeetingResultResponse.UnselectedImage::from)
+            .toList();
+
+    return new MeetingResultResponse(puzzleFeed, unselectedImages, rankings, myDepartedAt);
   }
 
   private MeetingResultResponse.RankingEntry toRankingEntry(
@@ -525,6 +540,7 @@ public class MeetingService {
           shuffledImages.subList(i, Math.min(i + PUZZLE_GROUP_SIZE, shuffledImages.size()));
 
       PuzzlePage page = new PuzzlePage(meeting, pageNumber++);
+      page.selectRepresentativeImage(group.get(RANDOM.nextInt(group.size())));
       puzzlePageRepository.save(page);
 
       for (int pieceIndex = 0; pieceIndex < PUZZLE_GROUP_SIZE; pieceIndex++) {
