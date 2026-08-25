@@ -118,6 +118,63 @@ class FavoriteSearchControllerTest {
   }
 
   @Test
+  @DisplayName("도로명 주소를 함께 등록하면 등록 응답과 목록 조회에서 모두 돌려준다")
+  void savesAndReturnsRoadAddressName() throws Exception {
+    User user = saveUser(100L, "효창");
+
+    mockMvc
+        .perform(
+            post(ENDPOINT)
+                .header("Authorization", bearerToken(user))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"keyword\":\"강남역\",\"roadAddressName\":\"  서울 강남구   강남대로 396  \"}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.data.keyword").value("강남역"))
+        .andExpect(jsonPath("$.data.roadAddressName").value("서울 강남구 강남대로 396"));
+
+    mockMvc
+        .perform(get(ENDPOINT).header("Authorization", bearerToken(user)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data[0].roadAddressName").value("서울 강남구 강남대로 396"));
+  }
+
+  @Test
+  @DisplayName("도로명 주소 없이 등록하면 응답의 도로명 주소는 null로 내려간다")
+  void returnsNullRoadAddressNameWhenOmitted() throws Exception {
+    User user = saveUser(100L, "효창");
+
+    mockMvc
+        .perform(
+            post(ENDPOINT)
+                .header("Authorization", bearerToken(user))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"keyword\":\"강남역\",\"roadAddressName\":\"   \"}"))
+        .andExpect(status().isCreated())
+        .andExpect(jsonPath("$.data.roadAddressName").value(org.hamcrest.Matchers.nullValue()));
+
+    mockMvc
+        .perform(get(ENDPOINT).header("Authorization", bearerToken(user)))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data[0].keyword").value("강남역"))
+        .andExpect(jsonPath("$.data[0].roadAddressName").value(org.hamcrest.Matchers.nullValue()));
+  }
+
+  @Test
+  @DisplayName("200자를 초과한 도로명 주소로 즐겨찾기를 등록하면 입력값 검증에 실패한다")
+  void rejectsRoadAddressNameOverTwoHundredCharacters() throws Exception {
+    User user = saveUser(100L, "효창");
+
+    mockMvc
+        .perform(
+            post(ENDPOINT)
+                .header("Authorization", bearerToken(user))
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"keyword\":\"강남역\",\"roadAddressName\":\"" + "a".repeat(201) + "\"}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+  }
+
+  @Test
   @DisplayName("장소 즐겨찾기는 사용자별로 분리되어 최근 등록한 순서로 조회된다")
   void listsFavoriteSearchesByUserInLatestOrder() throws Exception {
     User firstUser = saveUser(100L, "효창");
@@ -248,11 +305,13 @@ class FavoriteSearchControllerTest {
         .contains("user_id,normalized_keyword");
 
     User user = saveUser(100L, "효창");
-    favoriteSearchRepository.saveAndFlush(new FavoriteSearch(user, "SEOUL", "seoul"));
+    favoriteSearchRepository.saveAndFlush(new FavoriteSearch(user, "SEOUL", "seoul", null));
 
     assertThrows(
         DataIntegrityViolationException.class,
-        () -> favoriteSearchRepository.saveAndFlush(new FavoriteSearch(user, "seoul", "seoul")));
+        () ->
+            favoriteSearchRepository.saveAndFlush(
+                new FavoriteSearch(user, "seoul", "seoul", null)));
   }
 
   @Test

@@ -6,6 +6,7 @@ import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
+import static org.mockito.Mockito.times;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
@@ -59,7 +60,8 @@ class FavoriteSearchServiceTest {
 
     FavoriteSearchCreateResponse response =
         favoriteSearchService.createFavoriteSearch(
-            1L, new FavoriteSearchCreateRequest("\u00A0SEOUL\u2007\tStation\n\u202F센터\u3000"));
+            1L,
+            new FavoriteSearchCreateRequest("\u00A0SEOUL\u2007\tStation\n\u202F센터\u3000", null));
 
     ArgumentCaptor<FavoriteSearch> captor = ArgumentCaptor.forClass(FavoriteSearch.class);
     verify(favoriteSearchRepository).save(captor.capture());
@@ -79,6 +81,33 @@ class FavoriteSearchServiceTest {
   }
 
   @Test
+  @DisplayName("도로명 주소는 공백을 정규화해 저장하고 공백만 있으면 null로 저장한다")
+  void normalizesRoadAddressNameAndStoresBlankAsNull() {
+    given(userRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(user()));
+    given(favoriteSearchRepository.existsByUserIdAndNormalizedKeyword(1L, "강남역")).willReturn(false);
+    given(favoriteSearchRepository.existsByUserIdAndNormalizedKeyword(1L, "서울역")).willReturn(false);
+    given(favoriteSearchRepository.countByUserId(1L)).willReturn(0L);
+    given(favoriteSearchRepository.save(any(FavoriteSearch.class)))
+        .willAnswer(invocation -> invocation.getArgument(0));
+
+    FavoriteSearchCreateResponse withAddress =
+        favoriteSearchService.createFavoriteSearch(
+            1L, new FavoriteSearchCreateRequest("강남역", " 서울\t강남구  강남대로 396 "));
+    FavoriteSearchCreateResponse withoutAddress =
+        favoriteSearchService.createFavoriteSearch(
+            1L, new FavoriteSearchCreateRequest("서울역", "\u3000 "));
+
+    assertThat(withAddress.roadAddressName()).isEqualTo("서울 강남구 강남대로 396");
+    assertThat(withoutAddress.roadAddressName()).isNull();
+
+    ArgumentCaptor<FavoriteSearch> captor = ArgumentCaptor.forClass(FavoriteSearch.class);
+    verify(favoriteSearchRepository, times(2)).save(captor.capture());
+    assertThat(captor.getAllValues())
+        .extracting(FavoriteSearch::getRoadAddressName)
+        .containsExactly("서울 강남구 강남대로 396", null);
+  }
+
+  @Test
   @DisplayName("유니코드 공백만 있는 장소명은 서비스에서도 입력값 검증 실패로 거절한다")
   void rejectsUnicodeWhitespaceOnlyKeyword() {
     given(userRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(user()));
@@ -88,7 +117,7 @@ class FavoriteSearchServiceTest {
             ApiException.class,
             () ->
                 favoriteSearchService.createFavoriteSearch(
-                    1L, new FavoriteSearchCreateRequest("\u00A0\u2007\u202F\u3000")));
+                    1L, new FavoriteSearchCreateRequest("\u00A0\u2007\u202F\u3000", null)));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.INVALID_INPUT_VALUE);
     verifyNoInteractions(favoriteSearchRepository);
@@ -105,7 +134,7 @@ class FavoriteSearchServiceTest {
             ApiException.class,
             () ->
                 favoriteSearchService.createFavoriteSearch(
-                    1L, new FavoriteSearchCreateRequest(" 강남역 ")));
+                    1L, new FavoriteSearchCreateRequest(" 강남역 ", null)));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FAVORITE_SEARCH_ALREADY_EXISTS);
     verify(favoriteSearchRepository, never()).countByUserId(1L);
@@ -124,7 +153,7 @@ class FavoriteSearchServiceTest {
             ApiException.class,
             () ->
                 favoriteSearchService.createFavoriteSearch(
-                    1L, new FavoriteSearchCreateRequest("강남역")));
+                    1L, new FavoriteSearchCreateRequest("강남역", null)));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.FAVORITE_SEARCH_LIMIT_EXCEEDED);
     verify(favoriteSearchRepository, never()).save(any(FavoriteSearch.class));
@@ -140,7 +169,7 @@ class FavoriteSearchServiceTest {
             ApiException.class,
             () ->
                 favoriteSearchService.createFavoriteSearch(
-                    1L, new FavoriteSearchCreateRequest("강남역")));
+                    1L, new FavoriteSearchCreateRequest("강남역", null)));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
     verifyNoInteractions(favoriteSearchRepository);
@@ -161,7 +190,7 @@ class FavoriteSearchServiceTest {
   @Test
   @DisplayName("본인이 소유한 장소 즐겨찾기를 조회하면 해당 항목을 삭제한다")
   void deletesOwnedFavoriteSearch() {
-    FavoriteSearch favoriteSearch = new FavoriteSearch(user(), "강남역", "강남역");
+    FavoriteSearch favoriteSearch = new FavoriteSearch(user(), "강남역", "강남역", null);
     given(favoriteSearchRepository.findByIdAndUserId(10L, 1L))
         .willReturn(Optional.of(favoriteSearch));
 

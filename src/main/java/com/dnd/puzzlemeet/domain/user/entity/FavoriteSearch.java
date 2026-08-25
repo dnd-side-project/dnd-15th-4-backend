@@ -48,13 +48,18 @@ public class FavoriteSearch {
       columnDefinition = "varchar(100) collate utf8mb4_bin")
   private String normalizedKeyword;
 
+  @Column(length = 200)
+  private String roadAddressName;
+
   @CreatedDate
   @Column(nullable = false, updatable = false)
   private LocalDateTime createdAt;
 
-  public FavoriteSearch(User user, String keyword, String normalizedKeyword) {
+  public FavoriteSearch(
+      User user, String keyword, String normalizedKeyword, String roadAddressName) {
     this.user = user;
     this.keyword = keyword;
     this.normalizedKeyword = normalizedKeyword;
+    this.roadAddressName = roadAddressName;
   }
 }

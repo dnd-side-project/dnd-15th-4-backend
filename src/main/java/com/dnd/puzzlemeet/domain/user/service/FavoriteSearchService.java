@@ -49,7 +49,12 @@ public class FavoriteSearchService {
     }
 
     FavoriteSearch favoriteSearch =
-        favoriteSearchRepository.save(new FavoriteSearch(user, keyword, normalizedKeyword));
+        favoriteSearchRepository.save(
+            new FavoriteSearch(
+                user,
+                keyword,
+                normalizedKeyword,
+                normalizeRoadAddressName(request.roadAddressName())));
     return FavoriteSearchCreateResponse.from(favoriteSearch);
   }
 
@@ -67,6 +72,14 @@ public class FavoriteSearchService {
             .findByIdAndUserId(favoriteSearchId, userId)
             .orElseThrow(() -> ApiException.of(ErrorCode.FAVORITE_SEARCH_NOT_FOUND));
     favoriteSearchRepository.delete(favoriteSearch);
+  }
+
+  private String normalizeRoadAddressName(String roadAddressName) {
+    if (roadAddressName == null) {
+      return null;
+    }
+    String normalized = normalizeWhitespace(roadAddressName);
+    return normalized.isEmpty() ? null : normalized;
   }
 
   private String normalizeWhitespace(String keyword) {
