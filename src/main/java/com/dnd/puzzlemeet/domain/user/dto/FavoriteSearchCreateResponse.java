@@ -8,9 +8,12 @@ public record FavoriteSearchCreateResponse(
     @Schema(description = "장소 즐겨찾기 식별자", example = "1", requiredMode = RequiredMode.REQUIRED)
         Long id,
     @Schema(description = "저장된 장소명", example = "강남역", requiredMode = RequiredMode.REQUIRED)
-        String keyword) {
+        String keyword,
+    @Schema(description = "저장된 도로명 주소", example = "서울 강남구 강남대로 396", nullable = true)
+        String roadAddressName) {
 
   public static FavoriteSearchCreateResponse from(FavoriteSearch favoriteSearch) {
-    return new FavoriteSearchCreateResponse(favoriteSearch.getId(), favoriteSearch.getKeyword());
+    return new FavoriteSearchCreateResponse(
+        favoriteSearch.getId(), favoriteSearch.getKeyword(), favoriteSearch.getRoadAddressName());
   }
 }

@@ -48,7 +48,7 @@ class FavoriteSearchConcurrencyIntegrationTest {
     User user = userRepository.save(new User(100L, "효창", "https://img.kakao.com/profile.png"));
     for (int index = 1; index <= 4; index++) {
       favoriteSearchService.createFavoriteSearch(
-          user.getId(), new FavoriteSearchCreateRequest("기존 장소 " + index));
+          user.getId(), new FavoriteSearchCreateRequest("기존 장소 " + index, null));
     }
 
     CountDownLatch readyGate = new CountDownLatch(2);
@@ -81,7 +81,8 @@ class FavoriteSearchConcurrencyIntegrationTest {
     readyGate.countDown();
     startGate.await();
     try {
-      favoriteSearchService.createFavoriteSearch(userId, new FavoriteSearchCreateRequest(keyword));
+      favoriteSearchService.createFavoriteSearch(
+          userId, new FavoriteSearchCreateRequest(keyword, null));
       return null;
     } catch (ApiException e) {
       return e.getErrorCode();

@@ -13,4 +13,11 @@ public record FavoriteSearchCreateRequest(
             requiredMode = RequiredMode.REQUIRED)
         @NotBlank
         @Size(max = 100)
-        String keyword) {}
+        String keyword,
+    @Schema(
+            description = "장소 검색 결과의 도로명 주소. 검색 결과에 없으면 생략하거나 null로 보낸다",
+            example = "서울 강남구 강남대로 396",
+            maxLength = 200,
+            nullable = true)
+        @Size(max = 200)
+        String roadAddressName) {}
