@@ -12,6 +12,7 @@ Java 21 / Spring Boot 4.0.7 / Spring Framework 7 / MySQL.
 | 컨트롤러에 Swagger 어노테이션 붙이기 | `docs/swagger.md` |
 | 로그 남기기 | `docs/logging.md` |
 | 클래스·메서드·API 경로·테스트 이름 짓기, 패키지 구조 | `docs/naming.md` |
+| WebPush 구독·알림 발송 | `docs/web-push.md` |
 | 브랜치 만들기·커밋 메시지 쓰기·PR 올리기 | `docs/git.md` |
 
 문서 간에 같은 규칙이 다르게 적혀 있으면 이 파일을 기준으로 한다.
