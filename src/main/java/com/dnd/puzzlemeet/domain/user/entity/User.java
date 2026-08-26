@@ -11,6 +11,7 @@ import java.time.LocalDateTime;
 import lombok.AccessLevel;
 import lombok.Getter;
 import lombok.NoArgsConstructor;
+import org.hibernate.annotations.ColumnDefault;
 
 @Entity
 @Table(name = "users")
@@ -39,6 +40,18 @@ public class User extends BaseTimeEntity {
   @Column(name = "deleted_at")
   private LocalDateTime deletedAt;
 
+  @Column(nullable = false)
+  @ColumnDefault("true")
+  private boolean isLocationNotificationEnabled = true;
+
+  @Column(nullable = false)
+  @ColumnDefault("true")
+  private boolean isFriendArrivalNotificationEnabled = true;
+
+  @Column(nullable = false)
+  @ColumnDefault("true")
+  private boolean isChatBubbleNotificationEnabled = true;
+
   public User(Long kakaoId, String nickname, String profileImageUrl) {
     this(kakaoId, nickname, profileImageUrl, null);
   }
@@ -48,6 +61,9 @@ public class User extends BaseTimeEntity {
     this.email = email;
     this.nickname = nickname;
     this.profileImageUrl = profileImageUrl;
+    this.isLocationNotificationEnabled = true;
+    this.isFriendArrivalNotificationEnabled = true;
+    this.isChatBubbleNotificationEnabled = true;
   }
 
   public void changeNickname(String nickname) {
@@ -59,11 +75,23 @@ public class User extends BaseTimeEntity {
     this.profileImageUrl = profileImageUrl;
   }
 
+  public void updateNotificationSettings(
+      boolean locationNotificationEnabled,
+      boolean friendArrivalNotificationEnabled,
+      boolean chatBubbleNotificationEnabled) {
+    this.isLocationNotificationEnabled = locationNotificationEnabled;
+    this.isFriendArrivalNotificationEnabled = friendArrivalNotificationEnabled;
+    this.isChatBubbleNotificationEnabled = chatBubbleNotificationEnabled;
+  }
+
   public void withdraw() {
     this.kakaoId = null;
     this.email = null;
     this.nickname = WITHDRAWN_NICKNAME;
     this.profileImageUrl = null;
+    this.isLocationNotificationEnabled = false;
+    this.isFriendArrivalNotificationEnabled = false;
+    this.isChatBubbleNotificationEnabled = false;
     this.deletedAt = LocalDateTime.now();
   }
 }
