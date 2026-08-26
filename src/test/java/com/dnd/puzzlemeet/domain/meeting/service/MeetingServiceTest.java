@@ -185,7 +185,8 @@ class MeetingServiceTest {
     given(meetingMemberRepository.countByMeetingId(10L)).willReturn(1L);
 
     MeetingJoinResponse response =
-        meetingService.joinMeeting(200L, new MeetingJoinRequest("ABCD1234", null), null);
+        meetingService.joinMeeting(
+            200L, new MeetingJoinRequest("ABCD1234", null, false, false), null);
 
     assertThat(response.meetingId()).isEqualTo(10L);
     verify(meetingMemberRepository).save(any(MeetingMember.class));
@@ -207,7 +208,9 @@ class MeetingServiceTest {
     ApiException exception =
         assertThrows(
             ApiException.class,
-            () -> meetingService.joinMeeting(200L, new MeetingJoinRequest("ABCD1234", null), null));
+            () ->
+                meetingService.joinMeeting(
+                    200L, new MeetingJoinRequest("ABCD1234", null, false, false), null));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_CAPACITY_EXCEEDED);
     verify(meetingMemberRepository, never()).save(any(MeetingMember.class));

@@ -141,7 +141,14 @@ public class MeetingService {
             request.memo());
     meetingRepository.save(meeting);
 
-    registerMember(meeting, host, MeetingMemberRole.HOST, request.nickname(), image);
+    registerMember(
+        meeting,
+        host,
+        MeetingMemberRole.HOST,
+        request.nickname(),
+        request.nicknameSet(),
+        request.imageSet(),
+        image);
 
     return MeetingCreateResponse.from(meeting);
   }
@@ -188,7 +195,14 @@ public class MeetingService {
       throw ApiException.of(ErrorCode.MEETING_CAPACITY_EXCEEDED);
     }
 
-    registerMember(meeting, user, MeetingMemberRole.GUEST, request.nickname(), image);
+    registerMember(
+        meeting,
+        user,
+        MeetingMemberRole.GUEST,
+        request.nickname(),
+        request.nicknameSet(),
+        request.imageSet(),
+        image);
 
     return MeetingJoinResponse.from(meeting);
   }
@@ -884,15 +898,26 @@ public class MeetingService {
   }
 
   private void registerMember(
-      Meeting meeting, User user, MeetingMemberRole role, String nickname, MultipartFile image) {
-    String resolvedNickname = nickname != null ? nickname : user.getNickname();
+      Meeting meeting,
+      User user,
+      MeetingMemberRole role,
+      String nickname,
+      boolean nicknameSet,
+      boolean imageSet,
+      MultipartFile image) {
+    String resolvedNickname = nicknameSet ? nickname : user.getNickname();
     MeetingMember member =
         new MeetingMember(meeting, user, role, resolvedNickname, pickRandomProfileImageUrl());
+    if (nicknameSet) {
+      member.changeNickname(resolvedNickname);
+    }
+    if (imageSet) {
+      member.markCustomImage();
+    }
     meetingMemberRepository.save(member);
 
-    boolean hasImage = image != null && !image.isEmpty();
-    String imageUrl = hasImage ? uploadMemberImage(image) : DEFAULT_MEMBER_IMAGE_URL;
-    memberImageRepository.save(new MemberImage(member, imageUrl, !hasImage));
+    String imageUrl = uploadMemberImage(image);
+    memberImageRepository.save(new MemberImage(member, imageUrl, !imageSet));
   }
 
   private void lockActiveUser(Long userId) {

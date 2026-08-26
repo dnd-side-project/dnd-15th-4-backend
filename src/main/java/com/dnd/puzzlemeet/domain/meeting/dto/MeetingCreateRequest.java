@@ -54,4 +54,10 @@ public record MeetingCreateRequest(
             maxLength = 30,
             nullable = true)
         @Size(max = 30)
-        String nickname) {}
+        String nickname,
+    @Schema(description = "닉네임 설정 여부", example = "true", requiredMode = RequiredMode.REQUIRED)
+        @NotNull
+        Boolean nicknameSet,
+    @Schema(description = "퍼즐 이미지 설정 여부", example = "true", requiredMode = RequiredMode.REQUIRED)
+        @NotNull
+        Boolean imageSet) {}

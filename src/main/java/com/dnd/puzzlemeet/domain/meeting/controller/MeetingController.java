@@ -68,8 +68,7 @@ public class MeetingController {
   public ResponseEntity<ApiResult<MeetingCreateResponse>> createMeeting(
       @AuthenticationPrincipal UserPrincipal principal,
       @Valid @RequestPart("request") MeetingCreateRequest request,
-      @Parameter(description = "약속 퍼즐 이미지") @RequestPart(value = "image", required = false)
-          MultipartFile image) {
+      @Parameter(description = "약속 퍼즐 이미지") @RequestPart("image") MultipartFile image) {
     return ApiResult.success(
         SuccessCode.CREATED, meetingService.createMeeting(principal.id(), request, image));
   }
@@ -111,8 +110,7 @@ public class MeetingController {
   public ResponseEntity<ApiResult<MeetingJoinResponse>> joinMeeting(
       @AuthenticationPrincipal UserPrincipal principal,
       @Valid @RequestPart("request") MeetingJoinRequest request,
-      @Parameter(description = "약속방 퍼즐 이미지") @RequestPart(value = "image", required = false)
-          MultipartFile image) {
+      @Parameter(description = "약속방 퍼즐 이미지") @RequestPart("image") MultipartFile image) {
     return ApiResult.success(meetingService.joinMeeting(principal.id(), request, image));
   }
 
