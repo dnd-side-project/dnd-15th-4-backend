@@ -34,6 +34,7 @@ import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRoute;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberStatus;
+import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
 import com.dnd.puzzlemeet.domain.meeting.entity.ReactionMessage;
 import com.dnd.puzzlemeet.domain.meeting.entity.ReactionPreset;
 import com.dnd.puzzlemeet.domain.meeting.entity.TransportType;
@@ -593,6 +594,53 @@ class MeetingServiceTest {
   }
 
   @Test
+  @DisplayName("대기 중인 약속은 첫 출발 설정 등록으로 진행 중이 되고 퍼즐 그룹이 배정된다")
+  void startsWaitingMeetingOnFirstDeparture() {
+    MeetingMember member = activeMemberMeetingToday("효창");
+    givenActiveMember(member);
+    givenRouteSaveEchoesArgument();
+    given(memberImageRepository.findAllByMeetingId(10L))
+        .willReturn(List.of(new MemberImage(member, "https://s3.test/puzzles/a.png", false)));
+
+    meetingService.createDeparture(
+        100L,
+        10L,
+        departureRequest(
+            "서울대학교",
+            37.5665,
+            126.9780,
+            new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null),
+            transitRouteRequest()));
+
+    assertThat(member.getMeeting().getStatus()).isEqualTo(MeetingStatus.IN_PROGRESS);
+    verify(puzzlePageRepository).save(any());
+    verify(puzzlePieceRepository, times(4)).save(any());
+  }
+
+  @Test
+  @DisplayName("이미 진행 중인 약속에 출발 설정을 등록하면 퍼즐 그룹을 다시 배정하지 않는다")
+  void doesNotReassignPuzzleGroupsWhenMeetingAlreadyStarted() {
+    MeetingMember member = activeMemberMeetingToday("효창");
+    member.getMeeting().start();
+    givenActiveMember(member);
+    givenRouteSaveEchoesArgument();
+
+    meetingService.createDeparture(
+        100L,
+        10L,
+        departureRequest(
+            "서울대학교",
+            37.5665,
+            126.9780,
+            new MeetingMemberDepartureCreateRequest.NicknameSetting(false, null),
+            transitRouteRequest()));
+
+    assertThat(member.getMeeting().getStatus()).isEqualTo(MeetingStatus.IN_PROGRESS);
+    verify(puzzlePageRepository, never()).save(any());
+    verify(memberImageRepository, never()).findAllByMeetingId(any());
+  }
+
+  @Test
   @DisplayName("출발지 좌표로 조회하면 약속 장소까지 가는 경로가 구간별로 반환된다")
   void searchesTransitRoutesToMeetingDestination() {
     MeetingMember member = activeMember("효창", LocalDateTime.now().plusHours(3));
@@ -1073,6 +1121,9 @@ class MeetingServiceTest {
 
   private void givenActiveMember(MeetingMember member) {
     given(meetingRepository.findById(10L)).willReturn(Optional.of(member.getMeeting()));
+    lenient()
+        .when(meetingRepository.findByIdForUpdate(10L))
+        .thenReturn(Optional.of(member.getMeeting()));
     given(meetingMemberRepository.findByMeetingIdAndUserId(10L, 100L))
         .willReturn(Optional.of(member));
   }
