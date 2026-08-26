@@ -649,8 +649,12 @@ public class MeetingService {
       Long userId, Long meetingId, MeetingMemberDepartureCreateRequest request) {
     lockActiveUser(userId);
 
+    Meeting meeting =
+        meetingRepository
+            .findByIdForUpdate(meetingId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
-    if (!member.getMeeting().getMeetingAt().toLocalDate().equals(LocalDate.now())) {
+    if (!meeting.getMeetingAt().toLocalDate().equals(LocalDate.now())) {
       throw ApiException.of(ErrorCode.MEETING_NOT_STARTED);
     }
     if (member.getDepartureName() != null) {
@@ -670,6 +674,10 @@ public class MeetingService {
         notificationSettings.chatBubble());
 
     MeetingMemberDepartureCreateRequest.Departure departure = request.departure();
+    if (meeting.getStatus() == MeetingStatus.WAITING) {
+      meeting.start();
+      assignPuzzleGroups(meeting);
+    }
     member.depart();
     return applyDeparture(
         member,
