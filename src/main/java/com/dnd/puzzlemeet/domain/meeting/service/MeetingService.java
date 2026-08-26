@@ -6,6 +6,7 @@ import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingDetailResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInviteCodeResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
@@ -151,6 +152,26 @@ public class MeetingService {
         image);
 
     return MeetingCreateResponse.from(meeting);
+  }
+
+  @Transactional(readOnly = true)
+  public MeetingDetailResponse getMeetingDetail(Long userId, Long meetingId) {
+    Meeting meeting =
+        meetingRepository
+            .findById(meetingId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
+
+    if (!meetingMemberRepository.existsByMeetingIdAndUserId(meetingId, userId)) {
+      throw ApiException.of(ErrorCode.AUTH_FORBIDDEN);
+    }
+
+    List<MeetingMember> members =
+        meetingMemberRepository.findAllByMeetingIdInFetchUser(List.of(meetingId));
+    Map<Long, MemberImage> imagesByMemberId =
+        memberImageRepository.findAllByMeetingId(meetingId).stream()
+            .collect(Collectors.toMap(image -> image.getMeetingMember().getId(), image -> image));
+
+    return MeetingDetailResponse.from(meeting, members, imagesByMemberId);
   }
 
   @Transactional(readOnly = true)

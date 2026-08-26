@@ -15,6 +15,7 @@ import com.dnd.puzzlemeet.domain.meeting.client.TmapCarClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapPedestrianClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingDetailResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInviteCodeResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
@@ -114,6 +115,55 @@ class MeetingServiceTest {
     lenient()
         .when(userRepository.findActiveByIdForUpdate(any()))
         .thenReturn(Optional.of(new User(100L, "효창", "https://img.kakao.com/a.jpg")));
+  }
+
+  @Test
+  @DisplayName("약속 참여자가 상세를 조회하면 참여자별로 등록한 퍼즐 이미지를 함께 받는다")
+  void returnsMeetingDetailWithMyPuzzleImage() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    MeetingMember member =
+        new MeetingMember(
+            meeting,
+            meeting.getHostUser(),
+            MeetingMemberRole.HOST,
+            "효창",
+            "https://img.kakao.com/host.png");
+    ReflectionTestUtils.setField(member, "id", 1L);
+    member.markCustomImage();
+    MemberImage myImage =
+        new MemberImage(
+            member, "https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/a.png", false);
+
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+    given(meetingMemberRepository.existsByMeetingIdAndUserId(10L, 100L)).willReturn(true);
+    given(meetingMemberRepository.findAllByMeetingIdInFetchUser(List.of(10L)))
+        .willReturn(List.of(member));
+    given(memberImageRepository.findAllByMeetingId(10L)).willReturn(List.of(myImage));
+
+    MeetingDetailResponse response = meetingService.getMeetingDetail(100L, 10L);
+
+    assertThat(response.meetingId()).isEqualTo(10L);
+    assertThat(response.inviteCode()).isEqualTo("ABCD1234");
+    assertThat(response.participants()).hasSize(1);
+    assertThat(response.participants().get(0).puzzleImageUrl())
+        .isEqualTo("https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/a.png");
+    assertThat(response.participants().get(0).defaultImageUsed()).isFalse();
+  }
+
+  @Test
+  @DisplayName("참여하지 않은 사용자가 약속 상세를 조회하면 AUTH_FORBIDDEN 예외가 발생한다")
+  void throwsWhenNonMemberRequestsMeetingDetail() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+    given(meetingMemberRepository.existsByMeetingIdAndUserId(10L, 999L)).willReturn(false);
+
+    ApiException exception =
+        assertThrows(ApiException.class, () -> meetingService.getMeetingDetail(999L, 10L));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.AUTH_FORBIDDEN);
   }
 
   @Test

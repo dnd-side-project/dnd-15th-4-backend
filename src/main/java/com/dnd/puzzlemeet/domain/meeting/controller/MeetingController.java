@@ -2,6 +2,7 @@ package com.dnd.puzzlemeet.domain.meeting.controller;
 
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingDetailResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInviteCodeResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
@@ -71,6 +72,18 @@ public class MeetingController {
       @Parameter(description = "약속 퍼즐 이미지") @RequestPart("image") MultipartFile image) {
     return ApiResult.success(
         SuccessCode.CREATED, meetingService.createMeeting(principal.id(), request, image));
+  }
+
+  @Operation(summary = "약속 상세 조회", description = "참여자가 약속의 상세 정보와 자신이 등록한 퍼즐 이미지를 조회한다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.AUTH_FORBIDDEN
+  })
+  @GetMapping("/{meetingId}")
+  public ResponseEntity<ApiResult<MeetingDetailResponse>> getMeetingDetail(
+      @AuthenticationPrincipal UserPrincipal principal, @PathVariable Long meetingId) {
+    return ApiResult.success(meetingService.getMeetingDetail(principal.id(), meetingId));
   }
 
   @Operation(summary = "약속방 초대 코드 조회", description = "방장이 자신이 만든 약속방의 초대 코드를 조회한다.")
