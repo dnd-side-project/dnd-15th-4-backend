@@ -188,6 +188,7 @@ class NotificationEventListenerIntegrationTest {
                 BigDecimal.valueOf(37.5),
                 BigDecimal.valueOf(127.0),
                 50,
+                100,
                 "invite01",
                 null));
 

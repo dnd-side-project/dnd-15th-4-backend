@@ -67,6 +67,7 @@ class MeetingMemberTest {
         BigDecimal.valueOf(37.5283),
         BigDecimal.valueOf(126.9320),
         50,
+        100,
         "ABCD1234",
         null);
   }
