@@ -26,6 +26,10 @@ public record MeetingListResponse(
         double longitude,
     @Schema(description = "약속 상태", example = "WAITING", requiredMode = RequiredMode.REQUIRED)
         MeetingStatus status,
+    @Schema(description = "정원 (방장 포함)", example = "6", requiredMode = RequiredMode.REQUIRED)
+        int capacity,
+    @Schema(description = "현재 참여 인원", example = "3", requiredMode = RequiredMode.REQUIRED)
+        int currentParticipantCount,
     @Schema(description = "함께 만난 참여자 목록", requiredMode = RequiredMode.REQUIRED)
         List<Participant> participants) {
 
@@ -38,6 +42,8 @@ public record MeetingListResponse(
         meeting.getDestinationLatitude().doubleValue(),
         meeting.getDestinationLongitude().doubleValue(),
         meeting.getStatus(),
+        meeting.getCapacity(),
+        members.size(),
         members.stream().map(Participant::from).toList());
   }
 
