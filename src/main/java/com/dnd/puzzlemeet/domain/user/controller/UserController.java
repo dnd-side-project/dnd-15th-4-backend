@@ -2,6 +2,8 @@ package com.dnd.puzzlemeet.domain.user.controller;
 
 import com.dnd.puzzlemeet.domain.auth.service.AuthCookieProvider;
 import com.dnd.puzzlemeet.domain.user.dto.UserMeResponse;
+import com.dnd.puzzlemeet.domain.user.dto.UserNotificationSettingsResponse;
+import com.dnd.puzzlemeet.domain.user.dto.UserNotificationSettingsUpdateRequest;
 import com.dnd.puzzlemeet.domain.user.dto.UserUpdateRequest;
 import com.dnd.puzzlemeet.domain.user.service.UserService;
 import com.dnd.puzzlemeet.domain.user.service.UserWithdrawalService;
@@ -53,6 +55,31 @@ public class UserController {
       @AuthenticationPrincipal UserPrincipal principal,
       @Valid @RequestBody UserUpdateRequest request) {
     return ApiResult.success(userService.updateMe(principal.id(), request));
+  }
+
+  @Operation(
+      summary = "알림 설정 조회",
+      description = "인증된 사용자 본인의 알림 설정 기본값을 조회한다. 약속방 참여 시 이 값이 참여자 설정으로 복사된다.")
+  @ApiErrorCodeExamples({ErrorCode.AUTH_TOKEN_INVALID, ErrorCode.USER_NOT_FOUND})
+  @GetMapping("/me/notification-settings")
+  public ResponseEntity<ApiResult<UserNotificationSettingsResponse>> getNotificationSettings(
+      @AuthenticationPrincipal UserPrincipal principal) {
+    return ApiResult.success(userService.getNotificationSettings(principal.id()));
+  }
+
+  @Operation(
+      summary = "알림 설정 수정",
+      description = "인증된 사용자 본인의 알림 설정 기본값을 수정한다. 이미 참여 중인 약속방의 설정은 바뀌지 않는다.")
+  @ApiErrorCodeExamples({
+    ErrorCode.AUTH_TOKEN_INVALID,
+    ErrorCode.INVALID_INPUT_VALUE,
+    ErrorCode.USER_NOT_FOUND
+  })
+  @PatchMapping("/me/notification-settings")
+  public ResponseEntity<ApiResult<UserNotificationSettingsResponse>> updateNotificationSettings(
+      @AuthenticationPrincipal UserPrincipal principal,
+      @Valid @RequestBody UserNotificationSettingsUpdateRequest request) {
+    return ApiResult.success(userService.updateNotificationSettings(principal.id(), request));
   }
 
   @Operation(

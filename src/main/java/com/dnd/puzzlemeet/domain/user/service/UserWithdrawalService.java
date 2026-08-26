@@ -6,6 +6,7 @@ import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRouteRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
+import com.dnd.puzzlemeet.domain.notification.repository.PushSubscriptionRepository;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
@@ -37,6 +38,7 @@ public class UserWithdrawalService {
   private final MemberImageRepository memberImageRepository;
   private final RefreshTokenRepository refreshTokenRepository;
   private final FavoriteSearchRepository favoriteSearchRepository;
+  private final PushSubscriptionRepository pushSubscriptionRepository;
   private final KakaoUnlinkClient kakaoUnlinkClient;
   private final AmazonS3Manager amazonS3Manager;
   private final EntityManager entityManager;
@@ -57,6 +59,7 @@ public class UserWithdrawalService {
     List<MeetingMember> meetingMembers = meetingMemberRepository.findAllByUserId(userId);
     List<String> uploadedImageUrls = anonymizeMeetingData(meetingMembers);
     favoriteSearchRepository.deleteAllByUserId(userId);
+    pushSubscriptionRepository.deleteAllByUserId(userId);
     refreshTokenRepository.deleteAllByUserId(userId);
     user.withdraw();
 

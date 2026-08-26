@@ -5,6 +5,8 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.BDDMockito.given;
 
 import com.dnd.puzzlemeet.domain.user.dto.UserMeResponse;
+import com.dnd.puzzlemeet.domain.user.dto.UserNotificationSettingsResponse;
+import com.dnd.puzzlemeet.domain.user.dto.UserNotificationSettingsUpdateRequest;
 import com.dnd.puzzlemeet.domain.user.dto.UserUpdateRequest;
 import com.dnd.puzzlemeet.domain.user.entity.User;
 import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
@@ -69,5 +71,36 @@ class UserServiceTest {
     assertThat(response.email()).isEqualTo("puzzlemeet@example.com");
     assertThat(response.nickname()).isEqualTo("새닉네임");
     assertThat(response.profileImageUrl()).isEqualTo("https://img.kakao.com/a.jpg");
+  }
+
+  @Test
+  @DisplayName("신규 사용자의 알림 기본 설정은 모두 활성화되어 있다")
+  void returnsEnabledNotificationDefaults() {
+    User user = new User(100L, "효창", "https://img.kakao.com/a.jpg", "puzzlemeet@example.com");
+    given(userRepository.findByIdAndDeletedAtIsNull(1L)).willReturn(Optional.of(user));
+
+    UserNotificationSettingsResponse response = userService.getNotificationSettings(1L);
+
+    assertThat(response.locationPermission()).isTrue();
+    assertThat(response.friendArrival()).isTrue();
+    assertThat(response.chatBubble()).isTrue();
+  }
+
+  @Test
+  @DisplayName("알림 기본 설정을 전체 교체하고 변경된 값을 반환한다")
+  void replacesNotificationSettings() {
+    User user = new User(100L, "효창", "https://img.kakao.com/a.jpg", "puzzlemeet@example.com");
+    given(userRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(user));
+
+    UserNotificationSettingsResponse response =
+        userService.updateNotificationSettings(
+            1L, new UserNotificationSettingsUpdateRequest(false, true, false));
+
+    assertThat(user.isLocationNotificationEnabled()).isFalse();
+    assertThat(user.isFriendArrivalNotificationEnabled()).isTrue();
+    assertThat(user.isChatBubbleNotificationEnabled()).isFalse();
+    assertThat(response.locationPermission()).isFalse();
+    assertThat(response.friendArrival()).isTrue();
+    assertThat(response.chatBubble()).isFalse();
   }
 }

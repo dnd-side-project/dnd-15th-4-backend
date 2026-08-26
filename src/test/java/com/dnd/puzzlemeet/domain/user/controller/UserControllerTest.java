@@ -12,6 +12,8 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import com.dnd.puzzlemeet.TestcontainersConfiguration;
 import com.dnd.puzzlemeet.domain.auth.entity.RefreshToken;
 import com.dnd.puzzlemeet.domain.auth.repository.RefreshTokenRepository;
+import com.dnd.puzzlemeet.domain.notification.entity.PushSubscription;
+import com.dnd.puzzlemeet.domain.notification.repository.PushSubscriptionRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
 import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
 import com.dnd.puzzlemeet.global.security.client.KakaoUnlinkClient;
@@ -25,6 +27,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.context.annotation.Import;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
+import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.MockMvc;
 import org.springframework.transaction.annotation.Transactional;
@@ -38,7 +41,9 @@ class UserControllerTest {
   @Autowired private MockMvc mockMvc;
   @Autowired private UserRepository userRepository;
   @Autowired private RefreshTokenRepository refreshTokenRepository;
+  @Autowired private PushSubscriptionRepository pushSubscriptionRepository;
   @Autowired private JwtProvider jwtProvider;
+  @Autowired private JdbcTemplate jdbcTemplate;
   @MockitoBean private KakaoUnlinkClient kakaoUnlinkClient;
 
   @Test
@@ -114,6 +119,100 @@ class UserControllerTest {
   }
 
   @Test
+  @DisplayName("인증된 사용자가 알림 기본 설정을 조회한다")
+  void getNotificationSettingsReturnsAuthenticatedUserSettings() throws Exception {
+    User user = userRepository.save(new User(100L, "효창", "https://img.kakao.com/a.jpg"));
+    String accessToken = jwtProvider.createAccessToken(user.getId());
+
+    mockMvc
+        .perform(
+            get("/api/v1/users/me/notification-settings")
+                .header("Authorization", "Bearer " + accessToken))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.locationPermission").value(true))
+        .andExpect(jsonPath("$.data.friendArrival").value(true))
+        .andExpect(jsonPath("$.data.chatBubble").value(true));
+  }
+
+  @Test
+  @DisplayName("알림 컬럼을 생략한 사용자 행에는 DB의 활성 기본값이 적용된다")
+  void appliesEnabledDatabaseDefaultsWhenNotificationColumnsAreOmitted() {
+    jdbcTemplate.update(
+        """
+        insert into users (kakao_id, nickname, created_at, updated_at)
+        values (?, ?, current_timestamp, current_timestamp)
+        """,
+        999L,
+        "기존 사용자");
+
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "select is_location_notification_enabled from users where kakao_id = ?",
+                Boolean.class,
+                999L))
+        .isTrue();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "select is_friend_arrival_notification_enabled from users where kakao_id = ?",
+                Boolean.class,
+                999L))
+        .isTrue();
+    assertThat(
+            jdbcTemplate.queryForObject(
+                "select is_chat_bubble_notification_enabled from users where kakao_id = ?",
+                Boolean.class,
+                999L))
+        .isTrue();
+  }
+
+  @Test
+  @DisplayName("인증된 사용자가 알림 기본 설정을 전체 교체한다")
+  void updateNotificationSettingsReplacesAllSettings() throws Exception {
+    User user = userRepository.save(new User(100L, "효창", "https://img.kakao.com/a.jpg"));
+    String accessToken = jwtProvider.createAccessToken(user.getId());
+
+    mockMvc
+        .perform(
+            patch("/api/v1/users/me/notification-settings")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content(
+                    """
+                    {
+                      "locationPermission": false,
+                      "friendArrival": true,
+                      "chatBubble": false
+                    }
+                    """))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.locationPermission").value(false))
+        .andExpect(jsonPath("$.data.friendArrival").value(true))
+        .andExpect(jsonPath("$.data.chatBubble").value(false));
+
+    userRepository.flush();
+    User updatedUser = userRepository.findById(user.getId()).orElseThrow();
+    assertThat(updatedUser.isLocationNotificationEnabled()).isFalse();
+    assertThat(updatedUser.isFriendArrivalNotificationEnabled()).isTrue();
+    assertThat(updatedUser.isChatBubbleNotificationEnabled()).isFalse();
+  }
+
+  @Test
+  @DisplayName("알림 기본 설정의 일부 필드를 누락하면 입력값 검증에 실패한다")
+  void updateNotificationSettingsRejectsPartialRequest() throws Exception {
+    User user = userRepository.save(new User(100L, "효창", "https://img.kakao.com/a.jpg"));
+    String accessToken = jwtProvider.createAccessToken(user.getId());
+
+    mockMvc
+        .perform(
+            patch("/api/v1/users/me/notification-settings")
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"locationPermission\":true,\"friendArrival\":false}"))
+        .andExpect(status().isBadRequest())
+        .andExpect(jsonPath("$.code").value("INVALID_INPUT_VALUE"));
+  }
+
+  @Test
   @DisplayName("회원 탈퇴하면 카카오 연결과 모든 refresh token을 제거하고 기존 access token을 차단한다")
   void withdrawsUserAndInvalidatesAllTokens() throws Exception {
     User user =
@@ -123,6 +222,13 @@ class UserControllerTest {
         new RefreshToken(user, "a".repeat(64), LocalDateTime.now().plusDays(1)));
     refreshTokenRepository.save(
         new RefreshToken(user, "b".repeat(64), LocalDateTime.now().plusDays(1)));
+    pushSubscriptionRepository.save(
+        new PushSubscription(
+            user,
+            "https://fcm.googleapis.com/fcm/send/withdraw-test",
+            "c".repeat(64),
+            "p256dh",
+            "auth"));
     String accessToken = jwtProvider.createAccessToken(user.getId());
     given(kakaoUnlinkClient.unlink(100L)).willReturn(100L);
 
@@ -145,11 +251,15 @@ class UserControllerTest {
                     org.hamcrest.Matchers.containsString("Path=/api/v1/auth")));
 
     assertThat(refreshTokenRepository.findAll()).isEmpty();
+    assertThat(pushSubscriptionRepository.findAll()).isEmpty();
     User withdrawnUser = userRepository.findById(user.getId()).orElseThrow();
     assertThat(withdrawnUser.getKakaoId()).isNull();
     assertThat(withdrawnUser.getEmail()).isNull();
     assertThat(withdrawnUser.getNickname()).isEqualTo("탈퇴한 사용자");
     assertThat(withdrawnUser.getProfileImageUrl()).isNull();
+    assertThat(withdrawnUser.isLocationNotificationEnabled()).isFalse();
+    assertThat(withdrawnUser.isFriendArrivalNotificationEnabled()).isFalse();
+    assertThat(withdrawnUser.isChatBubbleNotificationEnabled()).isFalse();
     assertThat(withdrawnUser.getDeletedAt()).isNotNull();
 
     mockMvc
