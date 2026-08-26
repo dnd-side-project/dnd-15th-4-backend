@@ -186,6 +186,7 @@ class DepartureReminderIntegrationTest {
             BigDecimal.valueOf(37.5),
             BigDecimal.valueOf(127.0),
             50,
+            100,
             "invite" + value,
             null);
     applyStatus(meeting, meetingStatus);

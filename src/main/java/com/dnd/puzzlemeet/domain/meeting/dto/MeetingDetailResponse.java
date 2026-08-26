@@ -32,6 +32,10 @@ public record MeetingDetailResponse(
         MeetingStatus status,
     @Schema(description = "약속 초대 코드", example = "ABCD1234", requiredMode = RequiredMode.REQUIRED)
         String inviteCode,
+    @Schema(description = "정원 (방장 포함)", example = "6", requiredMode = RequiredMode.REQUIRED)
+        int capacity,
+    @Schema(description = "현재 참여 인원", example = "3", requiredMode = RequiredMode.REQUIRED)
+        int currentParticipantCount,
     @Schema(description = "참여자 목록", requiredMode = RequiredMode.REQUIRED)
         List<Participant> participants) {
 
@@ -47,6 +51,8 @@ public record MeetingDetailResponse(
         meeting.getMemo(),
         meeting.getStatus(),
         meeting.getInviteCode(),
+        meeting.getCapacity(),
+        members.size(),
         members.stream()
             .map(member -> Participant.from(member, imagesByMemberId.get(member.getId())))
             .toList());
