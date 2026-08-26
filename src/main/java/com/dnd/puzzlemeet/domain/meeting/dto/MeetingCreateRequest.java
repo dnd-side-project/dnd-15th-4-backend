@@ -5,6 +5,7 @@ import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import jakarta.validation.constraints.DecimalMax;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.Future;
+import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
@@ -42,6 +43,8 @@ public record MeetingCreateRequest(
         @DecimalMin("-180")
         @DecimalMax("180")
         double longitude,
+    @Schema(description = "정원 (방장 포함)", example = "6", requiredMode = RequiredMode.REQUIRED) @Min(1)
+        int capacity,
     @Schema(description = "약속 메모", example = "돗자리 챙기기", maxLength = 12, nullable = true)
         @Size(max = 12)
         String memo,
@@ -51,4 +54,10 @@ public record MeetingCreateRequest(
             maxLength = 30,
             nullable = true)
         @Size(max = 30)
-        String nickname) {}
+        String nickname,
+    @Schema(description = "닉네임 설정 여부", example = "true", requiredMode = RequiredMode.REQUIRED)
+        @NotNull
+        Boolean nicknameSet,
+    @Schema(description = "퍼즐 이미지 설정 여부", example = "true", requiredMode = RequiredMode.REQUIRED)
+        @NotNull
+        Boolean imageSet) {}

@@ -6,6 +6,7 @@ import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingDetailResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInviteCodeResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
@@ -139,13 +140,41 @@ public class MeetingService {
             BigDecimal.valueOf(request.latitude()),
             BigDecimal.valueOf(request.longitude()),
             ARRIVAL_RADIUS_M,
+            request.capacity(),
             generateInviteCode(),
             request.memo());
     meetingRepository.save(meeting);
 
-    registerMember(meeting, host, MeetingMemberRole.HOST, request.nickname(), image);
+    registerMember(
+        meeting,
+        host,
+        MeetingMemberRole.HOST,
+        request.nickname(),
+        request.nicknameSet(),
+        request.imageSet(),
+        image);
 
     return MeetingCreateResponse.from(meeting);
+  }
+
+  @Transactional(readOnly = true)
+  public MeetingDetailResponse getMeetingDetail(Long userId, Long meetingId) {
+    Meeting meeting =
+        meetingRepository
+            .findById(meetingId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
+
+    if (!meetingMemberRepository.existsByMeetingIdAndUserId(meetingId, userId)) {
+      throw ApiException.of(ErrorCode.AUTH_FORBIDDEN);
+    }
+
+    List<MeetingMember> members =
+        meetingMemberRepository.findAllByMeetingIdInFetchUser(List.of(meetingId));
+    Map<Long, MemberImage> imagesByMemberId =
+        memberImageRepository.findAllByMeetingId(meetingId).stream()
+            .collect(Collectors.toMap(image -> image.getMeetingMember().getId(), image -> image));
+
+    return MeetingDetailResponse.from(meeting, members, imagesByMemberId);
   }
 
   @Transactional(readOnly = true)
@@ -175,7 +204,7 @@ public class MeetingService {
 
     Meeting meeting =
         meetingRepository
-            .findByInviteCode(request.inviteCode())
+            .findByInviteCodeForUpdate(request.inviteCode())
             .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_INVITE_CODE_INVALID));
 
     if (meeting.getStatus() != MeetingStatus.WAITING) {
@@ -186,7 +215,18 @@ public class MeetingService {
       throw ApiException.of(ErrorCode.MEETING_MEMBER_ALREADY_JOINED);
     }
 
-    registerMember(meeting, user, MeetingMemberRole.GUEST, request.nickname(), image);
+    if (meetingMemberRepository.countByMeetingId(meeting.getId()) >= meeting.getCapacity()) {
+      throw ApiException.of(ErrorCode.MEETING_CAPACITY_EXCEEDED);
+    }
+
+    registerMember(
+        meeting,
+        user,
+        MeetingMemberRole.GUEST,
+        request.nickname(),
+        request.nicknameSet(),
+        request.imageSet(),
+        image);
 
     return MeetingJoinResponse.from(meeting);
   }
@@ -887,15 +927,26 @@ public class MeetingService {
   }
 
   private void registerMember(
-      Meeting meeting, User user, MeetingMemberRole role, String nickname, MultipartFile image) {
-    String resolvedNickname = nickname != null ? nickname : user.getNickname();
+      Meeting meeting,
+      User user,
+      MeetingMemberRole role,
+      String nickname,
+      boolean nicknameSet,
+      boolean imageSet,
+      MultipartFile image) {
+    String resolvedNickname = nicknameSet ? nickname : user.getNickname();
     MeetingMember member =
         new MeetingMember(meeting, user, role, resolvedNickname, pickRandomProfileImageUrl());
+    if (nicknameSet) {
+      member.changeNickname(resolvedNickname);
+    }
+    if (imageSet) {
+      member.markCustomImage();
+    }
     meetingMemberRepository.save(member);
 
-    boolean hasImage = image != null && !image.isEmpty();
-    String imageUrl = hasImage ? uploadMemberImage(image) : DEFAULT_MEMBER_IMAGE_URL;
-    memberImageRepository.save(new MemberImage(member, imageUrl, !hasImage));
+    String imageUrl = uploadMemberImage(image);
+    memberImageRepository.save(new MemberImage(member, imageUrl, !imageSet));
   }
 
   private void lockActiveUser(Long userId) {

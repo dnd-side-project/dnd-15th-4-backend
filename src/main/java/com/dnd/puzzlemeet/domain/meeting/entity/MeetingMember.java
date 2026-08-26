@@ -83,6 +83,9 @@ public class MeetingMember extends BaseTimeEntity {
   @Column(nullable = false)
   private boolean isCustomNickname;
 
+  @Column(nullable = false)
+  private boolean isCustomImage;
+
   @Column(length = 100)
   private String departureName;
 
@@ -144,6 +147,10 @@ public class MeetingMember extends BaseTimeEntity {
   public void resetNicknameToDefault(String defaultNickname) {
     this.nickname = defaultNickname;
     this.isCustomNickname = false;
+  }
+
+  public void markCustomImage() {
+    this.isCustomImage = true;
   }
 
   public void updateCurrentLocation(BigDecimal currentLatitude, BigDecimal currentLongitude) {

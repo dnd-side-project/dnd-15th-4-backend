@@ -3,6 +3,7 @@ package com.dnd.puzzlemeet.domain.meeting.dto;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Size;
 
 public record MeetingJoinRequest(
@@ -20,4 +21,10 @@ public record MeetingJoinRequest(
             maxLength = 30,
             nullable = true)
         @Size(max = 30)
-        String nickname) {}
+        String nickname,
+    @Schema(description = "닉네임 설정 여부", example = "true", requiredMode = RequiredMode.REQUIRED)
+        @NotNull
+        Boolean nicknameSet,
+    @Schema(description = "퍼즐 이미지 설정 여부", example = "true", requiredMode = RequiredMode.REQUIRED)
+        @NotNull
+        Boolean imageSet) {}

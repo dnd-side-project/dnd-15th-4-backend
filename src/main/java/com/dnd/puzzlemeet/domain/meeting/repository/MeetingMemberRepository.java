@@ -17,6 +17,8 @@ public interface MeetingMemberRepository extends JpaRepository<MeetingMember, Lo
 
   List<MeetingMember> findAllByUserId(Long userId);
 
+  long countByMeetingId(Long meetingId);
+
   @Query(
       """
       select case when count(mm) > 0 then true else false end
