@@ -29,7 +29,7 @@ public class CustomAccessDeniedHandler implements AccessDeniedHandler {
       AccessDeniedException accessDeniedException)
       throws IOException, ServletException {
 
-    log.info(
+    log.warn(
         "[Access Denied] 권한 없는 접근 시도 - URI: {}, User: {}, Message: {}",
         request.getRequestURI(),
         request.getRemoteUser(),

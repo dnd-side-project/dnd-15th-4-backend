@@ -29,7 +29,7 @@ public class JwtAuthenticationEntryPoint implements AuthenticationEntryPoint {
       AuthenticationException authException)
       throws IOException, ServletException {
 
-    log.info(
+    log.warn(
         "[Authentication Failed] 인증되지 않은 접근 시도 - URI: {}, IP: {}, Message: {}",
         request.getRequestURI(),
         request.getRemoteAddr(),
