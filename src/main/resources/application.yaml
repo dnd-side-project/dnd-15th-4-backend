@@ -54,3 +54,10 @@ app:
   s3:
     bucket: puzzle-meet-s3
     puzzle-path: puzzles
+
+webpush:
+  vapid:
+    public-key: ${WEBPUSH_VAPID_PUBLIC_KEY}
+    private-key: ${WEBPUSH_VAPID_PRIVATE_KEY}
+    subject: ${WEBPUSH_VAPID_SUBJECT}
+  ttl-seconds: 600

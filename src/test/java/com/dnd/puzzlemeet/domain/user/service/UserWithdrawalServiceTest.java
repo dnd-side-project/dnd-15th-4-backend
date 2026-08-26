@@ -18,6 +18,7 @@ import com.dnd.puzzlemeet.domain.meeting.entity.TravelMode;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRouteRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
+import com.dnd.puzzlemeet.domain.notification.repository.PushSubscriptionRepository;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
@@ -53,6 +54,7 @@ class UserWithdrawalServiceTest {
   @Mock private MemberImageRepository memberImageRepository;
   @Mock private RefreshTokenRepository refreshTokenRepository;
   @Mock private FavoriteSearchRepository favoriteSearchRepository;
+  @Mock private PushSubscriptionRepository pushSubscriptionRepository;
   @Mock private KakaoUnlinkClient kakaoUnlinkClient;
   @Mock private AmazonS3Manager amazonS3Manager;
   @Mock private EntityManager entityManager;
@@ -70,6 +72,7 @@ class UserWithdrawalServiceTest {
             memberImageRepository,
             refreshTokenRepository,
             favoriteSearchRepository,
+            pushSubscriptionRepository,
             kakaoUnlinkClient,
             amazonS3Manager,
             entityManager);
@@ -101,12 +104,14 @@ class UserWithdrawalServiceTest {
         inOrder(
             meetingMemberRouteRepository,
             favoriteSearchRepository,
+            pushSubscriptionRepository,
             refreshTokenRepository,
             entityManager,
             kakaoUnlinkClient,
             amazonS3Manager);
     inOrder.verify(meetingMemberRouteRepository).deleteAllByMeetingMemberIdIn(List.of(10L));
     inOrder.verify(favoriteSearchRepository).deleteAllByUserId(1L);
+    inOrder.verify(pushSubscriptionRepository).deleteAllByUserId(1L);
     inOrder.verify(refreshTokenRepository).deleteAllByUserId(1L);
     inOrder.verify(entityManager).flush();
     inOrder.verify(kakaoUnlinkClient).unlink(100L);
@@ -119,6 +124,9 @@ class UserWithdrawalServiceTest {
     assertThat(user.getEmail()).isNull();
     assertThat(user.getNickname()).isEqualTo("탈퇴한 사용자");
     assertThat(user.getProfileImageUrl()).isNull();
+    assertThat(user.isLocationNotificationEnabled()).isFalse();
+    assertThat(user.isFriendArrivalNotificationEnabled()).isFalse();
+    assertThat(user.isChatBubbleNotificationEnabled()).isFalse();
     assertThat(user.getDeletedAt()).isNotNull();
     assertThat(meetingMember.getNickname()).isEqualTo("탈퇴한 사용자");
     assertThat(meetingMember.isCustomNickname()).isFalse();
@@ -189,6 +197,7 @@ class UserWithdrawalServiceTest {
         .isEqualTo(ErrorCode.USER_WITHDRAWAL_BLOCKED_BY_HOSTED_MEETING);
     verifyNoInteractions(kakaoUnlinkClient);
     verify(favoriteSearchRepository, never()).deleteAllByUserId(1L);
+    verify(pushSubscriptionRepository, never()).deleteAllByUserId(1L);
     verify(refreshTokenRepository, never()).deleteAllByUserId(1L);
     assertThat(user.getKakaoId()).isEqualTo(100L);
     assertThat(user.getDeletedAt()).isNull();
@@ -208,8 +217,14 @@ class UserWithdrawalServiceTest {
     assertThrows(IllegalStateException.class, () -> userWithdrawalService.withdraw(1L));
 
     InOrder inOrder =
-        inOrder(favoriteSearchRepository, refreshTokenRepository, entityManager, kakaoUnlinkClient);
+        inOrder(
+            favoriteSearchRepository,
+            pushSubscriptionRepository,
+            refreshTokenRepository,
+            entityManager,
+            kakaoUnlinkClient);
     inOrder.verify(favoriteSearchRepository).deleteAllByUserId(1L);
+    inOrder.verify(pushSubscriptionRepository).deleteAllByUserId(1L);
     inOrder.verify(refreshTokenRepository).deleteAllByUserId(1L);
     inOrder.verify(entityManager).flush();
     inOrder.verify(kakaoUnlinkClient).unlink(100L);

@@ -21,3 +21,10 @@ frontend:
 
 cors:
   allowed-origins: http://localhost:3000
+
+webpush:
+  vapid:
+    public-key: BCP0phORUOCEcxm7gu2GCS5Naf7I2fW-o0JRQoJYEj30MSKlqo9WbBRygbxx6mlLciR2loUhdd63WXCeP6aq7IY
+    private-key: Q7vvwVJlpEK7JcFumcvQPVLjkEAcQbfXL40_XqiRs9s
+    subject: mailto:test@puzzlemeet.example
+  ttl-seconds: 600

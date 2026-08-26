@@ -9,9 +9,11 @@ import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.ReactionMessageRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.ReactionPresetRepository;
+import com.dnd.puzzlemeet.domain.notification.event.QuickMessageSentEvent;
 import com.dnd.puzzlemeet.global.exception.ApiException;
 import com.dnd.puzzlemeet.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -23,6 +25,7 @@ public class ReactionMessageService {
   private final MeetingMemberRepository meetingMemberRepository;
   private final ReactionPresetRepository reactionPresetRepository;
   private final ReactionMessageRepository reactionMessageRepository;
+  private final ApplicationEventPublisher applicationEventPublisher;
 
   @Transactional
   public void sendReactionMessage(Long userId, Long meetingId, ReactionMessageSendRequest request) {
@@ -43,5 +46,7 @@ public class ReactionMessageService {
 
     ReactionMessage message = new ReactionMessage(senderMember, preset, preset.getContent());
     reactionMessageRepository.save(message);
+    applicationEventPublisher.publishEvent(
+        new QuickMessageSentEvent(meeting.getId(), senderMember.getId()));
   }
 }

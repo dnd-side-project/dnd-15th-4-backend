@@ -29,6 +29,7 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingUpdateRequest;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
@@ -42,6 +43,7 @@ import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRouteRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.ReactionMessageRepository;
+import com.dnd.puzzlemeet.domain.notification.event.FriendArrivedEvent;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
 import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzlePage;
 import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzlePiece;
@@ -68,6 +70,7 @@ import org.junit.jupiter.api.extension.ExtendWith;
 import org.mockito.ArgumentCaptor;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.Pageable;
 import org.springframework.mock.web.MockMultipartFile;
 import org.springframework.test.util.ReflectionTestUtils;
@@ -88,6 +91,7 @@ class MeetingServiceTest {
   @Mock private PuzzlePieceRepository puzzlePieceRepository;
   @Mock private PuzzleCollectionRepository puzzleCollectionRepository;
   @Mock private ReactionMessageRepository reactionMessageRepository;
+  @Mock private ApplicationEventPublisher applicationEventPublisher;
 
   private MeetingService meetingService;
 
@@ -107,7 +111,8 @@ class MeetingServiceTest {
             puzzlePageRepository,
             puzzlePieceRepository,
             puzzleCollectionRepository,
-            reactionMessageRepository);
+            reactionMessageRepository,
+            applicationEventPublisher);
     lenient()
         .when(userRepository.findActiveByIdForUpdate(any()))
         .thenReturn(Optional.of(new User(100L, "효창", "https://img.kakao.com/a.jpg")));
@@ -423,6 +428,7 @@ class MeetingServiceTest {
             MeetingMemberRole.HOST,
             "효창",
             "https://img.kakao.com/host.png");
+    ReflectionTestUtils.setField(member, "id", 1L);
     member.updateCurrentLocation(BigDecimal.valueOf(37.5283), BigDecimal.valueOf(126.9320));
     given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
     given(meetingMemberRepository.findByMeetingIdAndUserId(10L, 100L))
@@ -433,6 +439,53 @@ class MeetingServiceTest {
     assertThat(member.getStatus()).isEqualTo(MeetingMemberStatus.ARRIVED);
     assertThat(response.meetingId()).isEqualTo(10L);
     assertThat(response.arrivalTime()).isNotNull();
+    verify(applicationEventPublisher).publishEvent(new FriendArrivedEvent(10L, 1L));
+  }
+
+  @Test
+  @DisplayName("이미 도착한 참여자를 다시 도착 처리해도 친구 도착 이벤트는 발행하지 않는다")
+  void doesNotPublishFriendArrivalEventTwice() {
+    MeetingMember member = activeMember("효창");
+    member.arrive();
+    givenActiveMember(member);
+
+    meetingService.markMemberArrived(100L, 10L);
+
+    verify(applicationEventPublisher, never()).publishEvent(any());
+  }
+
+  @Test
+  @DisplayName("약속 시각이 변경되면 출발 준비 알림 시도 기록을 초기화한다")
+  void resetsDepartureReminderAttemptWhenMeetingTimeChanges() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
+    LocalDateTime changedMeetingAt = meeting.getMeetingAt().plusHours(1);
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+
+    meetingService.updateMeeting(
+        100L, 10L, new MeetingUpdateRequest(null, changedMeetingAt, null, null, null, null));
+
+    assertThat(meeting.getMeetingAt()).isEqualTo(changedMeetingAt);
+    verify(meetingMemberRepository).resetDepartureReminderAttemptedAtForNotStartedMembers(10L);
+  }
+
+  @Test
+  @DisplayName("약속 시각을 그대로 두면 출발 준비 알림 시도 기록을 초기화하지 않는다")
+  void keepsDepartureReminderAttemptWhenMeetingTimeDoesNotChange() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+
+    meetingService.updateMeeting(
+        100L,
+        10L,
+        new MeetingUpdateRequest("새 제목", meeting.getMeetingAt(), null, null, null, null));
+
+    assertThat(meeting.getTitle()).isEqualTo("새 제목");
+    verify(meetingMemberRepository, never())
+        .resetDepartureReminderAttemptedAtForNotStartedMembers(any());
   }
 
   @Test

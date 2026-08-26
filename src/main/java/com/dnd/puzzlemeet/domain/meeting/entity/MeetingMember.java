@@ -101,6 +101,8 @@ public class MeetingMember extends BaseTimeEntity {
   @Column(nullable = false)
   private boolean isChatBubbleNotificationEnabled;
 
+  private LocalDateTime departureReminderAttemptedAt;
+
   public MeetingMember(
       Meeting meeting, User user, MeetingMemberRole role, String nickname, String profileImageUrl) {
     this.meeting = meeting;
@@ -109,6 +111,9 @@ public class MeetingMember extends BaseTimeEntity {
     this.nickname = nickname;
     this.profileImageUrl = profileImageUrl;
     this.status = MeetingMemberStatus.NOT_STARTED;
+    this.isLocationNotificationEnabled = user.isLocationNotificationEnabled();
+    this.isFriendArrivalNotificationEnabled = user.isFriendArrivalNotificationEnabled();
+    this.isChatBubbleNotificationEnabled = user.isChatBubbleNotificationEnabled();
   }
 
   public void depart() {
@@ -156,6 +161,14 @@ public class MeetingMember extends BaseTimeEntity {
     this.departureLatitude = departureLatitude;
     this.departureLongitude = departureLongitude;
     this.travelMode = travelMode;
+  }
+
+  public void markDepartureReminderAttempted(LocalDateTime attemptedAt) {
+    this.departureReminderAttemptedAt = attemptedAt;
+  }
+
+  public void clearDepartureReminderAttempted() {
+    this.departureReminderAttemptedAt = null;
   }
 
   public void updateNotificationSettings(

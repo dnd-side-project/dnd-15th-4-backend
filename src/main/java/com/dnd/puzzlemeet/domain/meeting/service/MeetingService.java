@@ -38,6 +38,7 @@ import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRouteRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.ReactionMessageRepository;
+import com.dnd.puzzlemeet.domain.notification.event.FriendArrivedEvent;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
 import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzleCollection;
 import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzlePage;
@@ -66,6 +67,7 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -116,6 +118,7 @@ public class MeetingService {
   private final PuzzlePieceRepository puzzlePieceRepository;
   private final PuzzleCollectionRepository puzzleCollectionRepository;
   private final ReactionMessageRepository reactionMessageRepository;
+  private final ApplicationEventPublisher applicationEventPublisher;
 
   @Transactional
   public MeetingCreateResponse createMeeting(
@@ -249,6 +252,7 @@ public class MeetingService {
     }
 
     member.arrive();
+    applicationEventPublisher.publishEvent(new FriendArrivedEvent(meeting.getId(), member.getId()));
     return MeetingMemberArrivalResponse.from(member);
   }
 
@@ -308,8 +312,12 @@ public class MeetingService {
             ? BigDecimal.valueOf(request.longitude())
             : meeting.getDestinationLongitude();
     String memo = request.memo() != null ? request.memo() : meeting.getMemo();
+    boolean meetingAtChanged = !Objects.equals(meeting.getMeetingAt(), meetingAt);
 
     meeting.updateDetails(title, meetingAt, destination, latitude, longitude, memo);
+    if (meetingAtChanged) {
+      meetingMemberRepository.resetDepartureReminderAttemptedAtForNotStartedMembers(meetingId);
+    }
   }
 
   @Transactional
