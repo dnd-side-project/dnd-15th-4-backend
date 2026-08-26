@@ -136,6 +136,7 @@ public class MeetingService {
             BigDecimal.valueOf(request.latitude()),
             BigDecimal.valueOf(request.longitude()),
             ARRIVAL_RADIUS_M,
+            request.capacity(),
             generateInviteCode(),
             request.memo());
     meetingRepository.save(meeting);
@@ -172,7 +173,7 @@ public class MeetingService {
 
     Meeting meeting =
         meetingRepository
-            .findByInviteCode(request.inviteCode())
+            .findByInviteCodeForUpdate(request.inviteCode())
             .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_INVITE_CODE_INVALID));
 
     if (meeting.getStatus() != MeetingStatus.WAITING) {
@@ -181,6 +182,10 @@ public class MeetingService {
 
     if (meetingMemberRepository.existsByMeetingIdAndUserId(meeting.getId(), userId)) {
       throw ApiException.of(ErrorCode.MEETING_MEMBER_ALREADY_JOINED);
+    }
+
+    if (meetingMemberRepository.countByMeetingId(meeting.getId()) >= meeting.getCapacity()) {
+      throw ApiException.of(ErrorCode.MEETING_CAPACITY_EXCEEDED);
     }
 
     registerMember(meeting, user, MeetingMemberRole.GUEST, request.nickname(), image);

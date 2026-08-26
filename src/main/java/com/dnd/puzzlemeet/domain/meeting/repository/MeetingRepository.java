@@ -21,6 +21,10 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
   @Query("select m from Meeting m where m.id = :meetingId")
   Optional<Meeting> findByIdForUpdate(@Param("meetingId") Long meetingId);
 
+  @Lock(LockModeType.PESSIMISTIC_WRITE)
+  @Query("select m from Meeting m where m.inviteCode = :inviteCode")
+  Optional<Meeting> findByInviteCodeForUpdate(@Param("inviteCode") String inviteCode);
+
   boolean existsByHostUserIdAndStatusIn(Long userId, List<MeetingStatus> statuses);
 
   @Query(

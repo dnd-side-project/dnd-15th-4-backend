@@ -54,6 +54,9 @@ public class Meeting extends BaseTimeEntity {
   @Column(nullable = false)
   private int arrivalRadiusM;
 
+  @Column(nullable = false)
+  private int capacity;
+
   @Column(nullable = false, length = 20)
   private String inviteCode;
 
@@ -73,6 +76,7 @@ public class Meeting extends BaseTimeEntity {
       BigDecimal destinationLatitude,
       BigDecimal destinationLongitude,
       int arrivalRadiusM,
+      int capacity,
       String inviteCode,
       String memo) {
     this.hostUser = hostUser;
@@ -83,6 +87,7 @@ public class Meeting extends BaseTimeEntity {
     this.destinationLatitude = destinationLatitude;
     this.destinationLongitude = destinationLongitude;
     this.arrivalRadiusM = arrivalRadiusM;
+    this.capacity = capacity;
     this.inviteCode = inviteCode;
     this.memo = memo;
     this.status = MeetingStatus.WAITING;

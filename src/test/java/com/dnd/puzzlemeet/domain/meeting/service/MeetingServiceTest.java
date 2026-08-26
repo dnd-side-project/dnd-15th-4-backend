@@ -17,6 +17,8 @@ import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInviteCodeResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinRequest;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingJoinResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberArrivalResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberDepartureResponse;
@@ -167,6 +169,48 @@ class MeetingServiceTest {
             () -> meetingService.previewMeeting(new MeetingPreviewRequest("ABCD1234")));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_INVITE_CODE_INVALID);
+  }
+
+  @Test
+  @DisplayName("정원이 남아있으면 초대 코드로 약속에 참여한다")
+  void joinsMeetingWhenUnderCapacity() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting, "capacity", 2);
+    User guest = new User(200L, "게스트", "https://img.kakao.com/b.jpg");
+
+    given(userRepository.findActiveByIdForUpdate(200L)).willReturn(Optional.of(guest));
+    given(meetingRepository.findByInviteCodeForUpdate("ABCD1234")).willReturn(Optional.of(meeting));
+    given(meetingMemberRepository.existsByMeetingIdAndUserId(10L, 200L)).willReturn(false);
+    given(meetingMemberRepository.countByMeetingId(10L)).willReturn(1L);
+
+    MeetingJoinResponse response =
+        meetingService.joinMeeting(200L, new MeetingJoinRequest("ABCD1234", null), null);
+
+    assertThat(response.meetingId()).isEqualTo(10L);
+    verify(meetingMemberRepository).save(any(MeetingMember.class));
+  }
+
+  @Test
+  @DisplayName("정원이 다 찬 약속에 참여하면 MEETING_CAPACITY_EXCEEDED 예외가 발생한다")
+  void throwsWhenMeetingIsFull() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting, "capacity", 2);
+    User guest = new User(200L, "게스트", "https://img.kakao.com/b.jpg");
+
+    given(userRepository.findActiveByIdForUpdate(200L)).willReturn(Optional.of(guest));
+    given(meetingRepository.findByInviteCodeForUpdate("ABCD1234")).willReturn(Optional.of(meeting));
+    given(meetingMemberRepository.existsByMeetingIdAndUserId(10L, 200L)).willReturn(false);
+    given(meetingMemberRepository.countByMeetingId(10L)).willReturn(2L);
+
+    ApiException exception =
+        assertThrows(
+            ApiException.class,
+            () -> meetingService.joinMeeting(200L, new MeetingJoinRequest("ABCD1234", null), null));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_CAPACITY_EXCEEDED);
+    verify(meetingMemberRepository, never()).save(any(MeetingMember.class));
   }
 
   @Test
@@ -1320,6 +1364,7 @@ class MeetingServiceTest {
         BigDecimal.valueOf(37.5283),
         BigDecimal.valueOf(126.9320),
         50,
+        100,
         "ABCD1234",
         null);
   }

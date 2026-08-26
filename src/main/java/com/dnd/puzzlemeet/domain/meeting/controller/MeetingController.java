@@ -104,7 +104,8 @@ public class MeetingController {
     ErrorCode.INVALID_INPUT_VALUE,
     ErrorCode.MEETING_INVITE_CODE_INVALID,
     ErrorCode.MEETING_NOT_JOINABLE,
-    ErrorCode.MEETING_MEMBER_ALREADY_JOINED
+    ErrorCode.MEETING_MEMBER_ALREADY_JOINED,
+    ErrorCode.MEETING_CAPACITY_EXCEEDED
   })
   @PostMapping(path = "/members", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
   public ResponseEntity<ApiResult<MeetingJoinResponse>> joinMeeting(
