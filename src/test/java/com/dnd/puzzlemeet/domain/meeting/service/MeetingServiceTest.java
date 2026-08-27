@@ -152,7 +152,7 @@ class MeetingServiceTest {
     assertThat(response.participants()).hasSize(1);
     assertThat(response.participants().get(0).puzzleImageUrl())
         .isEqualTo("https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/a.png");
-    assertThat(response.participants().get(0).defaultImageUsed()).isFalse();
+    assertThat(response.participants().get(0).imageSet()).isTrue();
   }
 
   @Test

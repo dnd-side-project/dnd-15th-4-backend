@@ -30,8 +30,8 @@
         "name": "효창",
         "profileImageUrl": "https://.../profiles/1.png",
         "puzzleImageUrl": "https://.../puzzles/1.png",
-        "defaultNicknameUsed": false,
-        "defaultImageUsed": false
+        "nicknameSet": true,
+        "imageSet": true
       }
     ]
   }
@@ -43,8 +43,8 @@
 | `inviteCode` | string | 이 약속의 초대 코드. 참여자 전체에게 내려간다 (방장만 조회 가능한 `/invite-code`와 다름) |
 | `participants` | array | 참여자 목록(본인 포함). 요청한 사용자 본인 항목도 이 배열 안에서만 내려가고, FE는 본인 `id`로 찾아서 쓴다 |
 | `participants[].puzzleImageUrl` | string | 해당 참여자가 등록한 퍼즐 이미지 URL |
-| `participants[].defaultNicknameUsed` | boolean | 해당 참여자가 서비스 기본 닉네임을 쓰는지 여부. 참여 시 닉네임을 직접 설정했으면 `false` |
-| `participants[].defaultImageUsed` | boolean | 해당 참여자가 서비스 기본 이미지로 참여했는지 여부. 직접 이미지를 설정했으면 `false` |
+| `participants[].nicknameSet` | boolean | 해당 참여자가 약속방 닉네임을 직접 정했는지 여부. 사용자 기본 닉네임을 쓰면 `false` |
+| `participants[].imageSet` | boolean | 해당 참여자가 퍼즐 이미지를 직접 등록했는지 여부. 기본 이미지면 `false` |
 
 ## 에러
 
