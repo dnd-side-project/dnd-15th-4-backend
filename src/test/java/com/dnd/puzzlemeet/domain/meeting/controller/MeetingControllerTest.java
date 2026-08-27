@@ -72,7 +72,8 @@ class MeetingControllerTest {
                 .content("{\"nickname\":\"방별닉네임\"}"))
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.meetingId").value(member.getMeeting().getId()))
-        .andExpect(jsonPath("$.data.nickname").value("방별닉네임"));
+        .andExpect(jsonPath("$.data.nickname").value("방별닉네임"))
+        .andExpect(jsonPath("$.data.nicknameSet").value(true));
 
     MeetingMember stored = meetingMemberRepository.findById(member.getId()).orElseThrow();
     assertThat(stored.getNickname()).isEqualTo("방별닉네임");

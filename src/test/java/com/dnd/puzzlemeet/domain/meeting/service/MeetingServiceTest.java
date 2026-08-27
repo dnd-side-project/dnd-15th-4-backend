@@ -426,6 +426,7 @@ class MeetingServiceTest {
     assertThat(member.getNickname()).isEqualTo("새닉네임");
     assertThat(response.meetingId()).isEqualTo(10L);
     assertThat(response.nickname()).isEqualTo("새닉네임");
+    assertThat(response.nicknameSet()).isTrue();
   }
 
   @Test
@@ -445,6 +446,7 @@ class MeetingServiceTest {
     assertThat(memberImage.isDefaultImage()).isFalse();
     assertThat(response.meetingId()).isEqualTo(10L);
     assertThat(response.imageUrl()).isEqualTo("https://s3.test/puzzles/new.png");
+    assertThat(response.imageSet()).isTrue();
     verify(memberImageRepository, never()).save(any());
     verify(amazonS3Manager, never()).deletePuzzleImage(any());
   }

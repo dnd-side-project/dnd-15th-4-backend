@@ -12,10 +12,15 @@ public record MeetingMemberNicknameUpdateResponse(
             example = "효창",
             maxLength = 30,
             requiredMode = RequiredMode.REQUIRED)
-        String nickname) {
+        String nickname,
+    @Schema(
+            description = "닉네임 설정 여부. true면 약속방에서 직접 정한 닉네임, false면 사용자 기본 닉네임",
+            example = "true",
+            requiredMode = RequiredMode.REQUIRED)
+        boolean nicknameSet) {
 
   public static MeetingMemberNicknameUpdateResponse from(MeetingMember member) {
     return new MeetingMemberNicknameUpdateResponse(
-        member.getMeeting().getId(), member.getNickname());
+        member.getMeeting().getId(), member.getNickname(), member.isCustomNickname());
   }
 }
