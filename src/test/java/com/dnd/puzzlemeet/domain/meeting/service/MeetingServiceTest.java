@@ -152,7 +152,7 @@ class MeetingServiceTest {
     assertThat(response.participants()).hasSize(1);
     assertThat(response.participants().get(0).puzzleImageUrl())
         .isEqualTo("https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/a.png");
-    assertThat(response.participants().get(0).defaultImageUsed()).isFalse();
+    assertThat(response.participants().get(0).imageSet()).isTrue();
   }
 
   @Test
@@ -427,6 +427,7 @@ class MeetingServiceTest {
     assertThat(member.getNickname()).isEqualTo("새닉네임");
     assertThat(response.meetingId()).isEqualTo(10L);
     assertThat(response.nickname()).isEqualTo("새닉네임");
+    assertThat(response.nicknameSet()).isTrue();
   }
 
   @Test
@@ -446,6 +447,7 @@ class MeetingServiceTest {
     assertThat(memberImage.isDefaultImage()).isFalse();
     assertThat(response.meetingId()).isEqualTo(10L);
     assertThat(response.imageUrl()).isEqualTo("https://s3.test/puzzles/new.png");
+    assertThat(response.imageSet()).isTrue();
     verify(memberImageRepository, never()).save(any());
     verify(amazonS3Manager, never()).deletePuzzleImage(any());
   }

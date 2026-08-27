@@ -72,10 +72,16 @@ public record MeetingDetailResponse(
               example = "https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/puzzles/1.png",
               requiredMode = RequiredMode.REQUIRED)
           String puzzleImageUrl,
-      @Schema(description = "기본 닉네임 사용 여부", requiredMode = RequiredMode.REQUIRED)
-          boolean defaultNicknameUsed,
-      @Schema(description = "기본 이미지 사용 여부", requiredMode = RequiredMode.REQUIRED)
-          boolean defaultImageUsed) {
+      @Schema(
+              description = "닉네임 설정 여부. true면 약속방에서 직접 정한 닉네임, false면 사용자 기본 닉네임",
+              example = "true",
+              requiredMode = RequiredMode.REQUIRED)
+          boolean nicknameSet,
+      @Schema(
+              description = "퍼즐 이미지 설정 여부. true면 직접 등록한 이미지, false면 기본 이미지",
+              example = "true",
+              requiredMode = RequiredMode.REQUIRED)
+          boolean imageSet) {
 
     public static Participant from(MeetingMember member, MemberImage image) {
       return new Participant(
