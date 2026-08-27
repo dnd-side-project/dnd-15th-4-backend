@@ -605,13 +605,25 @@ public class MeetingService {
 
   @Transactional
   public void completeExpiredMeetings() {
-    List<Meeting> expiredMeetings = meetingRepository.findAllExpired(LocalDateTime.now());
+    LocalDateTime now = LocalDateTime.now();
+    List<Meeting> expiredMeetings =
+        meetingRepository.findAllExpired(now).stream()
+            .filter(meeting -> isPastCompletionGracePeriod(meeting, now))
+            .toList();
     expiredMeetings.forEach(Meeting::complete);
     expiredMeetings.forEach(this::collectCompletedPuzzles);
 
     if (!expiredMeetings.isEmpty()) {
       log.info("[약속 자동 종료] count={}", expiredMeetings.size());
     }
+  }
+
+  // 약속 당일 자정에 종료 처리하면 자정을 넘겨 이동 중인 참여자의 진행 화면이 끊기므로,
+  // 약속 다음 날까지는 진행 중 상태를 유지하고 그다음 날 자정이 지나야 종료 처리한다.
+  private boolean isPastCompletionGracePeriod(Meeting meeting, LocalDateTime now) {
+    LocalDateTime completionDeadline =
+        meeting.getMeetingAt().toLocalDate().plusDays(2).atStartOfDay();
+    return !now.isBefore(completionDeadline);
   }
 
   private void collectCompletedPuzzles(Meeting meeting) {
