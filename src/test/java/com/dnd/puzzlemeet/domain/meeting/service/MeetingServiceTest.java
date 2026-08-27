@@ -1204,6 +1204,30 @@ class MeetingServiceTest {
     verify(meetingMemberRepository, never()).delete(any());
   }
 
+  @Test
+  @DisplayName("약속 다음 날 자정이 지나지 않으면 종료 처리를 미룬다")
+  void keepsMeetingInProgressWithinGracePeriod() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().minusDays(1).atTime(20, 0));
+    given(meetingRepository.findAllExpired(any())).willReturn(List.of(meeting));
+
+    meetingService.completeExpiredMeetings();
+
+    assertThat(meeting.getStatus()).isNotEqualTo(MeetingStatus.COMPLETED);
+  }
+
+  @Test
+  @DisplayName("약속 다음 날 자정이 지나면 종료 처리한다")
+  void completesMeetingAfterGracePeriodEnds() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().minusDays(2).atTime(20, 0));
+    given(meetingRepository.findAllExpired(any())).willReturn(List.of(meeting));
+
+    meetingService.completeExpiredMeetings();
+
+    assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.COMPLETED);
+  }
+
   private MeetingMember activeMember(String nickname) {
     return activeMember(nickname, LocalDateTime.now().plusHours(3));
   }
