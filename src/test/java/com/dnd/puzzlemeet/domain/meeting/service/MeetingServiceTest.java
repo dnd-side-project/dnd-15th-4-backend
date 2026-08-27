@@ -321,6 +321,7 @@ class MeetingServiceTest {
     assertThat(group.members().get(1).pieceIndex()).isEqualTo(2);
     assertThat(response.quickMessages()).hasSize(1);
     assertThat(response.quickMessages().get(0).content()).isEqualTo("지금 출발");
+    assertThat(response.quickMessages().get(0).senderId()).isEqualTo(100L);
   }
 
   @Test

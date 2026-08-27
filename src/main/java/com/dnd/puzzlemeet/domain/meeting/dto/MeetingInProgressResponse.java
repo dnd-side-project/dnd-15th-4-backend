@@ -17,7 +17,9 @@ public record MeetingInProgressResponse(
   public record QuickMessage(
       @Schema(description = "퀵메시지 ID", example = "1", requiredMode = RequiredMode.REQUIRED) Long id,
       @Schema(description = "퀵메시지 내용", example = "지금 출발", requiredMode = RequiredMode.REQUIRED)
-          String content) {}
+          String content,
+      @Schema(description = "보낸 사용자 아이디", example = "1", requiredMode = RequiredMode.REQUIRED)
+          Long senderId) {}
 
   public record PuzzleGroup(
       @Schema(description = "퍼즐 이미지 URL", requiredMode = RequiredMode.REQUIRED)
