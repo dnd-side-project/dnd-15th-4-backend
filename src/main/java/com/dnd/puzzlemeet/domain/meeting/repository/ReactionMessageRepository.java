@@ -12,7 +12,9 @@ public interface ReactionMessageRepository extends JpaRepository<ReactionMessage
   @Query(
       """
       select rm from ReactionMessage rm
-      where rm.senderMember.meeting.id = :meetingId
+      join fetch rm.senderMember sm
+      join fetch sm.user
+      where sm.meeting.id = :meetingId
       order by rm.sentAt desc
       """)
   List<ReactionMessage> findRecentByMeetingId(
