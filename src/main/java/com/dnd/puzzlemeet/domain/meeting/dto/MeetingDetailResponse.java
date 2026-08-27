@@ -83,8 +83,8 @@ public record MeetingDetailResponse(
           member.getNickname(),
           member.getProfileImageUrl(),
           image != null ? image.getImageUrl() : null,
-          !member.isCustomNickname(),
-          !member.isCustomImage());
+          member.isCustomNickname(),
+          member.isCustomImage());
     }
   }
 }
