@@ -321,6 +321,8 @@ class MeetingServiceTest {
     assertThat(response.quickMessages()).hasSize(1);
     assertThat(response.quickMessages().get(0).content()).isEqualTo("지금 출발");
     assertThat(response.quickMessages().get(0).senderId()).isEqualTo(100L);
+    assertThat(response.destinationLatitude()).isEqualTo(37.5283);
+    assertThat(response.destinationLongitude()).isEqualTo(126.9320);
   }
 
   @Test
