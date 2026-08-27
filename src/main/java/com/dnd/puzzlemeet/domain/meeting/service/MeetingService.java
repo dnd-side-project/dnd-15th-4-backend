@@ -413,7 +413,9 @@ public class MeetingService {
             .map(
                 message ->
                     new MeetingInProgressResponse.QuickMessage(
-                        message.getId(), message.getContent()))
+                        message.getId(),
+                        message.getContent(),
+                        message.getSenderMember().getUser().getId()))
             .toList();
 
     return new MeetingInProgressResponse(
