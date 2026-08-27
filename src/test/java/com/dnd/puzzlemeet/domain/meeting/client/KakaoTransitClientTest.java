@@ -221,17 +221,25 @@ class KakaoTransitClientTest {
   }
 
   @Test
-  @DisplayName("출발지와 도착지가 같으면 도보 이동을 권하는 오류로 바꾼다")
-  void mapsEqualPointsToTooClose() {
-    assertErrorCode("EQUAL_POINTS", ErrorCode.MEETING_MAP_TOO_CLOSE);
+  @DisplayName("출발지와 도착지가 같으면 오류 없이 빈 경로 목록을 돌려준다")
+  void returnsNoRoutesForEqualPoints() {
+    assertThat(findRoutes(clientRespondingWith("{\"status\":\"EQUAL_POINTS\"}"))).isEmpty();
   }
 
   @Test
-  @DisplayName("출발지·도착지 정류장이 없거나 결과가 없으면 경로를 찾을 수 없다고 응답한다")
+  @DisplayName("정류장이 없거나 걸어갈 수 없는 거리에 경로가 없으면 경로를 찾을 수 없다고 응답한다")
   void mapsMissingNodeStatusesToRouteNotFound() {
     assertErrorCode("STARTNODES_NULL", ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND);
     assertErrorCode("ENDNODES_NULL", ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND);
     assertErrorCode("NO_RESULTS", ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND);
+  }
+
+  @Test
+  @DisplayName("300m 안쪽에서 경로가 없으면 오류 없이 빈 경로 목록을 돌려준다")
+  void returnsNoRoutesWithinWalkingDistance() {
+    KakaoTransitClient client = clientRespondingWith("{\"status\":\"NO_RESULTS\"}");
+
+    assertThat(client.findRoutes(37.4979, 127.0286, 37.4991, 127.0286, null)).isEmpty();
   }
 
   @Test

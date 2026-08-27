@@ -121,6 +121,17 @@ class TransitRouteFacadeTest {
   }
 
   @Test
+  @DisplayName("1차 조회 결과가 비어 있으면 다시 조회하지 않는다")
+  void skipsSecondSearchWhenFirstResultIsEmpty() {
+    givenSelected(TransitRouteProviderType.TMAP);
+    givenRoutes(tmapProvider, List.of());
+
+    assertThat(facade.findRoutes(query(LocalDateTime.now().plusHours(5)))).isEmpty();
+    verify(tmapProvider, times(1))
+        .findRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), any());
+  }
+
+  @Test
   @DisplayName("재조회 결과가 비어 있으면 1차 조회 결과를 그대로 쓴다")
   void keepsFirstResultWhenReQueryReturnsNothing() {
     LocalDateTime meetingAt = LocalDateTime.now().plusHours(5);

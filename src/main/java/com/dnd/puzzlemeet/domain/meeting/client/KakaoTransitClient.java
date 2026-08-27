@@ -41,6 +41,9 @@ public class KakaoTransitClient implements TransitRouteProvider {
   private static final int PATH_TYPE_BUS = 2;
   private static final int PATH_TYPE_BUS_AND_SUBWAY = 3;
 
+  private static final double EARTH_RADIUS_M = 6_371_000;
+  private static final int TOO_CLOSE_DISTANCE_METERS = 300;
+
   private static final String STEP_TYPE_WALKING = "WALKING";
   private static final int LONGITUDE_INDEX = 0;
   private static final int LATITUDE_INDEX = 1;
@@ -126,6 +129,9 @@ public class KakaoTransitClient implements TransitRouteProvider {
 
     if (!STATUS_OK.equals(response.status())) {
       log.info("[지도 연동] 대중교통 경로 없음, status={}, elapsedMs={}", response.status(), elapsedMs);
+      if (isTooClose(response.status(), startLatitude, startLongitude, endLatitude, endLongitude)) {
+        return List.of();
+      }
       throw ApiException.of(errorCode(response.status()));
     }
 
@@ -139,13 +145,42 @@ public class KakaoTransitClient implements TransitRouteProvider {
     return routes;
   }
 
+  private boolean isTooClose(
+      String status,
+      double startLatitude,
+      double startLongitude,
+      double endLatitude,
+      double endLongitude) {
+    if (STATUS_EQUAL_POINTS.equals(status)) {
+      return true;
+    }
+    return STATUS_NO_RESULTS.equals(status)
+        && distanceMeters(startLatitude, startLongitude, endLatitude, endLongitude)
+            < TOO_CLOSE_DISTANCE_METERS;
+  }
+
   private ErrorCode errorCode(String status) {
     return switch (status) {
-      case STATUS_EQUAL_POINTS -> ErrorCode.MEETING_MAP_TOO_CLOSE;
       case STATUS_STARTNODES_NULL, STATUS_ENDNODES_NULL, STATUS_NO_RESULTS ->
           ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND;
       default -> ErrorCode.MEETING_MAP_UNAVAILABLE;
     };
+  }
+
+  private double distanceMeters(
+      double fromLatitude, double fromLongitude, double toLatitude, double toLongitude) {
+    double latitudeDifference = Math.toRadians(toLatitude - fromLatitude);
+    double longitudeDifference = Math.toRadians(toLongitude - fromLongitude);
+    double fromLatitudeRadians = Math.toRadians(fromLatitude);
+    double toLatitudeRadians = Math.toRadians(toLatitude);
+
+    double haversine =
+        Math.pow(Math.sin(latitudeDifference / 2), 2)
+            + Math.cos(fromLatitudeRadians)
+                * Math.cos(toLatitudeRadians)
+                * Math.pow(Math.sin(longitudeDifference / 2), 2);
+    double centralAngle = 2 * Math.atan2(Math.sqrt(haversine), Math.sqrt(1 - haversine));
+    return EARTH_RADIUS_M * centralAngle;
   }
 
   private URI routeUri(

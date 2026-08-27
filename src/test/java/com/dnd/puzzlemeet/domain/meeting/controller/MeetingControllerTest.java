@@ -288,7 +288,27 @@ class MeetingControllerTest {
         .andExpect(jsonPath("$.data.routes[0].steps[0].type").value("SUBWAY"))
         .andExpect(jsonPath("$.data.routes[0].steps[0].line").value("수도권6호선"))
         .andExpect(jsonPath("$.data.routes[0].steps[0].station.start").value("태릉입구역"))
-        .andExpect(jsonPath("$.data.routes[0].steps[0].startLocation.lat").value(37.5017));
+        .andExpect(jsonPath("$.data.routes[0].steps[0].startLocation.lat").value(37.5017))
+        .andExpect(jsonPath("$.data.guide").doesNotExist());
+  }
+
+  @Test
+  @DisplayName("대중교통 경로가 없으면 빈 목록과 도보 안내를 200으로 돌려준다")
+  void searchMeetingRoutesReturnsWalkGuideWhenNoRouteExists() throws Exception {
+    MeetingMember member = saveMeetingMember("기본닉네임");
+    String accessToken = jwtProvider.createAccessToken(member.getUser().getId());
+    given(transitRouteFacade.findRoutes(any())).willReturn(List.of());
+
+    mockMvc
+        .perform(
+            post("/api/v1/meetings/{meetingId}/routes", member.getMeeting().getId())
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"start\":{\"latitude\":37.5045,\"longitude\":127.0247}}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.routes").isEmpty())
+        .andExpect(jsonPath("$.data.guide.code").value("MEETING_MAP_TOO_CLOSE"))
+        .andExpect(jsonPath("$.data.guide.travelMode").value("WALK"));
   }
 
   @Test

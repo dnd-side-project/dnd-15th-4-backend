@@ -693,6 +693,23 @@ class MeetingServiceTest {
   }
 
   @Test
+  @DisplayName("대중교통 경로가 없으면 도보로 다시 조회하라는 안내가 담긴다")
+  void guidesToWalkWhenNoTransitRouteExists() {
+    MeetingMember member = activeMember("효창", LocalDateTime.now().plusHours(3));
+    givenActiveMember(member);
+    givenTransitRoutes(List.of());
+
+    MeetingRouteSearchResponse response =
+        meetingService.searchRoutes(
+            100L, 10L, searchRequest(37.5283, 126.9325, TravelMode.TRANSIT));
+
+    assertThat(response.routes()).isEmpty();
+    assertThat(response.guide().code()).isEqualTo("MEETING_MAP_TOO_CLOSE");
+    assertThat(response.guide().message()).isEqualTo(ErrorCode.MEETING_MAP_TOO_CLOSE.getMessage());
+    assertThat(response.guide().travelMode()).isEqualTo(TravelMode.WALK);
+  }
+
+  @Test
   @DisplayName("대중교통 조회 요청은 출발지 좌표, 약속 장소 좌표, 약속 시각 순으로 전달된다")
   void passesDepartureAndDestinationToTransitRouteFacade() {
     LocalDateTime meetingAt = LocalDateTime.now().plusHours(3);

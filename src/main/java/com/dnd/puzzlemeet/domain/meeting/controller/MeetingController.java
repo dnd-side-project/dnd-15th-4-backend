@@ -231,12 +231,12 @@ public class MeetingController {
       summary = "이동 경로 조회",
       description =
           "출발지에서 약속 장소까지 가는 경로를 이동수단별로 조회하고 저장하지 않는다. "
-              + "대중교통은 현재 시각 기준으로 여러 건, 차량은 약속 시각에 도착하는 기준으로 한 건, 도보는 한 건을 돌려준다.")
+              + "대중교통은 현재 시각 기준으로 여러 건, 차량은 약속 시각에 도착하는 기준으로 한 건, 도보는 한 건을 돌려준다. "
+              + "대중교통은 걸어갈 수 있을 만큼 가까우면 오류 대신 빈 목록을 돌려준다.")
   @ApiErrorCodeExamples({
     ErrorCode.AUTH_TOKEN_INVALID,
     ErrorCode.INVALID_INPUT_VALUE,
     ErrorCode.MEETING_MAP_ROUTE_NOT_FOUND,
-    ErrorCode.MEETING_MAP_TOO_CLOSE,
     ErrorCode.MEETING_NOT_FOUND,
     ErrorCode.MEETING_MEMBER_NOT_FOUND,
     ErrorCode.MEETING_MEMBER_NOT_ACTIVE,

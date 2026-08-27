@@ -37,6 +37,10 @@ public class TransitRouteFacade {
     LocalDateTime firstDepartAt = firstQueryDepartAt(query);
     List<TravelRoute> routes = findRoutes(provider, query, firstDepartAt);
 
+    if (routes.isEmpty()) {
+      return routes;
+    }
+
     int estimatedTimeSeconds = routes.getFirst().totalTimeSeconds();
     if (!needsReQuery(firstDepartAt, estimatedTimeSeconds)) {
       return routes;

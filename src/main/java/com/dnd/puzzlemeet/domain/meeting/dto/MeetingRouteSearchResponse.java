@@ -2,15 +2,41 @@ package com.dnd.puzzlemeet.domain.meeting.dto;
 
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.entity.TransportType;
+import com.dnd.puzzlemeet.domain.meeting.entity.TravelMode;
+import com.dnd.puzzlemeet.global.response.ErrorCode;
 import io.swagger.v3.oas.annotations.media.Schema;
 import io.swagger.v3.oas.annotations.media.Schema.RequiredMode;
 import java.util.List;
 
 public record MeetingRouteSearchResponse(
-    @Schema(description = "추천 경로 목록", requiredMode = RequiredMode.REQUIRED) List<Route> routes) {
+    @Schema(description = "추천 경로 목록", requiredMode = RequiredMode.REQUIRED) List<Route> routes,
+    @Schema(description = "경로가 없을 때의 안내. 경로가 하나라도 있으면 값이 없다", nullable = true) Guide guide) {
 
   public static MeetingRouteSearchResponse from(List<TravelRoute> routes) {
-    return new MeetingRouteSearchResponse(routes.stream().map(Route::from).toList());
+    List<Route> found = routes.stream().map(Route::from).toList();
+    return new MeetingRouteSearchResponse(found, found.isEmpty() ? Guide.tooClose() : null);
+  }
+
+  public record Guide(
+      @Schema(
+              description = "안내 코드",
+              example = "MEETING_MAP_TOO_CLOSE",
+              requiredMode = RequiredMode.REQUIRED)
+          String code,
+      @Schema(
+              description = "안내 문구",
+              example = "이동 거리가 너무 가까워 대중교통 경로가 없습니다. 도보로 이동해 보세요.",
+              requiredMode = RequiredMode.REQUIRED)
+          String message,
+      @Schema(description = "대신 조회해 볼 이동수단", example = "WALK", requiredMode = RequiredMode.REQUIRED)
+          TravelMode travelMode) {
+
+    private static Guide tooClose() {
+      return new Guide(
+          ErrorCode.MEETING_MAP_TOO_CLOSE.getCode(),
+          ErrorCode.MEETING_MAP_TOO_CLOSE.getMessage(),
+          TravelMode.WALK);
+    }
   }
 
   public record Route(
