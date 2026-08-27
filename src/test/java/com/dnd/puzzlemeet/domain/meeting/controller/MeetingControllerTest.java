@@ -2,7 +2,6 @@ package com.dnd.puzzlemeet.domain.meeting.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.ArgumentMatchers.anyDouble;
 import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
@@ -13,7 +12,6 @@ import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.
 import static org.springframework.test.web.servlet.result.MockMvcResultMatchers.status;
 
 import com.dnd.puzzlemeet.TestcontainersConfiguration;
-import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
@@ -23,6 +21,7 @@ import com.dnd.puzzlemeet.domain.meeting.entity.TransportType;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRouteRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
+import com.dnd.puzzlemeet.domain.meeting.service.TransitRouteFacade;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
@@ -57,7 +56,7 @@ class MeetingControllerTest {
   @Autowired private MeetingMemberRouteRepository meetingMemberRouteRepository;
   @Autowired private MemberImageRepository memberImageRepository;
   @Autowired private JwtProvider jwtProvider;
-  @MockitoBean private TmapTransitClient tmapTransitClient;
+  @MockitoBean private TransitRouteFacade transitRouteFacade;
 
   @Test
   @DisplayName("인증된 참여자가 약속방 닉네임을 수정한다")
@@ -273,10 +272,7 @@ class MeetingControllerTest {
   void searchMeetingRoutesReturnsSteps() throws Exception {
     MeetingMember member = saveMeetingMember("기본닉네임");
     String accessToken = jwtProvider.createAccessToken(member.getUser().getId());
-    given(
-            tmapTransitClient.findTransitRoutes(
-                anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
-        .willReturn(List.of(transitRouteWithFare()));
+    given(transitRouteFacade.findRoutes(any())).willReturn(List.of(transitRouteWithFare()));
 
     mockMvc
         .perform(
@@ -292,7 +288,27 @@ class MeetingControllerTest {
         .andExpect(jsonPath("$.data.routes[0].steps[0].type").value("SUBWAY"))
         .andExpect(jsonPath("$.data.routes[0].steps[0].line").value("수도권6호선"))
         .andExpect(jsonPath("$.data.routes[0].steps[0].station.start").value("태릉입구역"))
-        .andExpect(jsonPath("$.data.routes[0].steps[0].startLocation.lat").value(37.5017));
+        .andExpect(jsonPath("$.data.routes[0].steps[0].startLocation.lat").value(37.5017))
+        .andExpect(jsonPath("$.data.guide").doesNotExist());
+  }
+
+  @Test
+  @DisplayName("대중교통 경로가 없으면 빈 목록과 도보 안내를 200으로 돌려준다")
+  void searchMeetingRoutesReturnsWalkGuideWhenNoRouteExists() throws Exception {
+    MeetingMember member = saveMeetingMember("기본닉네임");
+    String accessToken = jwtProvider.createAccessToken(member.getUser().getId());
+    given(transitRouteFacade.findRoutes(any())).willReturn(List.of());
+
+    mockMvc
+        .perform(
+            post("/api/v1/meetings/{meetingId}/routes", member.getMeeting().getId())
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"start\":{\"latitude\":37.5045,\"longitude\":127.0247}}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.routes").isEmpty())
+        .andExpect(jsonPath("$.data.guide.code").value("MEETING_MAP_TOO_CLOSE"))
+        .andExpect(jsonPath("$.data.guide.travelMode").value("WALK"));
   }
 
   @Test
@@ -347,7 +363,8 @@ class MeetingControllerTest {
                 127.0256,
                 37.5446,
                 127.0559,
-                List.of("태릉입구역", "성수역"))));
+                List.of("태릉입구역", "성수역"),
+                null)));
   }
 
   private MeetingMember saveMeetingMember(String nickname) {

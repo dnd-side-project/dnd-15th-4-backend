@@ -68,7 +68,8 @@ public class TmapPedestrianClient {
                 startLongitude,
                 endLatitude,
                 endLongitude,
-                List.of())));
+                List.of(),
+                null)));
   }
 
   private TmapRouteSummaryResponse.Properties requestSummary(

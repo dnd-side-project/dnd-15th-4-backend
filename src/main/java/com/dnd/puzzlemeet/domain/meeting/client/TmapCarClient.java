@@ -72,7 +72,8 @@ public class TmapCarClient {
                 startLongitude,
                 endLatitude,
                 endLongitude,
-                List.of())));
+                List.of(),
+                null)));
   }
 
   private TmapRouteSummaryResponse.Properties requestSummary(

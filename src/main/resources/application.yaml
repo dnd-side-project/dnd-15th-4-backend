@@ -35,6 +35,8 @@ kakao:
   unlink:
     admin-key: ${KAKAO_ADMIN_KEY}
     uri: https://kapi.kakao.com/v1/user/unlink
+  map:
+    transit-route-uri: https://dapi.kakao.com/v2/routing/publictraffic
 
 tmap:
   app-key: ${TMAP_APP_KEY}

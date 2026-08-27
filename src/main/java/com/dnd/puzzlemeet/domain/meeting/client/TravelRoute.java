@@ -18,7 +18,8 @@ public record TravelRoute(
       Double startLongitude,
       Double endLatitude,
       Double endLongitude,
-      List<String> stationNames) {
+      List<String> stationNames,
+      String description) {
 
     public int stationCount() {
       return Math.max(stationNames.size() - 1, 0);
