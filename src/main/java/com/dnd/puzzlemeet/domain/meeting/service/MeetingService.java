@@ -2,7 +2,6 @@ package com.dnd.puzzlemeet.domain.meeting.service;
 
 import com.dnd.puzzlemeet.domain.meeting.client.TmapCarClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapPedestrianClient;
-import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateResponse;
@@ -83,7 +82,6 @@ public class MeetingService {
 
   private static final int ARRIVAL_RADIUS_M = 50;
   private static final double EARTH_RADIUS_M = 6_371_000;
-  private static final int ROUTE_RESEARCH_THRESHOLD_SECONDS = 3_600;
   private static final int INVITE_CODE_LENGTH = 8;
   private static final String INVITE_CODE_CHARS =
       "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
@@ -112,7 +110,7 @@ public class MeetingService {
   private final MemberImageRepository memberImageRepository;
   private final UserRepository userRepository;
   private final AmazonS3Manager amazonS3Manager;
-  private final TmapTransitClient tmapTransitClient;
+  private final TransitRouteFacade transitRouteFacade;
   private final TmapCarClient tmapCarClient;
   private final TmapPedestrianClient tmapPedestrianClient;
   private final PuzzlePageRepository puzzlePageRepository;
@@ -760,7 +758,14 @@ public class MeetingService {
   private List<TravelRoute> resolveRoutes(
       Meeting meeting, double latitude, double longitude, TravelMode travelMode) {
     return switch (travelMode) {
-      case TRANSIT -> resolveTransitRoutes(meeting, latitude, longitude);
+      case TRANSIT ->
+          transitRouteFacade.findRoutes(
+              new TransitRouteQuery(
+                  latitude,
+                  longitude,
+                  meeting.getDestinationLatitude().doubleValue(),
+                  meeting.getDestinationLongitude().doubleValue(),
+                  meeting.getMeetingAt()));
       case CAR ->
           List.of(
               tmapCarClient.findCarRoute(
@@ -779,31 +784,6 @@ public class MeetingService {
                   meeting.getDestinationLongitude().doubleValue(),
                   meeting.getDestinationName()));
     };
-  }
-
-  private List<TravelRoute> resolveTransitRoutes(
-      Meeting meeting, double latitude, double longitude) {
-    double destinationLatitude = meeting.getDestinationLatitude().doubleValue();
-    double destinationLongitude = meeting.getDestinationLongitude().doubleValue();
-    LocalDateTime firstDepartAt = firstQueryDepartAt(meeting);
-
-    List<TravelRoute> routes =
-        tmapTransitClient.findTransitRoutes(
-            latitude, longitude, destinationLatitude, destinationLongitude, firstDepartAt);
-
-    int estimatedTimeSeconds = routes.getFirst().totalTimeSeconds();
-    if (!needsReQuery(firstDepartAt, estimatedTimeSeconds)) {
-      return routes;
-    }
-
-    List<TravelRoute> reQueried =
-        tmapTransitClient.findTransitRoutes(
-            latitude,
-            longitude,
-            destinationLatitude,
-            destinationLongitude,
-            reQueryDepartAt(meeting, estimatedTimeSeconds));
-    return reQueried.isEmpty() ? routes : reQueried;
   }
 
   private TravelMode travelMode(MeetingMemberDepartureUpdateRequest request, MeetingMember member) {
@@ -833,15 +813,6 @@ public class MeetingService {
   private LocalDateTime firstQueryDepartAt(Meeting meeting) {
     LocalDateTime meetingAt = meeting.getMeetingAt();
     return meetingAt.isAfter(LocalDateTime.now()) ? meetingAt : null;
-  }
-
-  private boolean needsReQuery(LocalDateTime firstDepartAt, int estimatedTimeSeconds) {
-    return firstDepartAt != null && estimatedTimeSeconds >= ROUTE_RESEARCH_THRESHOLD_SECONDS;
-  }
-
-  private LocalDateTime reQueryDepartAt(Meeting meeting, int estimatedTimeSeconds) {
-    LocalDateTime departAt = meeting.getMeetingAt().minusSeconds(estimatedTimeSeconds);
-    return departAt.isAfter(LocalDateTime.now()) ? departAt : null;
   }
 
   private void applyNicknameSetting(MeetingMember member, boolean enabled, String nickname) {

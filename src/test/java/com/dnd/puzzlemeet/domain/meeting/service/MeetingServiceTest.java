@@ -13,7 +13,6 @@ import static org.mockito.Mockito.verify;
 
 import com.dnd.puzzlemeet.domain.meeting.client.TmapCarClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapPedestrianClient;
-import com.dnd.puzzlemeet.domain.meeting.client.TmapTransitClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInviteCodeResponse;
@@ -85,7 +84,7 @@ class MeetingServiceTest {
   @Mock private MemberImageRepository memberImageRepository;
   @Mock private UserRepository userRepository;
   @Mock private AmazonS3Manager amazonS3Manager;
-  @Mock private TmapTransitClient tmapTransitClient;
+  @Mock private TransitRouteFacade transitRouteFacade;
   @Mock private TmapCarClient tmapCarClient;
   @Mock private TmapPedestrianClient tmapPedestrianClient;
   @Mock private PuzzlePageRepository puzzlePageRepository;
@@ -106,7 +105,7 @@ class MeetingServiceTest {
             memberImageRepository,
             userRepository,
             amazonS3Manager,
-            tmapTransitClient,
+            transitRouteFacade,
             tmapCarClient,
             tmapPedestrianClient,
             puzzlePageRepository,
@@ -694,6 +693,22 @@ class MeetingServiceTest {
   }
 
   @Test
+  @DisplayName("대중교통 조회 요청은 출발지 좌표, 약속 장소 좌표, 약속 시각 순으로 전달된다")
+  void passesDepartureAndDestinationToTransitRouteFacade() {
+    LocalDateTime meetingAt = LocalDateTime.now().plusHours(3);
+    MeetingMember member = activeMember("효창", meetingAt);
+    givenActiveMember(member);
+    givenTransitRoutes(transitRoutes());
+
+    meetingService.searchRoutes(100L, 10L, searchRequest(37.5045, 127.0247, TravelMode.TRANSIT));
+
+    ArgumentCaptor<TransitRouteQuery> query = ArgumentCaptor.forClass(TransitRouteQuery.class);
+    verify(transitRouteFacade).findRoutes(query.capture());
+    assertThat(query.getValue())
+        .isEqualTo(new TransitRouteQuery(37.5045, 127.0247, 37.5283, 126.9320, meetingAt));
+  }
+
+  @Test
   @DisplayName("출발지 좌표로 조회하면 약속 장소까지 가는 경로가 구간별로 반환된다")
   void searchesTransitRoutesToMeetingDestination() {
     MeetingMember member = activeMember("효창", LocalDateTime.now().plusHours(3));
@@ -727,71 +742,6 @@ class MeetingServiceTest {
     assertThat(subwayStep.station().start()).isEqualTo("태릉입구역");
     assertThat(subwayStep.station().end()).isEqualTo("성수역");
     assertThat(subwayStep.stations()).containsExactly("태릉입구역", "성수역");
-  }
-
-  @Test
-  @DisplayName("경로 조회도 예상 소요시간이 1시간 이상이면 출발 시각을 역산해 다시 조회한다")
-  void searchesTransitRoutesAgainWithArrivalBasedDepartureTime() {
-    LocalDateTime meetingAt = LocalDateTime.now().plusHours(5);
-    MeetingMember member = activeMember("효창", meetingAt);
-    givenActiveMember(member);
-    givenTransitRoutes(longTransitRoutes());
-
-    meetingService.searchRoutes(100L, 10L, searchRequest(37.5045, 127.0247, TravelMode.TRANSIT));
-
-    ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
-    verify(tmapTransitClient, times(2))
-        .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
-    assertThat(departAt.getAllValues().get(0)).isEqualTo(meetingAt);
-    assertThat(departAt.getAllValues().get(1)).isEqualTo(meetingAt.minusSeconds(5400));
-  }
-
-  @Test
-  @DisplayName("예상 소요시간이 1시간 미만이면 경로를 다시 조회하지 않는다")
-  void skipsSecondTransitSearchForShortRoute() {
-    LocalDateTime meetingAt = LocalDateTime.now().plusHours(3);
-    MeetingMember member = activeMember("효창", meetingAt);
-    givenActiveMember(member);
-    givenTransitRoutes(transitRoutes());
-
-    meetingService.searchRoutes(100L, 10L, searchRequest(37.5045, 127.0247, TravelMode.TRANSIT));
-
-    ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
-    verify(tmapTransitClient)
-        .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
-    assertThat(departAt.getValue()).isEqualTo(meetingAt);
-  }
-
-  @Test
-  @DisplayName("약속 시각이 이미 지났으면 현재 시각 기준으로 한 번만 조회한다")
-  void searchesTransitRoutesOnceForPastMeeting() {
-    MeetingMember member = activeMember("효창", LocalDateTime.now().minusHours(1));
-    givenActiveMember(member);
-    givenTransitRoutes(transitRoutes());
-
-    meetingService.searchRoutes(100L, 10L, searchRequest(37.5045, 127.0247, TravelMode.TRANSIT));
-
-    ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
-    verify(tmapTransitClient)
-        .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
-    assertThat(departAt.getValue()).isNull();
-  }
-
-  @Test
-  @DisplayName("역산한 출발 시각이 이미 지났으면 현재 시각 기준으로 다시 조회한다")
-  void searchesTransitRoutesAgainWithoutDepartureTimeWhenReQueryTimeHasPassed() {
-    LocalDateTime meetingAt = LocalDateTime.now().plusMinutes(30);
-    MeetingMember member = activeMember("효창", meetingAt);
-    givenActiveMember(member);
-    givenTransitRoutes(longTransitRoutes());
-
-    meetingService.searchRoutes(100L, 10L, searchRequest(37.5045, 127.0247, TravelMode.TRANSIT));
-
-    ArgumentCaptor<LocalDateTime> departAt = ArgumentCaptor.forClass(LocalDateTime.class);
-    verify(tmapTransitClient, times(2))
-        .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), departAt.capture());
-    assertThat(departAt.getAllValues().get(0)).isEqualTo(meetingAt);
-    assertThat(departAt.getAllValues().get(1)).isNull();
   }
 
   @Test
@@ -832,8 +782,7 @@ class MeetingServiceTest {
         .findCarRoute(
             anyDouble(), anyDouble(), anyDouble(), anyDouble(), any(), arriveAt.capture());
     assertThat(arriveAt.getValue()).isEqualTo(meetingAt);
-    verify(tmapTransitClient, never())
-        .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), any());
+    verify(transitRouteFacade, never()).findRoutes(any());
 
     assertThat(response.routes()).hasSize(1);
     MeetingRouteSearchResponse.Route route = response.routes().getFirst();
@@ -860,8 +809,7 @@ class MeetingServiceTest {
 
     verify(tmapPedestrianClient)
         .findWalkingRoute(anyDouble(), anyDouble(), anyDouble(), anyDouble(), any());
-    verify(tmapTransitClient, never())
-        .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), any());
+    verify(transitRouteFacade, never()).findRoutes(any());
 
     assertThat(response.routes()).hasSize(1);
     MeetingRouteSearchResponse.Route route = response.routes().getFirst();
@@ -898,13 +846,11 @@ class MeetingServiceTest {
   }
 
   @Test
-  @DisplayName("출발지가 약속 장소와 너무 가까우면 도보 이동을 권하며 거절한다")
-  void rejectsTransitSearchWhenDepartureIsTooClose() {
+  @DisplayName("대중교통 공급자가 던진 오류는 그대로 클라이언트에 전달된다")
+  void propagatesTransitProviderError() {
     MeetingMember member = activeMember("효창", LocalDateTime.now().plusHours(3));
     givenActiveMember(member);
-    given(
-            tmapTransitClient.findTransitRoutes(
-                anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
+    given(transitRouteFacade.findRoutes(any()))
         .willThrow(ApiException.of(ErrorCode.MEETING_MAP_TOO_CLOSE));
 
     ApiException exception =
@@ -1072,8 +1018,7 @@ class MeetingServiceTest {
                 null,
                 null));
 
-    verify(tmapTransitClient, never())
-        .findTransitRoutes(anyDouble(), anyDouble(), anyDouble(), anyDouble(), any());
+    verify(transitRouteFacade, never()).findRoutes(any());
     assertThat(member.isLocationNotificationEnabled()).isFalse();
     assertThat(member.isChatBubbleNotificationEnabled()).isTrue();
     assertThat(response.departure().placeName()).isEqualTo("서울역");
@@ -1187,10 +1132,7 @@ class MeetingServiceTest {
   }
 
   private void givenTransitRoutes(List<TravelRoute> routes) {
-    given(
-            tmapTransitClient.findTransitRoutes(
-                anyDouble(), anyDouble(), anyDouble(), anyDouble(), any()))
-        .willReturn(routes);
+    given(transitRouteFacade.findRoutes(any())).willReturn(routes);
   }
 
   private List<TravelRoute> transitRoutes() {
