@@ -1155,7 +1155,8 @@ class MeetingServiceTest {
                     127.0247,
                     37.5017,
                     127.0256,
-                    List.of()),
+                    List.of(),
+                    null),
                 new TravelRoute.Leg(
                     TransportType.SUBWAY,
                     "수도권6호선",
@@ -1168,7 +1169,8 @@ class MeetingServiceTest {
                     127.0256,
                     37.5446,
                     127.0559,
-                    List.of("태릉입구역", "성수역")))));
+                    List.of("태릉입구역", "성수역"),
+                    null))));
   }
 
   private List<TravelRoute> longTransitRoutes() {
@@ -1191,7 +1193,8 @@ class MeetingServiceTest {
                     127.1076,
                     37.4979,
                     127.0276,
-                    List.of("죽전역", "강남역")))));
+                    List.of("죽전역", "강남역"),
+                    null))));
   }
 
   private MeetingMemberDepartureCreateRequest departureRequest(
@@ -1227,7 +1230,8 @@ class MeetingServiceTest {
                 127.0247,
                 37.5283,
                 126.9320,
-                List.of())));
+                List.of(),
+                null)));
   }
 
   private TravelRoute walkingRoute() {
@@ -1249,7 +1253,8 @@ class MeetingServiceTest {
                 127.0247,
                 37.5283,
                 126.9320,
-                List.of())));
+                List.of(),
+                null)));
   }
 
   private MeetingRouteRequest carRouteRequest() {

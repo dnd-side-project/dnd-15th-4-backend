@@ -182,7 +182,8 @@ public class TmapTransitClient {
         longitude(leg.start()),
         latitude(leg.end()),
         longitude(leg.end()),
-        stationNames(leg.passStopList()));
+        stationNames(leg.passStopList()),
+        null);
   }
 
   private List<String> stationNames(TmapTransitRouteResponse.PassStopList passStopList) {

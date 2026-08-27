@@ -7,6 +7,6 @@ import org.springframework.stereotype.Component;
 public class TransitRouteSelectionPolicy {
 
   public TransitRouteProviderType select(TransitRouteQuery query) {
-    return TransitRouteProviderType.TMAP;
+    return TransitRouteProviderType.KAKAO;
   }
 }

@@ -343,7 +343,8 @@ class MeetingControllerTest {
                 127.0256,
                 37.5446,
                 127.0559,
-                List.of("태릉입구역", "성수역"))));
+                List.of("태릉입구역", "성수역"),
+                null)));
   }
 
   private MeetingMember saveMeetingMember(String nickname) {

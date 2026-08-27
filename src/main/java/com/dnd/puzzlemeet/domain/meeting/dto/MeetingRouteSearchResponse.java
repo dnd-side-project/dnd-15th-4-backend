@@ -69,13 +69,20 @@ public record MeetingRouteSearchResponse(
           leg.transportType(),
           leg.sectionTimeSeconds(),
           leg.distanceMeters(),
-          walking ? walkDescription(leg) : null,
+          description(leg, walking),
           leg.routeName(),
           leg.routeColor(),
           Station.of(leg.startName(), leg.endName()),
           leg.stationNames().isEmpty() ? null : leg.stationNames(),
           Location.of(leg.startLatitude(), leg.startLongitude()),
           Location.of(leg.endLatitude(), leg.endLongitude()));
+    }
+
+    private static String description(TravelRoute.Leg leg, boolean walking) {
+      if (leg.description() != null) {
+        return leg.description();
+      }
+      return walking ? walkDescription(leg) : null;
     }
 
     private static String walkDescription(TravelRoute.Leg leg) {
