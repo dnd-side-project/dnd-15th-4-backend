@@ -286,6 +286,8 @@ class MeetingServiceTest {
             "효창",
             "https://img.kakao.com/host.png");
     ReflectionTestUtils.setField(member, "id", 1L);
+    member.updateDeparture(
+        "회사", BigDecimal.valueOf(37.4979), BigDecimal.valueOf(127.0276), TravelMode.TRANSIT);
 
     PuzzlePage page = new PuzzlePage(meeting, 1);
     ReflectionTestUtils.setField(page, "id", 20L);
@@ -316,8 +318,12 @@ class MeetingServiceTest {
     assertThat(group.members()).hasSize(2);
     assertThat(group.members().get(0).userId()).isEqualTo(100L);
     assertThat(group.members().get(0).pieceIndex()).isEqualTo(1);
+    assertThat(group.members().get(0).departureLatitude()).isEqualTo(37.4979);
+    assertThat(group.members().get(0).departureLongitude()).isEqualTo(127.0276);
     assertThat(group.members().get(1).userId()).isNull();
     assertThat(group.members().get(1).pieceIndex()).isEqualTo(2);
+    assertThat(group.members().get(1).departureLatitude()).isNull();
+    assertThat(group.members().get(1).departureLongitude()).isNull();
     assertThat(response.quickMessages()).hasSize(1);
     assertThat(response.quickMessages().get(0).content()).isEqualTo("지금 출발");
     assertThat(response.quickMessages().get(0).senderId()).isEqualTo(100L);
