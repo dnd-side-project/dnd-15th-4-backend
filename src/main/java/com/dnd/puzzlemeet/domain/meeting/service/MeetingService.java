@@ -81,7 +81,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class MeetingService {
 
-  private static final int ARRIVAL_RADIUS_M = 50;
+  private static final int ARRIVAL_RADIUS_M = 500;
   private static final double EARTH_RADIUS_M = 6_371_000;
   private static final int INVITE_CODE_LENGTH = 8;
   private static final String INVITE_CODE_CHARS =
