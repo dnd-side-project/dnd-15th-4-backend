@@ -44,6 +44,8 @@ public record MeetingInProgressResponse(
       @Schema(description = "현재 위치 경도", example = "126.9320", nullable = true) Double longitude,
       @Schema(description = "최근 위치 갱신 일시", example = "2026-08-17T10:00:00", nullable = true)
           LocalDateTime locationUpdatedAt,
+      @Schema(description = "예상 도착 일시", example = "2026-08-17T10:30:00", nullable = true)
+          LocalDateTime estimatedArrivalTime,
       @Schema(
               description = "퍼즐 조각 위치 번호 (1~4)",
               example = "1",
@@ -62,13 +64,21 @@ public record MeetingInProgressResponse(
           member.getCurrentLatitude() != null ? member.getCurrentLatitude().doubleValue() : null,
           member.getCurrentLongitude() != null ? member.getCurrentLongitude().doubleValue() : null,
           member.getLocationUpdatedAt(),
+          estimatedArrivalTime(member),
           pieceIndex,
           revealed);
     }
 
     public static Participant empty(int pieceIndex, boolean revealed) {
       return new Participant(
-          null, null, null, false, null, false, null, null, null, pieceIndex, revealed);
+          null, null, null, false, null, false, null, null, null, null, pieceIndex, revealed);
+    }
+
+    private static LocalDateTime estimatedArrivalTime(MeetingMember member) {
+      if (member.getDepartedAt() == null || member.getEstimatedDurationSeconds() == null) {
+        return null;
+      }
+      return member.getDepartedAt().plusSeconds(member.getEstimatedDurationSeconds());
     }
   }
 }
