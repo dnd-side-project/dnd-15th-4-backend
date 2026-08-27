@@ -419,7 +419,11 @@ public class MeetingService {
             .toList();
 
     return new MeetingInProgressResponse(
-        puzzleGroups, quickMessages, meeting.getStatus() == MeetingStatus.COMPLETED);
+        puzzleGroups,
+        quickMessages,
+        meeting.getStatus() == MeetingStatus.COMPLETED,
+        meeting.getDestinationLatitude().doubleValue(),
+        meeting.getDestinationLongitude().doubleValue());
   }
 
   private MeetingInProgressResponse.PuzzleGroup toPuzzleGroup(

@@ -12,7 +12,11 @@ public record MeetingInProgressResponse(
         List<PuzzleGroup> puzzleGroups,
     @Schema(description = "퀵메시지 목록", requiredMode = RequiredMode.REQUIRED)
         List<QuickMessage> quickMessages,
-    @Schema(description = "약속 세션 완료 여부", requiredMode = RequiredMode.REQUIRED) boolean completed) {
+    @Schema(description = "약속 세션 완료 여부", requiredMode = RequiredMode.REQUIRED) boolean completed,
+    @Schema(description = "도착지 위도", example = "37.5283", requiredMode = RequiredMode.REQUIRED)
+        Double destinationLatitude,
+    @Schema(description = "도착지 경도", example = "126.9320", requiredMode = RequiredMode.REQUIRED)
+        Double destinationLongitude) {
 
   public record QuickMessage(
       @Schema(description = "퀵메시지 ID", example = "1", requiredMode = RequiredMode.REQUIRED) Long id,
