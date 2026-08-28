@@ -271,6 +271,10 @@ public class MeetingService {
   public MeetingMemberArrivalResponse markMemberArrived(Long userId, Long meetingId) {
     lockActiveUser(userId);
 
+    Meeting meeting =
+        meetingRepository
+            .findByIdForUpdate(meetingId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
     if (member.getStatus() == MeetingMemberStatus.ARRIVED) {
       return MeetingMemberArrivalResponse.from(member);
@@ -280,7 +284,6 @@ public class MeetingService {
       throw ApiException.of(ErrorCode.MEETING_ARRIVAL_LOCATION_INVALID);
     }
 
-    Meeting meeting = member.getMeeting();
     if (!isWithinArrivalRadius(
         member.getCurrentLatitude(),
         member.getCurrentLongitude(),
@@ -292,7 +295,22 @@ public class MeetingService {
 
     member.arrive();
     applicationEventPublisher.publishEvent(new FriendArrivedEvent(meeting.getId(), member.getId()));
+    completeIfAllMembersArrived(meeting, member);
     return MeetingMemberArrivalResponse.from(member);
+  }
+
+  private void completeIfAllMembersArrived(Meeting meeting, MeetingMember arrivedMember) {
+    if (meeting.getStatus() != MeetingStatus.IN_PROGRESS) {
+      return;
+    }
+    if (meetingMemberRepository.existsNotArrivedMemberExcluding(
+        meeting.getId(), arrivedMember.getId())) {
+      return;
+    }
+
+    meeting.complete();
+    collectCompletedPuzzles(meeting);
+    log.info("[약속 전원 도착 종료] meetingId={}", meeting.getId());
   }
 
   @Transactional(readOnly = true)

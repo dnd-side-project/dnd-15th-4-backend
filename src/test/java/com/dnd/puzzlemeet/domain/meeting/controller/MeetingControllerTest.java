@@ -17,6 +17,7 @@ import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRoute;
+import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
 import com.dnd.puzzlemeet.domain.meeting.entity.TransportType;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRouteRepository;
@@ -96,6 +97,26 @@ class MeetingControllerTest {
         .andExpect(status().isOk())
         .andExpect(jsonPath("$.data.meetingId").value(meetingId))
         .andExpect(jsonPath("$.data.arrivalTime").isNotEmpty());
+  }
+
+  @Test
+  @DisplayName("진행 중인 약속에서 마지막 참여자가 도착하면 약속이 완료 처리된다")
+  void completesMeetingWhenAllMembersArrived() throws Exception {
+    MeetingMember member = saveMeetingMember("기본닉네임");
+    member.getMeeting().start();
+    member.updateCurrentLocation(BigDecimal.valueOf(37.5283), BigDecimal.valueOf(126.9320));
+    meetingMemberRepository.flush();
+    String accessToken = jwtProvider.createAccessToken(member.getUser().getId());
+    Long meetingId = member.getMeeting().getId();
+
+    mockMvc
+        .perform(
+            put("/api/v1/meetings/{meetingId}/members/me/arrival", meetingId)
+                .header("Authorization", "Bearer " + accessToken))
+        .andExpect(status().isOk());
+
+    Meeting stored = meetingRepository.findById(meetingId).orElseThrow();
+    assertThat(stored.getStatus()).isEqualTo(MeetingStatus.COMPLETED);
   }
 
   @Test

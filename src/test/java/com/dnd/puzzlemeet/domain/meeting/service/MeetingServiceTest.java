@@ -538,9 +538,7 @@ class MeetingServiceTest {
             "https://img.kakao.com/host.png");
     ReflectionTestUtils.setField(member, "id", 1L);
     member.updateCurrentLocation(BigDecimal.valueOf(37.5283), BigDecimal.valueOf(126.9320));
-    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
-    given(meetingMemberRepository.findByMeetingIdAndUserId(10L, 100L))
-        .willReturn(Optional.of(member));
+    givenActiveMember(member);
 
     MeetingMemberArrivalResponse response = meetingService.markMemberArrived(100L, 10L);
 
@@ -548,6 +546,43 @@ class MeetingServiceTest {
     assertThat(response.meetingId()).isEqualTo(10L);
     assertThat(response.arrivalTime()).isNotNull();
     verify(applicationEventPublisher).publishEvent(new FriendArrivedEvent(10L, 1L));
+  }
+
+  @Test
+  @DisplayName("진행 중인 약속에서 마지막 참여자가 도착하면 약속이 완료된다")
+  void completesMeetingWhenLastMemberArrives() {
+    MeetingMember member = arrivingMemberOfStartedMeeting("효창");
+    givenActiveMember(member);
+    given(meetingMemberRepository.existsNotArrivedMemberExcluding(10L, 1L)).willReturn(false);
+
+    meetingService.markMemberArrived(100L, 10L);
+
+    assertThat(member.getMeeting().getStatus()).isEqualTo(MeetingStatus.COMPLETED);
+  }
+
+  @Test
+  @DisplayName("도착하지 않은 참여자가 남아 있으면 약속을 완료하지 않는다")
+  void keepsMeetingInProgressWhenAnyMemberHasNotArrived() {
+    MeetingMember member = arrivingMemberOfStartedMeeting("효창");
+    givenActiveMember(member);
+    given(meetingMemberRepository.existsNotArrivedMemberExcluding(10L, 1L)).willReturn(true);
+
+    meetingService.markMemberArrived(100L, 10L);
+
+    assertThat(member.getMeeting().getStatus()).isEqualTo(MeetingStatus.IN_PROGRESS);
+  }
+
+  @Test
+  @DisplayName("시작하지 않은 약속은 전원이 도착해도 완료하지 않는다")
+  void doesNotCompleteWaitingMeetingOnArrival() {
+    MeetingMember member = activeMember("효창");
+    member.updateCurrentLocation(BigDecimal.valueOf(37.5283), BigDecimal.valueOf(126.9320));
+    givenActiveMember(member);
+
+    meetingService.markMemberArrived(100L, 10L);
+
+    assertThat(member.getMeeting().getStatus()).isEqualTo(MeetingStatus.WAITING);
+    verify(meetingMemberRepository, never()).existsNotArrivedMemberExcluding(any(), any());
   }
 
   @Test
@@ -609,9 +644,7 @@ class MeetingServiceTest {
             "효창",
             "https://img.kakao.com/host.png");
     member.updateCurrentLocation(BigDecimal.valueOf(37.6), BigDecimal.valueOf(126.9320));
-    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
-    given(meetingMemberRepository.findByMeetingIdAndUserId(10L, 100L))
-        .willReturn(Optional.of(member));
+    givenActiveMember(member);
 
     ApiException exception =
         assertThrows(ApiException.class, () -> meetingService.markMemberArrived(100L, 10L));
@@ -1248,6 +1281,13 @@ class MeetingServiceTest {
             nickname,
             "https://img.kakao.com/host.png");
     ReflectionTestUtils.setField(member, "id", 1L);
+    return member;
+  }
+
+  private MeetingMember arrivingMemberOfStartedMeeting(String nickname) {
+    MeetingMember member = activeMember(nickname);
+    member.getMeeting().start();
+    member.updateCurrentLocation(BigDecimal.valueOf(37.5283), BigDecimal.valueOf(126.9320));
     return member;
   }
 
