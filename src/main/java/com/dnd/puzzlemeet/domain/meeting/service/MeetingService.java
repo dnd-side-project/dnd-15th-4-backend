@@ -952,9 +952,6 @@ public class MeetingService {
     if (nicknameSet) {
       member.changeNickname(resolvedNickname);
     }
-    if (imageSet) {
-      member.markCustomImage();
-    }
     meetingMemberRepository.save(member);
 
     String imageUrl = uploadMemberImage(image);
