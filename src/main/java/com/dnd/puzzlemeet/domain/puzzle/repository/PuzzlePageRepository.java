@@ -7,4 +7,6 @@ import org.springframework.data.jpa.repository.JpaRepository;
 public interface PuzzlePageRepository extends JpaRepository<PuzzlePage, Long> {
 
   List<PuzzlePage> findAllByMeetingIdOrderByPageNumberAsc(Long meetingId);
+
+  boolean existsByMeetingId(Long meetingId);
 }

@@ -175,9 +175,14 @@ public class MeetingController {
   public ResponseEntity<ApiResult<MeetingMemberPuzzleImageUpdateResponse>> updateMemberPuzzleImage(
       @AuthenticationPrincipal UserPrincipal principal,
       @PathVariable Long meetingId,
-      @Parameter(description = "교체할 약속방 퍼즐 이미지") @RequestPart("image") MultipartFile image) {
+      @Parameter(description = "교체할 약속방 퍼즐 이미지. imageSet이 true일 때만 사용한다")
+          @RequestPart(value = "image", required = false)
+          MultipartFile image,
+      @Parameter(description = "퍼즐 이미지 설정 여부. false면 기본 이미지로 되돌린다. 생략하면 true로 본다")
+          @RequestParam(value = "imageSet", required = false)
+          Boolean imageSet) {
     return ApiResult.success(
-        meetingService.updateMemberPuzzleImage(principal.id(), meetingId, image));
+        meetingService.updateMemberPuzzleImage(principal.id(), meetingId, image, imageSet));
   }
 
   @Operation(

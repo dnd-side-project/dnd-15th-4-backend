@@ -120,6 +120,29 @@ class MeetingControllerTest {
   }
 
   @Test
+  @DisplayName("nicknameSet을 false로 보내면 사용자 기본 닉네임으로 되돌아간다")
+  void updateMemberNicknameResetsToUserNickname() throws Exception {
+    MeetingMember member = saveMeetingMember("방별닉네임");
+    member.changeNickname("방별닉네임");
+    meetingMemberRepository.flush();
+    String accessToken = jwtProvider.createAccessToken(member.getUser().getId());
+
+    mockMvc
+        .perform(
+            patch("/api/v1/meetings/{meetingId}/members/me/nickname", member.getMeeting().getId())
+                .header("Authorization", "Bearer " + accessToken)
+                .contentType(MediaType.APPLICATION_JSON)
+                .content("{\"nickname\":\"방별닉네임\",\"nicknameSet\":false}"))
+        .andExpect(status().isOk())
+        .andExpect(jsonPath("$.data.nickname").value("카카오닉네임"))
+        .andExpect(jsonPath("$.data.nicknameSet").value(false));
+
+    MeetingMember stored = meetingMemberRepository.findById(member.getId()).orElseThrow();
+    assertThat(stored.getNickname()).isEqualTo("카카오닉네임");
+    assertThat(stored.isCustomNickname()).isFalse();
+  }
+
+  @Test
   @DisplayName("약속방 닉네임을 공백으로 수정하면 입력값 검증에 실패한다")
   void updateMemberNicknameRejectsBlankValue() throws Exception {
     MeetingMember member = saveMeetingMember("기본닉네임");

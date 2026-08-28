@@ -90,7 +90,7 @@ public record MeetingDetailResponse(
           member.getProfileImageUrl(),
           image != null ? image.getImageUrl() : null,
           member.isCustomNickname(),
-          member.isCustomImage());
+          image != null && !image.isDefaultImage());
     }
   }
 }

@@ -182,7 +182,7 @@ public class MeetingService {
             .findByInviteCode(request.inviteCode())
             .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_INVITE_CODE_INVALID));
 
-    if (meeting.getStatus() != MeetingStatus.WAITING) {
+    if (!isMemberSetupOpen(meeting)) {
       throw ApiException.of(ErrorCode.MEETING_INVITE_CODE_INVALID);
     }
 
@@ -205,7 +205,7 @@ public class MeetingService {
             .findByInviteCodeForUpdate(request.inviteCode())
             .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_INVITE_CODE_INVALID));
 
-    if (meeting.getStatus() != MeetingStatus.WAITING) {
+    if (!isMemberSetupOpen(meeting)) {
       throw ApiException.of(ErrorCode.MEETING_NOT_JOINABLE);
     }
 
@@ -235,33 +235,40 @@ public class MeetingService {
     lockActiveUser(userId);
 
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
-    member.changeNickname(request.nickname());
+    applyNicknameSetting(
+        member, request.nicknameSet() == null || request.nicknameSet(), request.nickname());
     return MeetingMemberNicknameUpdateResponse.from(member);
   }
 
   @Transactional
   public MeetingMemberPuzzleImageUpdateResponse updateMemberPuzzleImage(
-      Long userId, Long meetingId, MultipartFile image) {
+      Long userId, Long meetingId, MultipartFile image, Boolean imageSet) {
     lockActiveUser(userId);
 
-    if (image == null || image.isEmpty()) {
+    boolean useCustomImage = imageSet == null || imageSet;
+    if (useCustomImage && (image == null || image.isEmpty())) {
       throw ApiException.of(ErrorCode.MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED);
     }
 
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
-    if (member.getMeeting().getStatus() != MeetingStatus.WAITING) {
+    if (!isMemberSetupOpen(member.getMeeting())) {
       throw ApiException.of(ErrorCode.MEETING_NOT_WAITING);
     }
 
-    String imageUrl = uploadMemberImage(image);
-
     MemberImage memberImage =
-        memberImageRepository.findByMeetingMemberId(member.getId()).orElse(null);
+        memberImageRepository
+            .findByMeetingMemberId(member.getId())
+            .orElseGet(
+                () ->
+                    memberImageRepository.save(
+                        new MemberImage(member, DEFAULT_MEMBER_IMAGE_URL, true)));
     String previousUploadedImageUrl = resolveUploadedImageUrl(memberImage);
-    if (memberImage == null) {
-      memberImage = memberImageRepository.save(new MemberImage(member, imageUrl, false));
+
+    if (useCustomImage) {
+      memberImage.changeImage(uploadMemberImage(image));
+    } else {
+      memberImage.replaceWithDefaultImage(DEFAULT_MEMBER_IMAGE_URL);
     }
-    memberImage.changeImage(imageUrl);
     deletePuzzleImageAfterCommit(previousUploadedImageUrl);
 
     return MeetingMemberPuzzleImageUpdateResponse.from(memberImage);
@@ -347,7 +354,7 @@ public class MeetingService {
       throw ApiException.of(ErrorCode.AUTH_FORBIDDEN);
     }
 
-    if (meeting.getStatus() != MeetingStatus.WAITING) {
+    if (!isMemberSetupOpen(meeting)) {
       throw ApiException.of(ErrorCode.MEETING_NOT_WAITING);
     }
 
@@ -584,15 +591,22 @@ public class MeetingService {
         meetingRepository.findAllStartingBetween(
             today.atStartOfDay(), today.plusDays(1).atStartOfDay());
 
-    meetings.forEach(
-        meeting -> {
-          meeting.start();
-          assignPuzzleGroups(meeting);
-        });
+    meetings.forEach(Meeting::start);
 
     if (!meetings.isEmpty()) {
       log.info("[약속 자동 시작] count={}", meetings.size());
     }
+  }
+
+  private boolean isMemberSetupOpen(Meeting meeting) {
+    if (meeting.getStatus() == MeetingStatus.WAITING) {
+      return true;
+    }
+    if (meeting.getStatus() != MeetingStatus.IN_PROGRESS) {
+      return false;
+    }
+    return LocalDateTime.now().isBefore(meeting.getMeetingAt())
+        && !puzzlePageRepository.existsByMeetingId(meeting.getId());
   }
 
   private void assignPuzzleGroups(Meeting meeting) {
@@ -623,25 +637,14 @@ public class MeetingService {
 
   @Transactional
   public void completeExpiredMeetings() {
-    LocalDateTime now = LocalDateTime.now();
     List<Meeting> expiredMeetings =
-        meetingRepository.findAllExpired(now).stream()
-            .filter(meeting -> isPastCompletionGracePeriod(meeting, now))
-            .toList();
+        meetingRepository.findAllExpired(LocalDate.now().atStartOfDay());
     expiredMeetings.forEach(Meeting::complete);
     expiredMeetings.forEach(this::collectCompletedPuzzles);
 
     if (!expiredMeetings.isEmpty()) {
       log.info("[약속 자동 종료] count={}", expiredMeetings.size());
     }
-  }
-
-  // 약속 당일 자정에 종료 처리하면 자정을 넘겨 이동 중인 참여자의 진행 화면이 끊기므로,
-  // 약속 다음 날까지는 진행 중 상태를 유지하고 그다음 날 자정이 지나야 종료 처리한다.
-  private boolean isPastCompletionGracePeriod(Meeting meeting, LocalDateTime now) {
-    LocalDateTime completionDeadline =
-        meeting.getMeetingAt().toLocalDate().plusDays(2).atStartOfDay();
-    return !now.isBefore(completionDeadline);
   }
 
   private void collectCompletedPuzzles(Meeting meeting) {
@@ -700,7 +703,7 @@ public class MeetingService {
       throw ApiException.of(ErrorCode.AUTH_FORBIDDEN);
     }
 
-    if (meeting.getStatus() != MeetingStatus.WAITING) {
+    if (!isMemberSetupOpen(meeting)) {
       throw ApiException.of(ErrorCode.MEETING_NOT_WAITING);
     }
 
@@ -758,6 +761,8 @@ public class MeetingService {
     MeetingMemberDepartureCreateRequest.Departure departure = request.departure();
     if (meeting.getStatus() == MeetingStatus.WAITING) {
       meeting.start();
+    }
+    if (!puzzlePageRepository.existsByMeetingId(meeting.getId())) {
       assignPuzzleGroups(meeting);
     }
     member.depart();
@@ -946,9 +951,6 @@ public class MeetingService {
         new MeetingMember(meeting, user, role, resolvedNickname, pickRandomProfileImageUrl());
     if (nicknameSet) {
       member.changeNickname(resolvedNickname);
-    }
-    if (imageSet) {
-      member.markCustomImage();
     }
     meetingMemberRepository.save(member);
 
