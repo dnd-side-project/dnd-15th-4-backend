@@ -134,7 +134,6 @@ class MeetingServiceTest {
             "효창",
             "https://img.kakao.com/host.png");
     ReflectionTestUtils.setField(member, "id", 1L);
-    member.markCustomImage();
     MemberImage myImage =
         new MemberImage(
             member, "https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/a.png", false);
@@ -430,7 +429,7 @@ class MeetingServiceTest {
 
     MeetingMemberNicknameUpdateResponse response =
         meetingService.updateMemberNickname(
-            100L, 10L, new MeetingMemberNicknameUpdateRequest("새닉네임"));
+            100L, 10L, new MeetingMemberNicknameUpdateRequest("새닉네임", true));
 
     assertThat(member.getNickname()).isEqualTo("새닉네임");
     assertThat(response.meetingId()).isEqualTo(10L);
@@ -449,7 +448,7 @@ class MeetingServiceTest {
     given(amazonS3Manager.uploadFile(any(), any())).willReturn("https://s3.test/puzzles/new.png");
 
     MeetingMemberPuzzleImageUpdateResponse response =
-        meetingService.updateMemberPuzzleImage(100L, 10L, puzzleImage());
+        meetingService.updateMemberPuzzleImage(100L, 10L, puzzleImage(), null);
 
     assertThat(memberImage.getImageUrl()).isEqualTo("https://s3.test/puzzles/new.png");
     assertThat(memberImage.isDefaultImage()).isFalse();
@@ -472,7 +471,7 @@ class MeetingServiceTest {
     given(amazonS3Manager.uploadFile(any(), any()))
         .willReturn("https://bucket.s3.ap-northeast-2.amazonaws.com/puzzles/new.png");
 
-    meetingService.updateMemberPuzzleImage(100L, 10L, puzzleImage());
+    meetingService.updateMemberPuzzleImage(100L, 10L, puzzleImage(), null);
 
     verify(amazonS3Manager).deletePuzzleImage(previousImageUrl);
   }
@@ -486,23 +485,23 @@ class MeetingServiceTest {
     ApiException exception =
         assertThrows(
             ApiException.class,
-            () -> meetingService.updateMemberPuzzleImage(100L, 10L, emptyImage));
+            () -> meetingService.updateMemberPuzzleImage(100L, 10L, emptyImage, null));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED);
     verify(amazonS3Manager, never()).uploadFile(any(), any());
   }
 
   @Test
-  @DisplayName("약속이 시작된 뒤에는 퍼즐 이미지를 교체할 수 없다")
-  void rejectsMemberImageReplacementAfterMeetingStarted() {
-    MeetingMember member = activeMember("효창");
+  @DisplayName("약속 시각이 지난 뒤에는 퍼즐 이미지를 교체할 수 없다")
+  void rejectsMemberImageReplacementAfterMeetingTime() {
+    MeetingMember member = activeMember("효창", LocalDateTime.now().minusMinutes(10));
     member.getMeeting().start();
     givenActiveMember(member);
 
     ApiException exception =
         assertThrows(
             ApiException.class,
-            () -> meetingService.updateMemberPuzzleImage(100L, 10L, puzzleImage()));
+            () -> meetingService.updateMemberPuzzleImage(100L, 10L, puzzleImage(), null));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_NOT_WAITING);
     verify(amazonS3Manager, never()).uploadFile(any(), any());
@@ -518,7 +517,7 @@ class MeetingServiceTest {
             ApiException.class,
             () ->
                 meetingService.updateMemberNickname(
-                    100L, 10L, new MeetingMemberNicknameUpdateRequest("새닉네임")));
+                    100L, 10L, new MeetingMemberNicknameUpdateRequest("새닉네임", true)));
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
     verify(meetingRepository, never()).findById(any());
@@ -811,12 +810,13 @@ class MeetingServiceTest {
   }
 
   @Test
-  @DisplayName("이미 진행 중인 약속에 출발 설정을 등록하면 퍼즐 그룹을 다시 배정하지 않는다")
-  void doesNotReassignPuzzleGroupsWhenMeetingAlreadyStarted() {
+  @DisplayName("퍼즐 그룹이 이미 배정된 약속에 출발 설정을 등록하면 다시 배정하지 않는다")
+  void doesNotReassignPuzzleGroupsWhenAlreadyAssigned() {
     MeetingMember member = activeMemberMeetingToday("효창");
     member.getMeeting().start();
     givenActiveMember(member);
     givenRouteSaveEchoesArgument();
+    given(puzzlePageRepository.existsByMeetingId(10L)).willReturn(true);
 
     meetingService.createDeparture(
         100L,
@@ -830,7 +830,6 @@ class MeetingServiceTest {
 
     assertThat(member.getMeeting().getStatus()).isEqualTo(MeetingStatus.IN_PROGRESS);
     verify(puzzlePageRepository, never()).save(any());
-    verify(memberImageRepository, never()).findAllByMeetingId(any());
   }
 
   @Test
@@ -1238,27 +1237,135 @@ class MeetingServiceTest {
   }
 
   @Test
-  @DisplayName("약속 다음 날 자정이 지나지 않으면 종료 처리를 미룬다")
-  void keepsMeetingInProgressWithinGracePeriod() {
+  @DisplayName("실행일 자정을 기준으로 날짜가 지난 약속을 종료 처리한다")
+  void completesMeetingsBeforeTodayStart() {
     Meeting meeting = waitingMeeting();
     ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().minusDays(1).atTime(20, 0));
     given(meetingRepository.findAllExpired(any())).willReturn(List.of(meeting));
 
     meetingService.completeExpiredMeetings();
 
-    assertThat(meeting.getStatus()).isNotEqualTo(MeetingStatus.COMPLETED);
+    ArgumentCaptor<LocalDateTime> threshold = ArgumentCaptor.forClass(LocalDateTime.class);
+    verify(meetingRepository).findAllExpired(threshold.capture());
+    assertThat(threshold.getValue()).isEqualTo(LocalDate.now().atStartOfDay());
+    assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.COMPLETED);
   }
 
   @Test
-  @DisplayName("약속 다음 날 자정이 지나면 종료 처리한다")
-  void completesMeetingAfterGracePeriodEnds() {
+  @DisplayName("당일 약속을 시작 처리할 때는 퍼즐 그룹을 배정하지 않는다")
+  void startsTodaysMeetingsWithoutAssigningPuzzleGroups() {
     Meeting meeting = waitingMeeting();
-    ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().minusDays(2).atTime(20, 0));
-    given(meetingRepository.findAllExpired(any())).willReturn(List.of(meeting));
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    given(meetingRepository.findAllStartingBetween(any(), any())).willReturn(List.of(meeting));
 
-    meetingService.completeExpiredMeetings();
+    meetingService.startTodaysMeetings();
 
-    assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.COMPLETED);
+    assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.IN_PROGRESS);
+    verify(puzzlePageRepository, never()).save(any());
+    verify(memberImageRepository, never()).findAllByMeetingId(any());
+  }
+
+  @Test
+  @DisplayName("nicknameSet이 false면 사용자 기본 닉네임으로 되돌린다")
+  void resetsNicknameToUserDefaultWhenNicknameSetIsFalse() {
+    MeetingMember member = activeMember("방별닉네임");
+    member.changeNickname("방별닉네임");
+    givenActiveMember(member);
+
+    MeetingMemberNicknameUpdateResponse response =
+        meetingService.updateMemberNickname(
+            100L, 10L, new MeetingMemberNicknameUpdateRequest("무시되는닉네임", false));
+
+    assertThat(member.getNickname()).isEqualTo("효창");
+    assertThat(response.nickname()).isEqualTo("효창");
+    assertThat(response.nicknameSet()).isFalse();
+  }
+
+  @Test
+  @DisplayName("imageSet이 false면 기본 이미지로 되돌리고 업로드한 S3 객체를 삭제한다")
+  void replacesMemberImageWithDefaultWhenImageSetIsFalse() {
+    MeetingMember member = activeMember("효창");
+    givenActiveMember(member);
+    String previousImageUrl = "https://bucket.s3.ap-northeast-2.amazonaws.com/puzzles/old.png";
+    MemberImage memberImage = new MemberImage(member, previousImageUrl, false);
+    given(memberImageRepository.findByMeetingMemberId(1L)).willReturn(Optional.of(memberImage));
+
+    MeetingMemberPuzzleImageUpdateResponse response =
+        meetingService.updateMemberPuzzleImage(100L, 10L, null, false);
+
+    assertThat(memberImage.isDefaultImage()).isTrue();
+    assertThat(response.imageSet()).isFalse();
+    verify(amazonS3Manager, never()).uploadFile(any(), any());
+    verify(amazonS3Manager).deletePuzzleImage(previousImageUrl);
+  }
+
+  @Test
+  @DisplayName("진행 중이어도 약속 시각 전이고 퍼즐 배정 전이면 초대 코드로 참여할 수 있다")
+  void joinsInProgressMeetingBeforeMeetingTime() {
+    Meeting meeting = inProgressMeeting(LocalDateTime.now().plusHours(3));
+    User guest = new User(200L, "게스트", "https://img.kakao.com/b.jpg");
+
+    given(userRepository.findActiveByIdForUpdate(200L)).willReturn(Optional.of(guest));
+    given(meetingRepository.findByInviteCodeForUpdate("ABCD1234")).willReturn(Optional.of(meeting));
+    given(puzzlePageRepository.existsByMeetingId(10L)).willReturn(false);
+    given(meetingMemberRepository.existsByMeetingIdAndUserId(10L, 200L)).willReturn(false);
+    given(meetingMemberRepository.countByMeetingId(10L)).willReturn(1L);
+
+    MeetingJoinResponse response =
+        meetingService.joinMeeting(
+            200L, new MeetingJoinRequest("ABCD1234", null, false, false), null);
+
+    assertThat(response.meetingId()).isEqualTo(10L);
+    verify(meetingMemberRepository).save(any(MeetingMember.class));
+  }
+
+  @Test
+  @DisplayName("약속 시각이 지난 진행 중 약속에는 참여할 수 없다")
+  void rejectsJoinAfterMeetingTime() {
+    Meeting meeting = inProgressMeeting(LocalDateTime.now().minusMinutes(10));
+    User guest = new User(200L, "게스트", "https://img.kakao.com/b.jpg");
+
+    given(userRepository.findActiveByIdForUpdate(200L)).willReturn(Optional.of(guest));
+    given(meetingRepository.findByInviteCodeForUpdate("ABCD1234")).willReturn(Optional.of(meeting));
+
+    ApiException exception =
+        assertThrows(
+            ApiException.class,
+            () ->
+                meetingService.joinMeeting(
+                    200L, new MeetingJoinRequest("ABCD1234", null, false, false), null));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_NOT_JOINABLE);
+    verify(meetingMemberRepository, never()).save(any(MeetingMember.class));
+  }
+
+  @Test
+  @DisplayName("퍼즐 그룹이 배정된 뒤에는 참여할 수 없다")
+  void rejectsJoinAfterPuzzleGroupsAssigned() {
+    Meeting meeting = inProgressMeeting(LocalDateTime.now().plusHours(3));
+    User guest = new User(200L, "게스트", "https://img.kakao.com/b.jpg");
+
+    given(userRepository.findActiveByIdForUpdate(200L)).willReturn(Optional.of(guest));
+    given(meetingRepository.findByInviteCodeForUpdate("ABCD1234")).willReturn(Optional.of(meeting));
+    given(puzzlePageRepository.existsByMeetingId(10L)).willReturn(true);
+
+    ApiException exception =
+        assertThrows(
+            ApiException.class,
+            () ->
+                meetingService.joinMeeting(
+                    200L, new MeetingJoinRequest("ABCD1234", null, false, false), null));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_NOT_JOINABLE);
+    verify(meetingMemberRepository, never()).save(any(MeetingMember.class));
+  }
+
+  private Meeting inProgressMeeting(LocalDateTime meetingAt) {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting, "meetingAt", meetingAt);
+    meeting.start();
+    return meeting;
   }
 
   private MeetingMember activeMember(String nickname) {
