@@ -12,7 +12,7 @@ public class MeetingScheduler {
   private final MeetingService meetingService;
 
   // 매일 자정에 그날 열리는 약속을 시작 처리하고 퍼즐 그룹을 배정한다.
-  @Scheduled(cron = "0 0 0 * * *")
+  @Scheduled(cron = "0 */5 * * * *")
   public void startTodaysMeetings() {
     meetingService.startTodaysMeetings();
   }
