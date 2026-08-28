@@ -11,13 +11,9 @@ public class MeetingScheduler {
 
   private final MeetingService meetingService;
 
-  @Scheduled(cron = "0 */5 * * * *")
-  public void startTodaysMeetings() {
-    meetingService.startTodaysMeetings();
-  }
-
-  @Scheduled(cron = "0 * * * * *")
-  public void completeExpiredMeetings() {
+  @Scheduled(cron = "0 0 2 * * *")
+  public void runDailyMeetingTransitions() {
     meetingService.completeExpiredMeetings();
+    meetingService.startTodaysMeetings();
   }
 }
