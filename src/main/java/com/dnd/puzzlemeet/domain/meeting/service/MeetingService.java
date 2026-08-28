@@ -235,16 +235,18 @@ public class MeetingService {
     lockActiveUser(userId);
 
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
-    member.changeNickname(request.nickname());
+    applyNicknameSetting(
+        member, request.nicknameSet() == null || request.nicknameSet(), request.nickname());
     return MeetingMemberNicknameUpdateResponse.from(member);
   }
 
   @Transactional
   public MeetingMemberPuzzleImageUpdateResponse updateMemberPuzzleImage(
-      Long userId, Long meetingId, MultipartFile image) {
+      Long userId, Long meetingId, MultipartFile image, Boolean imageSet) {
     lockActiveUser(userId);
 
-    if (image == null || image.isEmpty()) {
+    boolean useCustomImage = imageSet == null || imageSet;
+    if (useCustomImage && (image == null || image.isEmpty())) {
       throw ApiException.of(ErrorCode.MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED);
     }
 
@@ -253,15 +255,20 @@ public class MeetingService {
       throw ApiException.of(ErrorCode.MEETING_NOT_WAITING);
     }
 
-    String imageUrl = uploadMemberImage(image);
-
     MemberImage memberImage =
-        memberImageRepository.findByMeetingMemberId(member.getId()).orElse(null);
+        memberImageRepository
+            .findByMeetingMemberId(member.getId())
+            .orElseGet(
+                () ->
+                    memberImageRepository.save(
+                        new MemberImage(member, DEFAULT_MEMBER_IMAGE_URL, true)));
     String previousUploadedImageUrl = resolveUploadedImageUrl(memberImage);
-    if (memberImage == null) {
-      memberImage = memberImageRepository.save(new MemberImage(member, imageUrl, false));
+
+    if (useCustomImage) {
+      memberImage.changeImage(uploadMemberImage(image));
+    } else {
+      memberImage.replaceWithDefaultImage(DEFAULT_MEMBER_IMAGE_URL);
     }
-    memberImage.changeImage(imageUrl);
     deletePuzzleImageAfterCommit(previousUploadedImageUrl);
 
     return MeetingMemberPuzzleImageUpdateResponse.from(memberImage);
