@@ -182,7 +182,7 @@ public class MeetingService {
             .findByInviteCode(request.inviteCode())
             .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_INVITE_CODE_INVALID));
 
-    if (meeting.getStatus() != MeetingStatus.WAITING) {
+    if (!isMemberSetupOpen(meeting)) {
       throw ApiException.of(ErrorCode.MEETING_INVITE_CODE_INVALID);
     }
 
@@ -205,7 +205,7 @@ public class MeetingService {
             .findByInviteCodeForUpdate(request.inviteCode())
             .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_INVITE_CODE_INVALID));
 
-    if (meeting.getStatus() != MeetingStatus.WAITING) {
+    if (!isMemberSetupOpen(meeting)) {
       throw ApiException.of(ErrorCode.MEETING_NOT_JOINABLE);
     }
 
@@ -249,7 +249,7 @@ public class MeetingService {
     }
 
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
-    if (member.getMeeting().getStatus() != MeetingStatus.WAITING) {
+    if (!isMemberSetupOpen(member.getMeeting())) {
       throw ApiException.of(ErrorCode.MEETING_NOT_WAITING);
     }
 
@@ -347,7 +347,7 @@ public class MeetingService {
       throw ApiException.of(ErrorCode.AUTH_FORBIDDEN);
     }
 
-    if (meeting.getStatus() != MeetingStatus.WAITING) {
+    if (!isMemberSetupOpen(meeting)) {
       throw ApiException.of(ErrorCode.MEETING_NOT_WAITING);
     }
 
@@ -584,15 +584,22 @@ public class MeetingService {
         meetingRepository.findAllStartingBetween(
             today.atStartOfDay(), today.plusDays(1).atStartOfDay());
 
-    meetings.forEach(
-        meeting -> {
-          meeting.start();
-          assignPuzzleGroups(meeting);
-        });
+    meetings.forEach(Meeting::start);
 
     if (!meetings.isEmpty()) {
       log.info("[약속 자동 시작] count={}", meetings.size());
     }
+  }
+
+  private boolean isMemberSetupOpen(Meeting meeting) {
+    if (meeting.getStatus() == MeetingStatus.WAITING) {
+      return true;
+    }
+    if (meeting.getStatus() != MeetingStatus.IN_PROGRESS) {
+      return false;
+    }
+    return LocalDateTime.now().isBefore(meeting.getMeetingAt())
+        && !puzzlePageRepository.existsByMeetingId(meeting.getId());
   }
 
   private void assignPuzzleGroups(Meeting meeting) {
@@ -689,7 +696,7 @@ public class MeetingService {
       throw ApiException.of(ErrorCode.AUTH_FORBIDDEN);
     }
 
-    if (meeting.getStatus() != MeetingStatus.WAITING) {
+    if (!isMemberSetupOpen(meeting)) {
       throw ApiException.of(ErrorCode.MEETING_NOT_WAITING);
     }
 
@@ -747,6 +754,8 @@ public class MeetingService {
     MeetingMemberDepartureCreateRequest.Departure departure = request.departure();
     if (meeting.getStatus() == MeetingStatus.WAITING) {
       meeting.start();
+    }
+    if (!puzzlePageRepository.existsByMeetingId(meeting.getId())) {
       assignPuzzleGroups(meeting);
     }
     member.depart();
