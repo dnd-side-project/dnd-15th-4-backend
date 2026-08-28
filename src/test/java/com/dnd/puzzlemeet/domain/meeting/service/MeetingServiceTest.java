@@ -28,6 +28,7 @@ import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberNicknameUpdateResponse
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingMemberPuzzleImageUpdateResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingPreviewResponse;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingResultResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingRouteSearchResponse;
@@ -1234,6 +1235,40 @@ class MeetingServiceTest {
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_HOST_CANNOT_LEAVE);
     verify(meetingMemberRepository, never()).delete(any());
+  }
+
+  @Test
+  @DisplayName("약속 결과 조회는 퍼즐 피드에 대표 이미지를 올린 참여자 정보를 함께 반환한다")
+  void returnsPuzzleFeedWithUploader() {
+    MeetingMember member = activeMember("효창");
+    Meeting meeting = member.getMeeting();
+    ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
+    meeting.start();
+    meeting.complete();
+    member.arrive();
+    MemberImage memberImage = new MemberImage(member, "https://s3.test/puzzles/a.png", false);
+    ReflectionTestUtils.setField(memberImage, "id", 5L);
+    PuzzlePage page = new PuzzlePage(meeting, 1);
+    ReflectionTestUtils.setField(page, "id", 3L);
+    page.selectRepresentativeImage(memberImage);
+
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+    given(meetingMemberRepository.existsByMeetingIdAndUserId(10L, 100L)).willReturn(true);
+    given(meetingMemberRepository.findAllByMeetingIdInFetchUser(List.of(10L)))
+        .willReturn(List.of(member));
+    given(puzzlePageRepository.findAllByMeetingIdOrderByPageNumberAsc(10L))
+        .willReturn(List.of(page));
+    given(puzzlePieceRepository.findAllByPuzzlePageIdInFetchMember(List.of(3L)))
+        .willReturn(List.of(new PuzzlePiece(page, member, (byte) 1)));
+    given(memberImageRepository.findAllByMeetingId(10L)).willReturn(List.of(memberImage));
+
+    MeetingResultResponse response = meetingService.getMeetingResult(100L, 10L);
+
+    MeetingResultResponse.PuzzleFeedItem feedItem = response.puzzleFeed().get(0);
+    assertThat(feedItem.imageUrl()).isEqualTo("https://s3.test/puzzles/a.png");
+    assertThat(feedItem.uploaderNickname()).isEqualTo("효창");
+    assertThat(feedItem.uploaderProfileImageUrl()).isEqualTo("https://img.kakao.com/host.png");
+    assertThat(response.unselectedImages()).isEmpty();
   }
 
   @Test

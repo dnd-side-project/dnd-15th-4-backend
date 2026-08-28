@@ -26,19 +26,27 @@ public record MeetingResultResponse(
           Long puzzlePageId,
       @Schema(description = "대표로 뽑힌 퍼즐 이미지 URL", requiredMode = RequiredMode.REQUIRED)
           String imageUrl,
+      @Schema(description = "대표 이미지를 올린 참여자 닉네임", example = "김나나", nullable = true)
+          String uploaderNickname,
+      @Schema(description = "대표 이미지를 올린 참여자 프로필 이미지 URL", nullable = true)
+          String uploaderProfileImageUrl,
       @Schema(description = "네 조각이 모두 도착해 퍼즐을 완성했는지 여부", requiredMode = RequiredMode.REQUIRED)
           boolean completed,
       @Schema(description = "조각별 성공·실패 목록 (4개)", requiredMode = RequiredMode.REQUIRED)
           List<PuzzlePieceResult> pieces) {
 
     public static PuzzleFeedItem of(PuzzlePage page, List<PuzzlePiece> pieces, boolean completed) {
-      String imageUrl =
-          page.getRepresentativeMemberImage() != null
-              ? page.getRepresentativeMemberImage().getImageUrl()
-              : null;
+      MemberImage representativeImage = page.getRepresentativeMemberImage();
+      MeetingMember uploader =
+          representativeImage != null ? representativeImage.getMeetingMember() : null;
 
       return new PuzzleFeedItem(
-          page.getId(), imageUrl, completed, pieces.stream().map(PuzzlePieceResult::from).toList());
+          page.getId(),
+          representativeImage != null ? representativeImage.getImageUrl() : null,
+          uploader != null ? uploader.getNickname() : null,
+          uploader != null ? uploader.getProfileImageUrl() : null,
+          completed,
+          pieces.stream().map(PuzzlePieceResult::from).toList());
     }
   }
 
