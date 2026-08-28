@@ -80,7 +80,7 @@ public class PuzzleService {
     return new MeetingCollectionResponse.RankingEntry(
         member.getUser().getId(),
         member.getNickname(),
-        member.getUser().getProfileImageUrl(),
+        member.getProfileImageUrl(),
         arrived,
         arrivedAt,
         earlyArrivalMinutes,
