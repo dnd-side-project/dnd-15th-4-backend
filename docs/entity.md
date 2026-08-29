@@ -7,14 +7,24 @@ ERD 없이 그대로 따른다.
 
 ## 스키마
 
-**Flyway는 아직 없다. 릴리스 때 도입한다.**
-`src/main/resources/db/migration`을 만들지 않고 Flyway 의존성도 추가하지 않는다.
-그때까지 테이블은 `ddl-auto: update`가 엔티티를 보고 만든다.
-도입하는 PR에서 `ddl-auto`를 `none`으로 바꾼다.
+테이블은 Flyway가 `src/main/resources/db/migration`의 SQL로 만든다.
+`ddl-auto`는 `none`이라 엔티티를 고쳐도 DDL은 따라오지 않는다.
+엔티티 변경과 마이그레이션 SQL은 같은 PR에 넣는다.
 
-`update`는 테이블과 컬럼을 **추가만 한다.**
-컬럼 삭제, 타입·길이 변경, 컬럼명 변경은 반영하지 않는데 앱은 그대로 정상 기동한다.
-develop EC2는 같은 DB를 계속 쓰므로 어긋난 채로 쌓인다. 그런 변경은 DDL을 직접 실행한다.
+- 파일명은 `V<번호>__<snake_case 설명>.sql`로 쓴다. 예: `V2__add_meeting_memo.sql`
+- 번호는 마지막 번호 + 1로 붙인다. 두 PR이 같은 번호를 쓰면 나중에 머지된 쪽이 실행되지 않는다
+- 이미 적용된 파일은 고치지 않는다. Flyway가 체크섬을 대조해서 기동을 막는다.
+  잘못된 내용은 다음 번호의 새 파일로 고친다
+- `V1__init_schema.sql`은 Flyway 도입 시점의 스키마를 그대로 옮긴 것이다.
+  제약 이름이 `FK...`·`UK...`인 것은 그때까지 Hibernate가 붙인 이름이기 때문이다.
+  새로 만드는 제약은 `uk_<테이블>_<컬럼>` / `fk_<테이블>_<참조테이블>`로 이름을 준다
+
+모든 DB는 빈 스키마에서 V1부터 순서대로 실행한다. baseline은 쓰지 않는다.
+Flyway 도입 시점에 `ddl-auto: update`가 만들어둔 develop DB는 통째로 내리고 V1로 다시 만들었다.
+`ddl-auto: update`가 만든 스키마가 남아 있는 DB에 붙으면 Flyway가 기동을 막는다.
+그 DB도 스키마를 내리고 다시 띄운다.
+
+테스트는 `ddl-auto: validate`로 돈다. 마이그레이션 SQL과 엔티티가 어긋나면 테스트가 기동에서 깨진다.
 
 ## 클래스 선언
 
