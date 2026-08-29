@@ -81,7 +81,7 @@ import org.springframework.web.multipart.MultipartFile;
 @RequiredArgsConstructor
 public class MeetingService {
 
-  private static final int ARRIVAL_RADIUS_M = 50;
+  private static final int ARRIVAL_RADIUS_M = 500;
   private static final double EARTH_RADIUS_M = 6_371_000;
   private static final int INVITE_CODE_LENGTH = 8;
   private static final String INVITE_CODE_CHARS =
@@ -299,6 +299,7 @@ public class MeetingService {
       throw ApiException.of(ErrorCode.MEETING_ARRIVAL_LOCATION_INVALID);
     }
 
+    startIfMeetingDay(meeting);
     member.arrive();
     applicationEventPublisher.publishEvent(new FriendArrivedEvent(meeting.getId(), member.getId()));
     completeIfAllMembersArrived(meeting, member);
@@ -401,7 +402,7 @@ public class MeetingService {
     member.updateCurrentLocation(BigDecimal.valueOf(latitude), BigDecimal.valueOf(longitude));
   }
 
-  @Transactional(readOnly = true)
+  @Transactional
   public MeetingInProgressResponse getMeetingInProgress(Long userId, Long meetingId) {
     Meeting meeting =
         meetingRepository
@@ -412,6 +413,7 @@ public class MeetingService {
       throw ApiException.of(ErrorCode.AUTH_FORBIDDEN);
     }
 
+    startIfMeetingDay(meeting);
     if (meeting.getStatus() == MeetingStatus.WAITING) {
       throw ApiException.of(ErrorCode.MEETING_NOT_STARTED);
     }
@@ -597,6 +599,12 @@ public class MeetingService {
 
     if (!meetings.isEmpty()) {
       log.info("[약속 자동 시작] count={}", meetings.size());
+    }
+  }
+
+  private void startIfMeetingDay(Meeting meeting) {
+    if (meeting.getStatus() == MeetingStatus.WAITING && isTodaysMeeting(meeting.getMeetingAt())) {
+      meeting.start();
     }
   }
 

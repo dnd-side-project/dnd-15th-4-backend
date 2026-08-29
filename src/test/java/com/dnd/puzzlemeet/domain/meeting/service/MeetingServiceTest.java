@@ -423,6 +423,24 @@ class MeetingServiceTest {
   }
 
   @Test
+  @DisplayName("대기 중인 당일 약속의 진행 데이터를 조회하면 진행 중으로 전환된다")
+  void startsWaitingMeetingOfTodayWhenMeetingInProgressRead() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().atTime(23, 30));
+
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+    given(meetingMemberRepository.existsByMeetingIdAndUserId(10L, 100L)).willReturn(true);
+    given(puzzlePageRepository.findAllByMeetingIdOrderByPageNumberAsc(10L)).willReturn(List.of());
+    given(reactionMessageRepository.findRecentByMeetingId(eq(10L), any(Pageable.class)))
+        .willReturn(List.of());
+
+    meetingService.getMeetingInProgress(100L, 10L);
+
+    assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.IN_PROGRESS);
+  }
+
+  @Test
   @DisplayName("아직 시작되지 않은 약속의 진행 데이터를 조회하면 MEETING_NOT_STARTED 예외가 발생한다")
   void throwsWhenMeetingInProgressMeetingNotStarted() {
     Meeting meeting = waitingMeeting();
@@ -615,9 +633,9 @@ class MeetingServiceTest {
   }
 
   @Test
-  @DisplayName("시작하지 않은 약속은 전원이 도착해도 완료하지 않는다")
+  @DisplayName("약속 당일이 아니면 전원이 도착해도 완료하지 않는다")
   void doesNotCompleteWaitingMeetingOnArrival() {
-    MeetingMember member = activeMember("효창");
+    MeetingMember member = activeMember("효창", LocalDateTime.now().plusDays(1));
     member.updateCurrentLocation(BigDecimal.valueOf(37.5283), BigDecimal.valueOf(126.9320));
     givenActiveMember(member);
 
@@ -625,6 +643,19 @@ class MeetingServiceTest {
 
     assertThat(member.getMeeting().getStatus()).isEqualTo(MeetingStatus.WAITING);
     verify(meetingMemberRepository, never()).existsNotArrivedMemberExcluding(any(), any());
+  }
+
+  @Test
+  @DisplayName("대기 중인 당일 약속은 도착 처리하면 진행 중으로 전환되고 전원 도착 시 완료된다")
+  void startsWaitingMeetingOfTodayOnArrival() {
+    MeetingMember member = activeMemberMeetingToday("효창");
+    member.updateCurrentLocation(BigDecimal.valueOf(37.5283), BigDecimal.valueOf(126.9320));
+    givenActiveMember(member);
+    given(meetingMemberRepository.existsNotArrivedMemberExcluding(10L, 1L)).willReturn(false);
+
+    meetingService.markMemberArrived(100L, 10L);
+
+    assertThat(member.getMeeting().getStatus()).isEqualTo(MeetingStatus.COMPLETED);
   }
 
   @Test
