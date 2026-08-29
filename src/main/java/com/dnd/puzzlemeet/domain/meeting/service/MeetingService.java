@@ -142,6 +142,9 @@ public class MeetingService {
             generateInviteCode(),
             request.memo());
     meetingRepository.save(meeting);
+    if (isTodaysMeeting(meeting.getMeetingAt())) {
+      meeting.start();
+    }
 
     registerMember(
         meeting,
@@ -379,6 +382,9 @@ public class MeetingService {
     boolean meetingAtChanged = !Objects.equals(meeting.getMeetingAt(), meetingAt);
 
     meeting.updateDetails(title, meetingAt, destination, latitude, longitude, memo);
+    if (meeting.getStatus() == MeetingStatus.WAITING && isTodaysMeeting(meetingAt)) {
+      meeting.start();
+    }
     if (meetingAtChanged) {
       meetingMemberRepository.resetDepartureReminderAttemptedAtForNotStartedMembers(meetingId);
     }
@@ -596,6 +602,12 @@ public class MeetingService {
     if (!meetings.isEmpty()) {
       log.info("[약속 자동 시작] count={}", meetings.size());
     }
+  }
+
+  private boolean isTodaysMeeting(LocalDateTime meetingAt) {
+    LocalDate today = LocalDate.now();
+    return !meetingAt.isBefore(today.atStartOfDay())
+        && meetingAt.isBefore(today.plusDays(1).atStartOfDay());
   }
 
   private boolean isMemberSetupOpen(Meeting meeting) {

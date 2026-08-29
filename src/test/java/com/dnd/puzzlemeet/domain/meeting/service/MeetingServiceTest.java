@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapCarClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapPedestrianClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingDetailResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInviteCodeResponse;
@@ -120,6 +121,27 @@ class MeetingServiceTest {
     lenient()
         .when(userRepository.findActiveByIdForUpdate(any()))
         .thenReturn(Optional.of(new User(100L, "효창", "https://img.kakao.com/a.jpg")));
+  }
+
+  @Test
+  @DisplayName("당일 약속을 만들면 바로 진행 중 상태가 된다")
+  void startsMeetingCreatedForToday() {
+    meetingService.createMeeting(100L, createRequest(LocalDate.now().atTime(12, 0)), null);
+
+    ArgumentCaptor<Meeting> captor = ArgumentCaptor.forClass(Meeting.class);
+    verify(meetingRepository).save(captor.capture());
+    assertThat(captor.getValue().getStatus()).isEqualTo(MeetingStatus.IN_PROGRESS);
+  }
+
+  @Test
+  @DisplayName("다음 날 이후 약속을 만들면 대기 상태로 남는다")
+  void keepsMeetingCreatedForLaterDayWaiting() {
+    meetingService.createMeeting(
+        100L, createRequest(LocalDate.now().plusDays(1).atTime(12, 0)), null);
+
+    ArgumentCaptor<Meeting> captor = ArgumentCaptor.forClass(Meeting.class);
+    verify(meetingRepository).save(captor.capture());
+    assertThat(captor.getValue().getStatus()).isEqualTo(MeetingStatus.WAITING);
   }
 
   @Test
@@ -611,6 +633,22 @@ class MeetingServiceTest {
 
     assertThat(meeting.getMeetingAt()).isEqualTo(changedMeetingAt);
     verify(meetingMemberRepository).resetDepartureReminderAttemptedAtForNotStartedMembers(10L);
+  }
+
+  @Test
+  @DisplayName("약속 시각을 당일로 바꾸면 바로 진행 중 상태가 된다")
+  void startsMeetingWhenMeetingTimeMovesToToday() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+
+    meetingService.updateMeeting(
+        100L,
+        10L,
+        new MeetingUpdateRequest(null, LocalDate.now().atTime(12, 0), null, null, null, null));
+
+    assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.IN_PROGRESS);
   }
 
   @Test
@@ -1442,6 +1480,11 @@ class MeetingServiceTest {
             meeting, guest, MeetingMemberRole.GUEST, nickname, "https://img.kakao.com/guest.png");
     ReflectionTestUtils.setField(member, "id", 1L);
     return member;
+  }
+
+  private MeetingCreateRequest createRequest(LocalDateTime dateTime) {
+    return new MeetingCreateRequest(
+        "한강 피크닉", dateTime, "서울 여의도 한강공원", 37.5283, 126.9320, 6, null, "효창", false, false);
   }
 
   private MockMultipartFile puzzleImage() {
