@@ -248,10 +248,10 @@ public class MeetingService {
       Long userId, Long meetingId, MultipartFile image, Boolean imageSet) {
     lockActiveUser(userId);
 
-    boolean useCustomImage = imageSet == null || imageSet;
-    if (useCustomImage && (image == null || image.isEmpty())) {
+    if (image == null || image.isEmpty()) {
       throw ApiException.of(ErrorCode.MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED);
     }
+    boolean useCustomImage = imageSet == null || imageSet;
 
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
     if (!isMemberSetupOpen(member.getMeeting())) {
@@ -267,11 +267,7 @@ public class MeetingService {
                         new MemberImage(member, DEFAULT_MEMBER_IMAGE_URL, true)));
     String previousUploadedImageUrl = resolveUploadedImageUrl(memberImage);
 
-    if (useCustomImage) {
-      memberImage.changeImage(uploadMemberImage(image));
-    } else {
-      memberImage.replaceWithDefaultImage(DEFAULT_MEMBER_IMAGE_URL);
-    }
+    memberImage.changeImage(uploadMemberImage(image), !useCustomImage);
     deletePuzzleImageAfterCommit(previousUploadedImageUrl);
 
     return MeetingMemberPuzzleImageUpdateResponse.from(memberImage);
@@ -977,9 +973,7 @@ public class MeetingService {
   }
 
   private String resolveUploadedImageUrl(MemberImage memberImage) {
-    if (memberImage == null
-        || memberImage.isDefaultImage()
-        || DEFAULT_MEMBER_IMAGE_URL.equals(memberImage.getImageUrl())) {
+    if (memberImage == null || DEFAULT_MEMBER_IMAGE_URL.equals(memberImage.getImageUrl())) {
       return null;
     }
     return memberImage.getImageUrl();
