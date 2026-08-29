@@ -14,6 +14,7 @@ import static org.mockito.Mockito.verify;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapCarClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TmapPedestrianClient;
 import com.dnd.puzzlemeet.domain.meeting.client.TravelRoute;
+import com.dnd.puzzlemeet.domain.meeting.dto.MeetingCreateRequest;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingDetailResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInProgressResponse;
 import com.dnd.puzzlemeet.domain.meeting.dto.MeetingInviteCodeResponse;
@@ -82,6 +83,9 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class MeetingServiceTest {
 
+  private static final String DEFAULT_MEMBER_IMAGE_URL =
+      "https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/puzzles/_+(9)+4.png";
+
   @Mock private MeetingRepository meetingRepository;
   @Mock private MeetingMemberRepository meetingMemberRepository;
   @Mock private MeetingMemberRouteRepository meetingMemberRouteRepository;
@@ -120,6 +124,27 @@ class MeetingServiceTest {
     lenient()
         .when(userRepository.findActiveByIdForUpdate(any()))
         .thenReturn(Optional.of(new User(100L, "효창", "https://img.kakao.com/a.jpg")));
+  }
+
+  @Test
+  @DisplayName("당일 약속을 만들면 바로 진행 중 상태가 된다")
+  void startsMeetingCreatedForToday() {
+    meetingService.createMeeting(100L, createRequest(LocalDate.now().atTime(12, 0)), null);
+
+    ArgumentCaptor<Meeting> captor = ArgumentCaptor.forClass(Meeting.class);
+    verify(meetingRepository).save(captor.capture());
+    assertThat(captor.getValue().getStatus()).isEqualTo(MeetingStatus.IN_PROGRESS);
+  }
+
+  @Test
+  @DisplayName("다음 날 이후 약속을 만들면 대기 상태로 남는다")
+  void keepsMeetingCreatedForLaterDayWaiting() {
+    meetingService.createMeeting(
+        100L, createRequest(LocalDate.now().plusDays(1).atTime(12, 0)), null);
+
+    ArgumentCaptor<Meeting> captor = ArgumentCaptor.forClass(Meeting.class);
+    verify(meetingRepository).save(captor.capture());
+    assertThat(captor.getValue().getStatus()).isEqualTo(MeetingStatus.WAITING);
   }
 
   @Test
@@ -443,7 +468,7 @@ class MeetingServiceTest {
   void replacesExistingMemberImage() {
     MeetingMember member = activeMember("효창");
     givenActiveMember(member);
-    MemberImage memberImage = new MemberImage(member, "https://s3.test/puzzles/default.png", true);
+    MemberImage memberImage = new MemberImage(member, DEFAULT_MEMBER_IMAGE_URL, true);
     given(memberImageRepository.findByMeetingMemberId(1L)).willReturn(Optional.of(memberImage));
     given(amazonS3Manager.generatePuzzleKeyName(any())).willReturn("puzzles/new.png");
     given(amazonS3Manager.uploadFile(any(), any())).willReturn("https://s3.test/puzzles/new.png");
@@ -467,6 +492,23 @@ class MeetingServiceTest {
     givenActiveMember(member);
     String previousImageUrl = "https://bucket.s3.ap-northeast-2.amazonaws.com/puzzles/old.png";
     MemberImage memberImage = new MemberImage(member, previousImageUrl, false);
+    given(memberImageRepository.findByMeetingMemberId(1L)).willReturn(Optional.of(memberImage));
+    given(amazonS3Manager.generatePuzzleKeyName(any())).willReturn("puzzles/new.png");
+    given(amazonS3Manager.uploadFile(any(), any()))
+        .willReturn("https://bucket.s3.ap-northeast-2.amazonaws.com/puzzles/new.png");
+
+    meetingService.updateMemberPuzzleImage(100L, 10L, puzzleImage(), null);
+
+    verify(amazonS3Manager).deletePuzzleImage(previousImageUrl);
+  }
+
+  @Test
+  @DisplayName("기본 이미지 표시가 붙은 업로드 이미지를 교체해도 기존 S3 객체를 삭제한다")
+  void deletesPreviousUploadedMemberImageMarkedAsDefault() {
+    MeetingMember member = activeMember("효창");
+    givenActiveMember(member);
+    String previousImageUrl = "https://bucket.s3.ap-northeast-2.amazonaws.com/puzzles/old.png";
+    MemberImage memberImage = new MemberImage(member, previousImageUrl, true);
     given(memberImageRepository.findByMeetingMemberId(1L)).willReturn(Optional.of(memberImage));
     given(amazonS3Manager.generatePuzzleKeyName(any())).willReturn("puzzles/new.png");
     given(amazonS3Manager.uploadFile(any(), any()))
@@ -611,6 +653,22 @@ class MeetingServiceTest {
 
     assertThat(meeting.getMeetingAt()).isEqualTo(changedMeetingAt);
     verify(meetingMemberRepository).resetDepartureReminderAttemptedAtForNotStartedMembers(10L);
+  }
+
+  @Test
+  @DisplayName("약속 시각을 당일로 바꾸면 바로 진행 중 상태가 된다")
+  void startsMeetingWhenMeetingTimeMovesToToday() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+
+    meetingService.updateMeeting(
+        100L,
+        10L,
+        new MeetingUpdateRequest(null, LocalDate.now().atTime(12, 0), null, null, null, null));
+
+    assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.IN_PROGRESS);
   }
 
   @Test
@@ -1317,20 +1375,38 @@ class MeetingServiceTest {
   }
 
   @Test
-  @DisplayName("imageSet이 false면 기본 이미지로 되돌리고 업로드한 S3 객체를 삭제한다")
-  void replacesMemberImageWithDefaultWhenImageSetIsFalse() {
+  @DisplayName("imageSet이 false여도 이미지가 없으면 MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED 예외가 발생한다")
+  void rejectsMissingMemberImageWhenImageSetIsFalse() {
+    ApiException exception =
+        assertThrows(
+            ApiException.class,
+            () -> meetingService.updateMemberPuzzleImage(100L, 10L, null, false));
+
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_MEMBER_PUZZLE_IMAGE_REQUIRED);
+    verify(amazonS3Manager, never()).uploadFile(any(), any());
+  }
+
+  @Test
+  @DisplayName("imageSet이 false여도 업로드한 이미지를 저장한다")
+  void savesUploadedMemberImageWhenImageSetIsFalse() {
     MeetingMember member = activeMember("효창");
     givenActiveMember(member);
     String previousImageUrl = "https://bucket.s3.ap-northeast-2.amazonaws.com/puzzles/old.png";
     MemberImage memberImage = new MemberImage(member, previousImageUrl, false);
     given(memberImageRepository.findByMeetingMemberId(1L)).willReturn(Optional.of(memberImage));
+    given(amazonS3Manager.generatePuzzleKeyName(any())).willReturn("puzzles/new.png");
+    given(amazonS3Manager.uploadFile(any(), any()))
+        .willReturn("https://bucket.s3.ap-northeast-2.amazonaws.com/puzzles/new.png");
 
     MeetingMemberPuzzleImageUpdateResponse response =
-        meetingService.updateMemberPuzzleImage(100L, 10L, null, false);
+        meetingService.updateMemberPuzzleImage(100L, 10L, puzzleImage(), false);
 
+    assertThat(memberImage.getImageUrl())
+        .isEqualTo("https://bucket.s3.ap-northeast-2.amazonaws.com/puzzles/new.png");
     assertThat(memberImage.isDefaultImage()).isTrue();
+    assertThat(response.imageUrl())
+        .isEqualTo("https://bucket.s3.ap-northeast-2.amazonaws.com/puzzles/new.png");
     assertThat(response.imageSet()).isFalse();
-    verify(amazonS3Manager, never()).uploadFile(any(), any());
     verify(amazonS3Manager).deletePuzzleImage(previousImageUrl);
   }
 
@@ -1442,6 +1518,11 @@ class MeetingServiceTest {
             meeting, guest, MeetingMemberRole.GUEST, nickname, "https://img.kakao.com/guest.png");
     ReflectionTestUtils.setField(member, "id", 1L);
     return member;
+  }
+
+  private MeetingCreateRequest createRequest(LocalDateTime dateTime) {
+    return new MeetingCreateRequest(
+        "한강 피크닉", dateTime, "서울 여의도 한강공원", 37.5283, 126.9320, 6, null, "효창", false, false);
   }
 
   private MockMultipartFile puzzleImage() {

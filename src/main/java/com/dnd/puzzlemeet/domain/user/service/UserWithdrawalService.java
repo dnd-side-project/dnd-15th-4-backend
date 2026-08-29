@@ -90,7 +90,6 @@ public class UserWithdrawalService {
   }
 
   private boolean isUploadedMemberImage(MemberImage memberImage) {
-    return !memberImage.isDefaultImage()
-        && !DEFAULT_MEMBER_IMAGE_URL.equals(memberImage.getImageUrl());
+    return !DEFAULT_MEMBER_IMAGE_URL.equals(memberImage.getImageUrl());
   }
 }
