@@ -6,7 +6,7 @@ Java 21 / Spring Boot 4.0.7 / Spring Framework 7 / MySQL.
 
 | 지금 하려는 일 | 먼저 읽을 문서 |
 |---|---|
-| 엔티티·리포지토리 작성 | `docs/entity.md` |
+| 엔티티·리포지토리 작성, 마이그레이션 SQL 추가 | `docs/entity.md` |
 | 요청·응답 DTO 작성 | `docs/dto.md` |
 | 에러 코드 추가·예외 처리 | `docs/error-code.md` |
 | 컨트롤러에 Swagger 어노테이션 붙이기 | `docs/swagger.md` |
@@ -28,6 +28,9 @@ Java 21 / Spring Boot 4.0.7 / Spring Framework 7 / MySQL.
   `starter`가 빠진 `spring-boot-webmvc-test`도 BOM에 있어서 버전 없이 해결되고
   `@WebMvcTest`까지 컴파일되므로, 이름을 틀려도 빌드가 잡지 못한다.
   대신 `spring-boot-starter-jackson-test`·`spring-boot-resttestclient`가 딸려오지 않는다
+- Flyway는 `spring-boot-starter-flyway`를 넣는다. `flyway-core`만 넣으면
+  자동 설정 모듈(`spring-boot-flyway`)이 없어 마이그레이션이 조용히 실행되지 않는다.
+  빌드도 테스트도 잡지 못한다. MySQL은 `flyway-mysql`도 함께 넣는다
 - **Jackson 3는 enum을 `name()`이 아니라 `toString()`으로 직렬화한다.**
   API에 노출되는 enum에 `toString()`을 오버라이드하지 않는다.
   표시용 문자열이 필요하면 별도 필드로 둔다. 이것도 빌드와 테스트가 잡지 못한다

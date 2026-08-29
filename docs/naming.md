@@ -56,9 +56,9 @@
   예: `User` + `@Table(name = "users")`, `MeetingMember` + `@Table(name = "meeting_members")`
 - 컬럼명은 PK는 `id` / FK는 `<참조테이블>_id` / 시각은 `*_at` / boolean은 `is_*`로 쓴다
 
-**컬럼 규칙이 여기 적혀 있는 것은 아직 마이그레이션 SQL이 없기 때문이다.**
-Flyway는 릴리스 때 도입한다 (`docs/entity.md`).
-도입하는 PR에서 이 규칙을 V1 SQL로 옮기고 여기서는 지운다. 두 곳에 남겨두지 않는다.
+실제 DDL은 `src/main/resources/db/migration`에 있다.
+새 테이블·컬럼을 추가할 때 위 규칙을 지키고, 기존 이름을 확인할 때는 마이그레이션 SQL을 본다
+(`docs/entity.md`).
 
 ## 테스트
 
