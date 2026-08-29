@@ -1,3 +1,8 @@
+spring:
+  jpa:
+    hibernate:
+      ddl-auto: validate
+
 jwt:
   secret: test-jwt-secret-key-for-unit-tests-please-ignore
 
