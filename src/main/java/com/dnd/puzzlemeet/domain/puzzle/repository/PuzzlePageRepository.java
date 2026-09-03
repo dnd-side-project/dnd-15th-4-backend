@@ -8,5 +8,7 @@ public interface PuzzlePageRepository extends JpaRepository<PuzzlePage, Long> {
 
   List<PuzzlePage> findAllByMeetingIdOrderByPageNumberAsc(Long meetingId);
 
+  List<PuzzlePage> findAllByRepresentativeMemberImageId(Long memberImageId);
+
   boolean existsByMeetingId(Long meetingId);
 }

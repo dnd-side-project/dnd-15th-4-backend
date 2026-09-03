@@ -8,6 +8,8 @@ import org.springframework.data.repository.query.Param;
 
 public interface PuzzlePieceRepository extends JpaRepository<PuzzlePiece, Long> {
 
+  List<PuzzlePiece> findAllByMeetingMemberId(Long meetingMemberId);
+
   @Query(
       """
       select pp from PuzzlePiece pp
