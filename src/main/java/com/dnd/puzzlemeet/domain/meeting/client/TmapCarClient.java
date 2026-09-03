@@ -10,6 +10,7 @@ import java.time.format.DateTimeFormatter;
 import java.util.List;
 import java.util.Map;
 import lombok.extern.slf4j.Slf4j;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
 import org.springframework.http.client.SimpleClientHttpRequestFactory;
 import org.springframework.stereotype.Component;
@@ -36,13 +37,22 @@ public class TmapCarClient {
   private final String carRouteUri;
   private final String appKey;
 
+  @Autowired
   public TmapCarClient(TmapProperties tmapProperties) {
+    this(tmapProperties, createRestClient());
+  }
+
+  TmapCarClient(TmapProperties tmapProperties, RestClient restClient) {
+    this.restClient = restClient;
+    this.carRouteUri = tmapProperties.carRouteUri();
+    this.appKey = tmapProperties.appKey();
+  }
+
+  private static RestClient createRestClient() {
     SimpleClientHttpRequestFactory requestFactory = new SimpleClientHttpRequestFactory();
     requestFactory.setConnectTimeout(CONNECT_TIMEOUT_MILLIS);
     requestFactory.setReadTimeout(READ_TIMEOUT_MILLIS);
-    this.restClient = RestClient.builder().requestFactory(requestFactory).build();
-    this.carRouteUri = tmapProperties.carRouteUri();
-    this.appKey = tmapProperties.appKey();
+    return RestClient.builder().requestFactory(requestFactory).build();
   }
 
   public TravelRoute findCarRoute(
@@ -141,7 +151,7 @@ public class TmapCarClient {
                     "name", "도착지",
                     "lon", String.valueOf(endLongitude),
                     "lat", String.valueOf(endLatitude)),
-            "predictionType", arriveAt != null ? PREDICT_DEPARTURE_TIME : PREDICT_ARRIVAL_TIME,
+            "predictionType", arriveAt != null ? PREDICT_ARRIVAL_TIME : PREDICT_DEPARTURE_TIME,
             "predictionTime", predictionTime.atZone(KOREA).format(PREDICTION_TIME_FORMAT),
             "searchOption", SEARCH_OPTION_RECOMMENDED));
   }
