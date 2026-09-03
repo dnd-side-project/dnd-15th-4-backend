@@ -286,6 +286,10 @@ public class MeetingService {
       return MeetingMemberArrivalResponse.from(member);
     }
 
+    if (!isTodaysMeeting(meeting.getMeetingAt())) {
+      throw ApiException.of(ErrorCode.MEETING_NOT_STARTED);
+    }
+
     if (member.getCurrentLatitude() == null || member.getCurrentLongitude() == null) {
       throw ApiException.of(ErrorCode.MEETING_ARRIVAL_LOCATION_INVALID);
     }
@@ -381,6 +385,8 @@ public class MeetingService {
     meeting.updateDetails(title, meetingAt, destination, latitude, longitude, memo);
     if (meeting.getStatus() == MeetingStatus.WAITING && isTodaysMeeting(meetingAt)) {
       meeting.start();
+    } else if (meeting.getStatus() == MeetingStatus.IN_PROGRESS && !isTodaysMeeting(meetingAt)) {
+      meeting.revertToWaiting();
     }
     if (meetingAtChanged) {
       meetingMemberRepository.resetDepartureReminderAttemptedAtForNotStartedMembers(meetingId);
@@ -739,10 +745,54 @@ public class MeetingService {
         memberImageRepository.findByMeetingMemberId(member.getId()).orElse(null);
     String uploadedImageUrl = resolveUploadedImageUrl(memberImage);
 
+    releasePuzzlePieces(member);
+    if (memberImage != null) {
+      replaceRepresentativeImage(memberImage);
+    }
+    reactionMessageRepository.deleteAllBySenderMemberId(member.getId());
     meetingMemberRouteRepository.deleteAllByMeetingMemberId(member.getId());
     memberImageRepository.deleteAllByMeetingMemberId(member.getId());
     meetingMemberRepository.delete(member);
     deletePuzzleImageAfterCommit(uploadedImageUrl);
+  }
+
+  private void releasePuzzlePieces(MeetingMember member) {
+    puzzlePieceRepository
+        .findAllByMeetingMemberId(member.getId())
+        .forEach(PuzzlePiece::releaseMember);
+  }
+
+  private void replaceRepresentativeImage(MemberImage leavingImage) {
+    List<PuzzlePage> pages =
+        puzzlePageRepository.findAllByRepresentativeMemberImageId(leavingImage.getId());
+    if (pages.isEmpty()) {
+      return;
+    }
+
+    List<Long> pageIds = pages.stream().map(PuzzlePage::getId).toList();
+    Map<Long, List<PuzzlePiece>> piecesByPageId =
+        puzzlePieceRepository.findAllByPuzzlePageIdInFetchMember(pageIds).stream()
+            .collect(Collectors.groupingBy(piece -> piece.getPuzzlePage().getId()));
+
+    pages.forEach(
+        page ->
+            page.selectRepresentativeImage(
+                remainingImage(piecesByPageId.getOrDefault(page.getId(), List.of()))));
+  }
+
+  private MemberImage remainingImage(List<PuzzlePiece> pieces) {
+    List<Long> remainingMemberIds =
+        pieces.stream()
+            .map(PuzzlePiece::getMeetingMember)
+            .filter(Objects::nonNull)
+            .map(MeetingMember::getId)
+            .toList();
+    if (remainingMemberIds.isEmpty()) {
+      return null;
+    }
+    return memberImageRepository.findAllByMeetingMemberIdIn(remainingMemberIds).stream()
+        .findFirst()
+        .orElse(null);
   }
 
   @Transactional

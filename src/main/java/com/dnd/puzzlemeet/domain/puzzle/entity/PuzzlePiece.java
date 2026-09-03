@@ -52,6 +52,11 @@ public class PuzzlePiece {
     this.isSystemFilled = meetingMember == null;
   }
 
+  public void releaseMember() {
+    this.meetingMember = null;
+    this.isSystemFilled = true;
+  }
+
   public void reveal() {
     this.isRevealed = true;
     this.revealedAt = LocalDateTime.now();

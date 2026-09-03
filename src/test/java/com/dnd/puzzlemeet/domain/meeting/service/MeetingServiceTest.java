@@ -589,6 +589,7 @@ class MeetingServiceTest {
   void marksMemberArrivedWithinArrivalRadius() {
     Meeting meeting = waitingMeeting();
     ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().atTime(23, 30));
     MeetingMember member =
         new MeetingMember(
             meeting,
@@ -633,15 +634,19 @@ class MeetingServiceTest {
   }
 
   @Test
-  @DisplayName("약속 당일이 아니면 전원이 도착해도 완료하지 않는다")
-  void doesNotCompleteWaitingMeetingOnArrival() {
+  @DisplayName("약속 당일이 아니면 반경 안에 있어도 도착 처리에 실패한다")
+  void rejectsArrivalBeforeMeetingDay() {
     MeetingMember member = activeMember("효창", LocalDateTime.now().plusDays(1));
     member.updateCurrentLocation(BigDecimal.valueOf(37.5283), BigDecimal.valueOf(126.9320));
     givenActiveMember(member);
 
-    meetingService.markMemberArrived(100L, 10L);
+    ApiException exception =
+        assertThrows(ApiException.class, () -> meetingService.markMemberArrived(100L, 10L));
 
+    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.MEETING_NOT_STARTED);
+    assertThat(member.getStatus()).isEqualTo(MeetingMemberStatus.NOT_STARTED);
     assertThat(member.getMeeting().getStatus()).isEqualTo(MeetingStatus.WAITING);
+    verify(applicationEventPublisher, never()).publishEvent(any());
     verify(meetingMemberRepository, never()).existsNotArrivedMemberExcluding(any(), any());
   }
 
@@ -703,6 +708,24 @@ class MeetingServiceTest {
   }
 
   @Test
+  @DisplayName("진행 중인 약속의 시각을 당일 밖으로 옮기면 대기 중으로 되돌아간다")
+  void revertsMeetingToWaitingWhenMeetingTimeLeavesToday() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
+    ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().atTime(23, 30));
+    meeting.start();
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+
+    LocalDateTime movedMeetingAt = LocalDate.now().plusDays(7).atTime(12, 0);
+    meetingService.updateMeeting(
+        100L, 10L, new MeetingUpdateRequest(null, movedMeetingAt, null, null, null, null));
+
+    assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.WAITING);
+    assertThat(meeting.getMeetingAt()).isEqualTo(movedMeetingAt);
+  }
+
+  @Test
   @DisplayName("약속 시각을 그대로 두면 출발 준비 알림 시도 기록을 초기화하지 않는다")
   void keepsDepartureReminderAttemptWhenMeetingTimeDoesNotChange() {
     Meeting meeting = waitingMeeting();
@@ -725,6 +748,7 @@ class MeetingServiceTest {
   void rejectsArrivalOutsideArrivalRadius() {
     Meeting meeting = waitingMeeting();
     ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().atTime(23, 30));
     MeetingMember member =
         new MeetingMember(
             meeting,
@@ -1311,6 +1335,50 @@ class MeetingServiceTest {
     verify(memberImageRepository).deleteAllByMeetingMemberId(1L);
     verify(meetingMemberRepository).delete(member);
     verify(amazonS3Manager).deletePuzzleImage(imageUrl);
+  }
+
+  @Test
+  @DisplayName("퍼즐 배정 후 나가면 조각을 회수하고 대표 이미지를 남은 참여자 것으로 교체한다")
+  void releasesPuzzlePiecesAndRepresentativeImageOnLeave() {
+    MeetingMember leaving = activeGuestMember("김땡땡");
+    Meeting meeting = leaving.getMeeting();
+    MeetingMember staying =
+        new MeetingMember(
+            meeting,
+            meeting.getHostUser(),
+            MeetingMemberRole.HOST,
+            "효창",
+            "https://img.kakao.com/host.png");
+    ReflectionTestUtils.setField(staying, "id", 2L);
+    givenActiveMember(leaving);
+
+    MemberImage leavingImage =
+        new MemberImage(
+            leaving, "https://bucket.s3.ap-northeast-2.amazonaws.com/puzzles/guest.png", false);
+    ReflectionTestUtils.setField(leavingImage, "id", 5L);
+    MemberImage stayingImage = new MemberImage(staying, "https://s3.test/puzzles/host.png", false);
+    given(memberImageRepository.findByMeetingMemberId(1L)).willReturn(Optional.of(leavingImage));
+
+    PuzzlePage page = new PuzzlePage(meeting, 1);
+    ReflectionTestUtils.setField(page, "id", 3L);
+    page.selectRepresentativeImage(leavingImage);
+    PuzzlePiece leavingPiece = new PuzzlePiece(page, leaving, (byte) 1);
+    PuzzlePiece stayingPiece = new PuzzlePiece(page, staying, (byte) 2);
+
+    given(puzzlePieceRepository.findAllByMeetingMemberId(1L)).willReturn(List.of(leavingPiece));
+    given(puzzlePageRepository.findAllByRepresentativeMemberImageId(5L)).willReturn(List.of(page));
+    given(puzzlePieceRepository.findAllByPuzzlePageIdInFetchMember(List.of(3L)))
+        .willReturn(List.of(leavingPiece, stayingPiece));
+    given(memberImageRepository.findAllByMeetingMemberIdIn(List.of(2L)))
+        .willReturn(List.of(stayingImage));
+
+    meetingService.leaveMeeting(100L, 10L);
+
+    assertThat(leavingPiece.getMeetingMember()).isNull();
+    assertThat(leavingPiece.isSystemFilled()).isTrue();
+    assertThat(page.getRepresentativeMemberImage()).isEqualTo(stayingImage);
+    verify(reactionMessageRepository).deleteAllBySenderMemberId(1L);
+    verify(meetingMemberRepository).delete(leaving);
   }
 
   @Test

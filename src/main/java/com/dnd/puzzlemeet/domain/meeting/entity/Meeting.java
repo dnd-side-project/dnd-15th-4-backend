@@ -112,6 +112,10 @@ public class Meeting extends BaseTimeEntity {
     this.status = MeetingStatus.IN_PROGRESS;
   }
 
+  public void revertToWaiting() {
+    this.status = MeetingStatus.WAITING;
+  }
+
   public void complete() {
     this.status = MeetingStatus.COMPLETED;
   }

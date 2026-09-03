@@ -19,4 +19,6 @@ public interface ReactionMessageRepository extends JpaRepository<ReactionMessage
       """)
   List<ReactionMessage> findRecentByMeetingId(
       @Param("meetingId") Long meetingId, Pageable pageable);
+
+  void deleteAllBySenderMemberId(Long senderMemberId);
 }
