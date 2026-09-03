@@ -94,4 +94,8 @@ public class User extends BaseTimeEntity {
     this.isChatBubbleNotificationEnabled = false;
     this.deletedAt = LocalDateTime.now();
   }
+
+  public boolean isWithdrawn() {
+    return deletedAt != null;
+  }
 }

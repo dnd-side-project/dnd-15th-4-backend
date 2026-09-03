@@ -53,6 +53,7 @@ public class PuzzleService {
         meetingMemberRepository.findAllByMeetingIdInFetchUser(List.of(meeting.getId()));
     List<MeetingCollectionResponse.RankingEntry> rankings =
         members.stream()
+            .filter(member -> !member.getUser().isWithdrawn())
             .map(member -> toCollectionRankingEntry(member, meeting.getMeetingAt()))
             .sorted(
                 Comparator.comparing(MeetingCollectionResponse.RankingEntry::late)

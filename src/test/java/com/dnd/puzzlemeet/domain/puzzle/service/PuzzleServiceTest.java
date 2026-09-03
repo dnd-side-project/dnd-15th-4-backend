@@ -65,6 +65,44 @@ class PuzzleServiceTest {
         .isEqualTo("https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/profiles/1.png");
   }
 
+  @Test
+  @DisplayName("탈퇴한 참여자는 모은 퍼즐의 도착 랭킹에서 제외된다")
+  void excludesWithdrawnMemberFromCollectionRankings() {
+    User user = new User(100L, "효창", null);
+    ReflectionTestUtils.setField(user, "id", 100L);
+    Meeting meeting = completedMeeting(user);
+    MeetingMember member =
+        new MeetingMember(
+            meeting, user, MeetingMemberRole.HOST, "효창", "https://img.kakao.com/host.png");
+    member.arrive();
+
+    User withdrawnUser = new User(200L, "김땡땡", null);
+    ReflectionTestUtils.setField(withdrawnUser, "id", 200L);
+    MeetingMember withdrawnMember =
+        new MeetingMember(
+            meeting,
+            withdrawnUser,
+            MeetingMemberRole.GUEST,
+            "김땡땡",
+            "https://img.kakao.com/guest.png");
+    withdrawnMember.arrive();
+    withdrawnUser.withdraw();
+    withdrawnMember.anonymizeForUserWithdrawal();
+
+    PuzzleCollection collection =
+        new PuzzleCollection(user, new PuzzlePage(meeting, 1), "https://s3.test/puzzles/done.png");
+
+    given(puzzleCollectionRepository.findAllByUserIdFetchMeeting(100L))
+        .willReturn(List.of(collection));
+    given(meetingMemberRepository.findAllByMeetingIdInFetchUser(List.of(10L)))
+        .willReturn(List.of(member, withdrawnMember));
+
+    List<MeetingCollectionResponse> responses = puzzleService.getMyPuzzleCollections(100L);
+
+    assertThat(responses.get(0).rankings()).hasSize(1);
+    assertThat(responses.get(0).rankings().get(0).userId()).isEqualTo(100L);
+  }
+
   private Meeting completedMeeting(User host) {
     Meeting meeting =
         new Meeting(

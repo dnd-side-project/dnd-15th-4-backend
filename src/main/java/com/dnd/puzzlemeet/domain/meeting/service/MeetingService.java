@@ -512,6 +512,7 @@ public class MeetingService {
 
     List<MeetingResultResponse.RankingEntry> rankings =
         members.stream()
+            .filter(member -> !member.getUser().isWithdrawn())
             .map(member -> toRankingEntry(member, meeting.getMeetingAt()))
             .sorted(
                 Comparator.comparing(MeetingResultResponse.RankingEntry::late)

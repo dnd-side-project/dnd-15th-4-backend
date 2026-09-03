@@ -1429,6 +1429,43 @@ class MeetingServiceTest {
   }
 
   @Test
+  @DisplayName("탈퇴한 참여자는 약속 결과 랭킹에서 제외된다")
+  void excludesWithdrawnMemberFromResultRankings() {
+    MeetingMember host = activeMember("효창");
+    Meeting meeting = host.getMeeting();
+    ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
+    meeting.start();
+    meeting.complete();
+    host.arrive();
+
+    User withdrawnUser = new User(200L, "김땡땡", "https://img.kakao.com/b.jpg");
+    ReflectionTestUtils.setField(withdrawnUser, "id", 200L);
+    MeetingMember withdrawnMember =
+        new MeetingMember(
+            meeting,
+            withdrawnUser,
+            MeetingMemberRole.GUEST,
+            "김땡땡",
+            "https://img.kakao.com/guest.png");
+    ReflectionTestUtils.setField(withdrawnMember, "id", 2L);
+    withdrawnMember.arrive();
+    withdrawnUser.withdraw();
+    withdrawnMember.anonymizeForUserWithdrawal();
+
+    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+    given(meetingMemberRepository.existsByMeetingIdAndUserId(10L, 100L)).willReturn(true);
+    given(meetingMemberRepository.findAllByMeetingIdInFetchUser(List.of(10L)))
+        .willReturn(List.of(host, withdrawnMember));
+    given(puzzlePageRepository.findAllByMeetingIdOrderByPageNumberAsc(10L)).willReturn(List.of());
+    given(memberImageRepository.findAllByMeetingId(10L)).willReturn(List.of());
+
+    MeetingResultResponse response = meetingService.getMeetingResult(100L, 10L);
+
+    assertThat(response.rankings()).hasSize(1);
+    assertThat(response.rankings().getFirst().userId()).isEqualTo(100L);
+  }
+
+  @Test
   @DisplayName("실행일 자정을 기준으로 날짜가 지난 약속을 종료 처리한다")
   void completesMeetingsBeforeTodayStart() {
     Meeting meeting = waitingMeeting();
