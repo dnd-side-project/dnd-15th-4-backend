@@ -261,7 +261,7 @@ class MeetingServiceTest {
     given(userRepository.findActiveByIdForUpdate(200L)).willReturn(Optional.of(guest));
     given(meetingRepository.findByInviteCodeForUpdate("ABCD1234")).willReturn(Optional.of(meeting));
     given(meetingMemberRepository.existsByMeetingIdAndUserId(10L, 200L)).willReturn(false);
-    given(meetingMemberRepository.countByMeetingId(10L)).willReturn(1L);
+    given(meetingMemberRepository.countActiveByMeetingId(10L)).willReturn(1L);
 
     MeetingJoinResponse response =
         meetingService.joinMeeting(
@@ -282,7 +282,7 @@ class MeetingServiceTest {
     given(userRepository.findActiveByIdForUpdate(200L)).willReturn(Optional.of(guest));
     given(meetingRepository.findByInviteCodeForUpdate("ABCD1234")).willReturn(Optional.of(meeting));
     given(meetingMemberRepository.existsByMeetingIdAndUserId(10L, 200L)).willReturn(false);
-    given(meetingMemberRepository.countByMeetingId(10L)).willReturn(2L);
+    given(meetingMemberRepository.countActiveByMeetingId(10L)).willReturn(2L);
 
     ApiException exception =
         assertThrows(
@@ -682,7 +682,7 @@ class MeetingServiceTest {
     ReflectionTestUtils.setField(meeting, "id", 10L);
     ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
     LocalDateTime changedMeetingAt = meeting.getMeetingAt().plusHours(1);
-    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+    given(meetingRepository.findByIdForUpdate(10L)).willReturn(Optional.of(meeting));
 
     meetingService.updateMeeting(
         100L, 10L, new MeetingUpdateRequest(null, changedMeetingAt, null, null, null, null));
@@ -697,7 +697,7 @@ class MeetingServiceTest {
     Meeting meeting = waitingMeeting();
     ReflectionTestUtils.setField(meeting, "id", 10L);
     ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
-    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+    given(meetingRepository.findByIdForUpdate(10L)).willReturn(Optional.of(meeting));
 
     meetingService.updateMeeting(
         100L,
@@ -713,9 +713,9 @@ class MeetingServiceTest {
     Meeting meeting = waitingMeeting();
     ReflectionTestUtils.setField(meeting, "id", 10L);
     ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
-    ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().atTime(23, 30));
+    ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().atTime(23, 59));
     meeting.start();
-    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+    given(meetingRepository.findByIdForUpdate(10L)).willReturn(Optional.of(meeting));
 
     LocalDateTime movedMeetingAt = LocalDate.now().plusDays(7).atTime(12, 0);
     meetingService.updateMeeting(
@@ -726,12 +726,49 @@ class MeetingServiceTest {
   }
 
   @Test
+  @DisplayName("진행 중인 약속의 시각을 당일 밖으로 옮기면 참여자의 출발·도착 기록도 초기화된다")
+  void resetsMemberProgressWhenMeetingTimeLeavesToday() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
+    ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().atTime(23, 59));
+    meeting.start();
+    given(meetingRepository.findByIdForUpdate(10L)).willReturn(Optional.of(meeting));
+
+    meetingService.updateMeeting(
+        100L,
+        10L,
+        new MeetingUpdateRequest(
+            null, LocalDate.now().plusDays(7).atTime(12, 0), null, null, null, null));
+
+    verify(meetingMemberRepository).resetProgressByMeetingId(10L);
+  }
+
+  @Test
+  @DisplayName("대기 중인 약속의 시각을 옮기면 참여자의 출발·도착 기록은 초기화하지 않는다")
+  void keepsMemberProgressWhenWaitingMeetingTimeChanges() {
+    Meeting meeting = waitingMeeting();
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
+    given(meetingRepository.findByIdForUpdate(10L)).willReturn(Optional.of(meeting));
+
+    meetingService.updateMeeting(
+        100L,
+        10L,
+        new MeetingUpdateRequest(
+            null, LocalDate.now().plusDays(7).atTime(12, 0), null, null, null, null));
+
+    assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.WAITING);
+    verify(meetingMemberRepository, never()).resetProgressByMeetingId(any());
+  }
+
+  @Test
   @DisplayName("약속 시각을 그대로 두면 출발 준비 알림 시도 기록을 초기화하지 않는다")
   void keepsDepartureReminderAttemptWhenMeetingTimeDoesNotChange() {
     Meeting meeting = waitingMeeting();
     ReflectionTestUtils.setField(meeting, "id", 10L);
     ReflectionTestUtils.setField(meeting.getHostUser(), "id", 100L);
-    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+    given(meetingRepository.findByIdForUpdate(10L)).willReturn(Optional.of(meeting));
 
     meetingService.updateMeeting(
         100L,
@@ -1382,6 +1419,38 @@ class MeetingServiceTest {
   }
 
   @Test
+  @DisplayName("마지막 미도착 참여자가 나가면 진행 중이던 약속이 완료된다")
+  void completesMeetingWhenLastNotArrivedMemberLeaves() {
+    MeetingMember leaving = activeGuestMember("김땡땡");
+    Meeting meeting = leaving.getMeeting();
+    ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().atTime(23, 59));
+    meeting.start();
+    givenActiveMember(leaving);
+    given(meetingMemberRepository.countActiveByMeetingId(10L)).willReturn(1L);
+    given(meetingMemberRepository.existsNotArrivedMember(10L)).willReturn(false);
+
+    meetingService.leaveMeeting(100L, 10L);
+
+    assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.COMPLETED);
+  }
+
+  @Test
+  @DisplayName("나간 뒤에도 도착하지 않은 참여자가 남아 있으면 약속을 완료하지 않는다")
+  void keepsMeetingInProgressWhenNotArrivedMemberRemainsAfterLeave() {
+    MeetingMember leaving = activeGuestMember("김땡땡");
+    Meeting meeting = leaving.getMeeting();
+    ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().atTime(23, 59));
+    meeting.start();
+    givenActiveMember(leaving);
+    given(meetingMemberRepository.countActiveByMeetingId(10L)).willReturn(2L);
+    given(meetingMemberRepository.existsNotArrivedMember(10L)).willReturn(true);
+
+    meetingService.leaveMeeting(100L, 10L);
+
+    assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.IN_PROGRESS);
+  }
+
+  @Test
   @DisplayName("방장이 약속방 나가기를 요청하면 MEETING_HOST_CANNOT_LEAVE 예외가 발생한다")
   void rejectsLeaveRequestFromHost() {
     MeetingMember host = activeMember("효창");
@@ -1556,7 +1625,7 @@ class MeetingServiceTest {
     given(meetingRepository.findByInviteCodeForUpdate("ABCD1234")).willReturn(Optional.of(meeting));
     given(puzzlePageRepository.existsByMeetingId(10L)).willReturn(false);
     given(meetingMemberRepository.existsByMeetingIdAndUserId(10L, 200L)).willReturn(false);
-    given(meetingMemberRepository.countByMeetingId(10L)).willReturn(1L);
+    given(meetingMemberRepository.countActiveByMeetingId(10L)).willReturn(1L);
 
     MeetingJoinResponse response =
         meetingService.joinMeeting(
@@ -1639,7 +1708,7 @@ class MeetingServiceTest {
   }
 
   private MeetingMember arrivingMemberOfStartedMeeting(String nickname) {
-    MeetingMember member = activeMember(nickname);
+    MeetingMember member = activeMemberMeetingToday(nickname);
     member.getMeeting().start();
     member.updateCurrentLocation(BigDecimal.valueOf(37.5283), BigDecimal.valueOf(126.9320));
     return member;

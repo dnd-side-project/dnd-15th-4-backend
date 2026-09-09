@@ -2,6 +2,7 @@ package com.dnd.puzzlemeet.domain.user.service;
 
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
 import static org.mockito.BDDMockito.willThrow;
 import static org.mockito.Mockito.inOrder;
@@ -21,6 +22,7 @@ import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
 import com.dnd.puzzlemeet.domain.notification.repository.PushSubscriptionRepository;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
+import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzleCollectionRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
 import com.dnd.puzzlemeet.domain.user.repository.FavoriteSearchRepository;
 import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
@@ -52,6 +54,7 @@ class UserWithdrawalServiceTest {
   @Mock private MeetingMemberRepository meetingMemberRepository;
   @Mock private MeetingMemberRouteRepository meetingMemberRouteRepository;
   @Mock private MemberImageRepository memberImageRepository;
+  @Mock private PuzzleCollectionRepository puzzleCollectionRepository;
   @Mock private RefreshTokenRepository refreshTokenRepository;
   @Mock private FavoriteSearchRepository favoriteSearchRepository;
   @Mock private PushSubscriptionRepository pushSubscriptionRepository;
@@ -70,6 +73,7 @@ class UserWithdrawalServiceTest {
             meetingMemberRepository,
             meetingMemberRouteRepository,
             memberImageRepository,
+            puzzleCollectionRepository,
             refreshTokenRepository,
             favoriteSearchRepository,
             pushSubscriptionRepository,
@@ -148,6 +152,47 @@ class UserWithdrawalServiceTest {
     assertThat(memberImage.isDefaultImage()).isTrue();
     assertThat(defaultMemberImage.getImageUrl()).isEqualTo(DEFAULT_MEMBER_IMAGE_URL);
     assertThat(defaultMemberImage.isDefaultImage()).isTrue();
+  }
+
+  @Test
+  @DisplayName("탈퇴로 삭제되는 퍼즐 이미지를 담아둔 퍼즐 보관함은 기본 이미지로 바뀐다")
+  void replacesCollectedPuzzleImageUrlsWithDefaultOnWithdrawal() {
+    String uploadedImageUrl =
+        "https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/puzzles/uploaded.png";
+    User user = user();
+    MeetingMember meetingMember = meetingMember(user);
+    given(userRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(user));
+    given(
+            meetingRepository.existsByHostUserIdAndStatusIn(
+                1L, List.of(MeetingStatus.WAITING, MeetingStatus.IN_PROGRESS)))
+        .willReturn(false);
+    given(meetingMemberRepository.findAllByUserId(1L)).willReturn(List.of(meetingMember));
+    given(memberImageRepository.findAllByMeetingMemberIdIn(List.of(10L)))
+        .willReturn(List.of(new MemberImage(meetingMember, uploadedImageUrl, false)));
+
+    userWithdrawalService.withdraw(1L);
+
+    verify(puzzleCollectionRepository)
+        .replaceImageUrlsWithDefault(List.of(uploadedImageUrl), DEFAULT_MEMBER_IMAGE_URL);
+  }
+
+  @Test
+  @DisplayName("삭제할 업로드 이미지가 없으면 퍼즐 보관함을 건드리지 않는다")
+  void keepsCollectedPuzzleImageUrlsWhenNoUploadedImageExists() {
+    User user = user();
+    MeetingMember meetingMember = meetingMember(user);
+    given(userRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(user));
+    given(
+            meetingRepository.existsByHostUserIdAndStatusIn(
+                1L, List.of(MeetingStatus.WAITING, MeetingStatus.IN_PROGRESS)))
+        .willReturn(false);
+    given(meetingMemberRepository.findAllByUserId(1L)).willReturn(List.of(meetingMember));
+    given(memberImageRepository.findAllByMeetingMemberIdIn(List.of(10L)))
+        .willReturn(List.of(new MemberImage(meetingMember, DEFAULT_MEMBER_IMAGE_URL, true)));
+
+    userWithdrawalService.withdraw(1L);
+
+    verify(puzzleCollectionRepository, never()).replaceImageUrlsWithDefault(any(), any());
   }
 
   @Test

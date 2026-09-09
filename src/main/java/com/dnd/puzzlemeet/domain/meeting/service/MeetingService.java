@@ -216,7 +216,7 @@ public class MeetingService {
       throw ApiException.of(ErrorCode.MEETING_MEMBER_ALREADY_JOINED);
     }
 
-    if (meetingMemberRepository.countByMeetingId(meeting.getId()) >= meeting.getCapacity()) {
+    if (meetingMemberRepository.countActiveByMeetingId(meeting.getId()) >= meeting.getCapacity()) {
       throw ApiException.of(ErrorCode.MEETING_CAPACITY_EXCEEDED);
     }
 
@@ -319,6 +319,24 @@ public class MeetingService {
       return;
     }
 
+    completeArrivedMeeting(meeting);
+  }
+
+  private void completeIfRemainingMembersArrived(Meeting meeting) {
+    if (meeting.getStatus() != MeetingStatus.IN_PROGRESS) {
+      return;
+    }
+    if (meetingMemberRepository.countActiveByMeetingId(meeting.getId()) == 0) {
+      return;
+    }
+    if (meetingMemberRepository.existsNotArrivedMember(meeting.getId())) {
+      return;
+    }
+
+    completeArrivedMeeting(meeting);
+  }
+
+  private void completeArrivedMeeting(Meeting meeting) {
     meeting.complete();
     collectCompletedPuzzles(meeting);
     log.info("[약속 전원 도착 종료] meetingId={}", meeting.getId());
@@ -351,7 +369,7 @@ public class MeetingService {
 
     Meeting meeting =
         meetingRepository
-            .findById(meetingId)
+            .findByIdForUpdate(meetingId)
             .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
 
     if (!meeting.getHostUser().getId().equals(userId)) {
@@ -387,6 +405,7 @@ public class MeetingService {
       meeting.start();
     } else if (meeting.getStatus() == MeetingStatus.IN_PROGRESS && !isTodaysMeeting(meetingAt)) {
       meeting.revertToWaiting();
+      meetingMemberRepository.resetProgressByMeetingId(meetingId);
     }
     if (meetingAtChanged) {
       meetingMemberRepository.resetDepartureReminderAttemptedAtForNotStartedMembers(meetingId);
@@ -719,7 +738,7 @@ public class MeetingService {
 
     Meeting meeting =
         meetingRepository
-            .findById(meetingId)
+            .findByIdForUpdate(meetingId)
             .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
 
     if (!meeting.getHostUser().getId().equals(userId)) {
@@ -737,6 +756,10 @@ public class MeetingService {
   public void leaveMeeting(Long userId, Long meetingId) {
     lockActiveUser(userId);
 
+    Meeting meeting =
+        meetingRepository
+            .findByIdForUpdate(meetingId)
+            .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
     MeetingMember member = getActiveMeetingMember(userId, meetingId);
     if (member.getRole() == MeetingMemberRole.HOST) {
       throw ApiException.of(ErrorCode.MEETING_HOST_CANNOT_LEAVE);
@@ -754,6 +777,7 @@ public class MeetingService {
     meetingMemberRouteRepository.deleteAllByMeetingMemberId(member.getId());
     memberImageRepository.deleteAllByMeetingMemberId(member.getId());
     meetingMemberRepository.delete(member);
+    completeIfRemainingMembersArrived(meeting);
     deletePuzzleImageAfterCommit(uploadedImageUrl);
   }
 

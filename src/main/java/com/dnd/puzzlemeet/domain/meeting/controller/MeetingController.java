@@ -127,10 +127,11 @@ public class MeetingController {
     return ApiResult.success(meetingService.joinMeeting(principal.id(), request, image));
   }
 
-  @Operation(summary = "도착 완료", description = "저장된 현재 위치가 목적지 도착 반경 안이면 도착 처리한다.")
+  @Operation(summary = "도착 완료", description = "약속 당일에 저장된 현재 위치가 목적지 도착 반경 안이면 도착 처리한다.")
   @ApiErrorCodeExamples({
     ErrorCode.AUTH_TOKEN_INVALID,
     ErrorCode.MEETING_NOT_FOUND,
+    ErrorCode.MEETING_NOT_STARTED,
     ErrorCode.MEETING_MEMBER_NOT_FOUND,
     ErrorCode.MEETING_MEMBER_NOT_ACTIVE,
     ErrorCode.MEETING_ARRIVAL_LOCATION_INVALID

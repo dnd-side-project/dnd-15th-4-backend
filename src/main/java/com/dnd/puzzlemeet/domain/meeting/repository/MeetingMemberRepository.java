@@ -17,7 +17,14 @@ public interface MeetingMemberRepository extends JpaRepository<MeetingMember, Lo
 
   List<MeetingMember> findAllByUserId(Long userId);
 
-  long countByMeetingId(Long meetingId);
+  @Query(
+      """
+      select count(mm)
+      from MeetingMember mm
+      where mm.meeting.id = :meetingId
+        and mm.user.deletedAt is null
+      """)
+  long countActiveByMeetingId(@Param("meetingId") Long meetingId);
 
   @Query(
       """
@@ -45,6 +52,16 @@ public interface MeetingMemberRepository extends JpaRepository<MeetingMember, Lo
       """)
   boolean existsNotArrivedMemberExcluding(
       @Param("meetingId") Long meetingId, @Param("arrivedMemberId") Long arrivedMemberId);
+
+  @Query(
+      """
+      select case when count(mm) > 0 then true else false end
+      from MeetingMember mm
+      where mm.meeting.id = :meetingId
+        and mm.user.deletedAt is null
+        and mm.status <> com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberStatus.ARRIVED
+      """)
+  boolean existsNotArrivedMember(@Param("meetingId") Long meetingId);
 
   @Query(
       """
@@ -148,6 +165,18 @@ public interface MeetingMemberRepository extends JpaRepository<MeetingMember, Lo
         and mm.status = com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberStatus.NOT_STARTED
       """)
   int resetDepartureReminderAttemptedAtForNotStartedMembers(@Param("meetingId") Long meetingId);
+
+  @Modifying(flushAutomatically = true)
+  @Query(
+      """
+      update MeetingMember mm
+      set mm.status = com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberStatus.NOT_STARTED,
+          mm.departedAt = null,
+          mm.arrivedAt = null
+      where mm.meeting.id = :meetingId
+        and mm.status <> com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberStatus.NOT_STARTED
+      """)
+  int resetProgressByMeetingId(@Param("meetingId") Long meetingId);
 
   interface DepartureReminderCandidate {
 
