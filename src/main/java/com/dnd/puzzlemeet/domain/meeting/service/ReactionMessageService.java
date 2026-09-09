@@ -31,7 +31,7 @@ public class ReactionMessageService {
   public void sendReactionMessage(Long userId, Long meetingId, ReactionMessageSendRequest request) {
     Meeting meeting =
         meetingRepository
-            .findById(meetingId)
+            .findByIdForUpdate(meetingId)
             .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
 
     MeetingMember senderMember =

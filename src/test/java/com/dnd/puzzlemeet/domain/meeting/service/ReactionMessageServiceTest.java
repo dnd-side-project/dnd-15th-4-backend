@@ -65,7 +65,7 @@ class ReactionMessageServiceTest {
     ReflectionTestUtils.setField(sender, "id", 20L);
     ReactionPreset preset = new ReactionPreset("지금 출발");
     ReflectionTestUtils.setField(preset, "id", 30L);
-    given(meetingRepository.findById(10L)).willReturn(Optional.of(meeting));
+    given(meetingRepository.findByIdForUpdate(10L)).willReturn(Optional.of(meeting));
     given(meetingMemberRepository.findByMeetingIdAndUserId(10L, 100L))
         .willReturn(Optional.of(sender));
     given(reactionPresetRepository.findByIdAndIsActiveTrue(30L)).willReturn(Optional.of(preset));

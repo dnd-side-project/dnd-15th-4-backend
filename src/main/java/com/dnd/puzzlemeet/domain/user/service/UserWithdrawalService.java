@@ -9,6 +9,7 @@ import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
 import com.dnd.puzzlemeet.domain.notification.repository.PushSubscriptionRepository;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
+import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzleCollectionRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
 import com.dnd.puzzlemeet.domain.user.repository.FavoriteSearchRepository;
 import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
@@ -36,6 +37,7 @@ public class UserWithdrawalService {
   private final MeetingMemberRepository meetingMemberRepository;
   private final MeetingMemberRouteRepository meetingMemberRouteRepository;
   private final MemberImageRepository memberImageRepository;
+  private final PuzzleCollectionRepository puzzleCollectionRepository;
   private final RefreshTokenRepository refreshTokenRepository;
   private final FavoriteSearchRepository favoriteSearchRepository;
   private final PushSubscriptionRepository pushSubscriptionRepository;
@@ -86,6 +88,10 @@ public class UserWithdrawalService {
             .toList();
     memberImages.forEach(image -> image.replaceWithDefaultImage(DEFAULT_MEMBER_IMAGE_URL));
     meetingMembers.forEach(MeetingMember::anonymizeForUserWithdrawal);
+    if (!uploadedImageUrls.isEmpty()) {
+      puzzleCollectionRepository.replaceImageUrlsWithDefault(
+          uploadedImageUrls, DEFAULT_MEMBER_IMAGE_URL);
+    }
     return uploadedImageUrls;
   }
 

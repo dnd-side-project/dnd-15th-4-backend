@@ -7,6 +7,7 @@ import com.dnd.puzzlemeet.TestcontainersConfiguration;
 import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
+import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
 import com.dnd.puzzlemeet.domain.meeting.entity.ReactionMessage;
 import com.dnd.puzzlemeet.domain.meeting.entity.ReactionPreset;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
@@ -106,6 +107,62 @@ class MeetingLeaveIntegrationTest {
 
     PuzzlePage reloadedPage = puzzlePageRepository.findById(page.getId()).orElseThrow();
     assertThat(reloadedPage.getRepresentativeMemberImage().getId()).isEqualTo(hostImage.getId());
+  }
+
+  @Test
+  @DisplayName("도착한 방장만 남기고 마지막 미도착 참여자가 나가면 약속이 완료된다")
+  void completesMeetingWhenLastNotArrivedGuestLeaves() {
+    User host = userRepository.save(new User(10_003L, "효창", "https://img.example/host.png"));
+    User guest = userRepository.save(new User(10_004L, "김땡땡", "https://img.example/guest.png"));
+
+    Meeting meeting = meetingRepository.save(inProgressMeeting(host));
+    MeetingMember hostMember = saveMember(meeting, host, MeetingMemberRole.HOST, "효창");
+    saveMember(meeting, guest, MeetingMemberRole.GUEST, "김땡땡");
+    hostMember.arrive();
+    meetingMemberRepository.save(hostMember);
+
+    meetingService.leaveMeeting(guest.getId(), meeting.getId());
+
+    Meeting reloaded = meetingRepository.findById(meeting.getId()).orElseThrow();
+    assertThat(reloaded.getStatus()).isEqualTo(MeetingStatus.COMPLETED);
+  }
+
+  @Test
+  @DisplayName("아직 도착하지 않은 참여자가 남아 있으면 나가기로 약속이 완료되지 않는다")
+  void keepsMeetingInProgressWhenAnotherGuestHasNotArrived() {
+    User host = userRepository.save(new User(10_005L, "효창", "https://img.example/host.png"));
+    User leaving = userRepository.save(new User(10_006L, "김땡땡", "https://img.example/a.png"));
+    User staying = userRepository.save(new User(10_007L, "박땡땡", "https://img.example/b.png"));
+
+    Meeting meeting = meetingRepository.save(inProgressMeeting(host));
+    MeetingMember hostMember = saveMember(meeting, host, MeetingMemberRole.HOST, "효창");
+    saveMember(meeting, leaving, MeetingMemberRole.GUEST, "김땡땡");
+    saveMember(meeting, staying, MeetingMemberRole.GUEST, "박땡땡");
+    hostMember.arrive();
+    meetingMemberRepository.save(hostMember);
+
+    meetingService.leaveMeeting(leaving.getId(), meeting.getId());
+
+    Meeting reloaded = meetingRepository.findById(meeting.getId()).orElseThrow();
+    assertThat(reloaded.getStatus()).isEqualTo(MeetingStatus.IN_PROGRESS);
+  }
+
+  @Test
+  @DisplayName("탈퇴한 참여자는 약속 정원과 미도착 판정에서 빠진다")
+  void excludesWithdrawnMemberFromCapacityAndArrivalChecks() {
+    User host = userRepository.save(new User(10_008L, "효창", "https://img.example/host.png"));
+    User withdrawn = userRepository.save(new User(10_009L, "김땡땡", "https://img.example/a.png"));
+
+    Meeting meeting = meetingRepository.save(inProgressMeeting(host));
+    MeetingMember hostMember = saveMember(meeting, host, MeetingMemberRole.HOST, "효창");
+    saveMember(meeting, withdrawn, MeetingMemberRole.GUEST, "김땡땡");
+    hostMember.arrive();
+    meetingMemberRepository.save(hostMember);
+    withdrawn.withdraw();
+    userRepository.save(withdrawn);
+
+    assertThat(meetingMemberRepository.countActiveByMeetingId(meeting.getId())).isEqualTo(1);
+    assertThat(meetingMemberRepository.existsNotArrivedMember(meeting.getId())).isFalse();
   }
 
   private Meeting inProgressMeeting(User host) {

@@ -3,6 +3,7 @@ package com.dnd.puzzlemeet.domain.puzzle.repository;
 import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzleCollection;
 import java.util.List;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 
@@ -17,4 +18,14 @@ public interface PuzzleCollectionRepository extends JpaRepository<PuzzleCollecti
       order by m.meetingAt desc, pp.pageNumber asc
       """)
   List<PuzzleCollection> findAllByUserIdFetchMeeting(@Param("userId") Long userId);
+
+  @Modifying(flushAutomatically = true)
+  @Query(
+      """
+      update PuzzleCollection pc
+      set pc.imageUrl = :defaultImageUrl
+      where pc.imageUrl in :imageUrls
+      """)
+  int replaceImageUrlsWithDefault(
+      @Param("imageUrls") List<String> imageUrls, @Param("defaultImageUrl") String defaultImageUrl);
 }
