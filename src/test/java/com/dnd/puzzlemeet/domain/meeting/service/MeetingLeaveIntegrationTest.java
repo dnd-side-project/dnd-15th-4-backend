@@ -148,6 +148,43 @@ class MeetingLeaveIntegrationTest {
   }
 
   @Test
+  @DisplayName("나가기로 약속이 완료되면 완성한 퍼즐이 남은 참여자에게 한 번만 적립된다")
+  void collectsCompletedPuzzleOnceWhenLeaveCompletesMeeting() {
+    User host = userRepository.save(new User(10_010L, "효창", "https://img.example/host.png"));
+    User guest = userRepository.save(new User(10_011L, "김땡땡", "https://img.example/guest.png"));
+
+    Meeting meeting = meetingRepository.save(inProgressMeeting(host));
+    MeetingMember hostMember = saveMember(meeting, host, MeetingMemberRole.HOST, "효창");
+    MeetingMember guestMember = saveMember(meeting, guest, MeetingMemberRole.GUEST, "김땡땡");
+
+    MemberImage hostImage =
+        memberImageRepository.save(
+            new MemberImage(hostMember, "https://img.example/puzzles/host.png", false));
+    MemberImage guestImage =
+        memberImageRepository.save(
+            new MemberImage(guestMember, "https://img.example/puzzles/guest.png", false));
+
+    PuzzlePage page = new PuzzlePage(meeting, 1);
+    page.selectRepresentativeImage(guestImage);
+    page = puzzlePageRepository.save(page);
+    puzzlePieceRepository.save(new PuzzlePiece(page, hostMember, (byte) 1));
+    puzzlePieceRepository.save(new PuzzlePiece(page, guestMember, (byte) 2));
+
+    hostMember.arrive();
+    meetingMemberRepository.save(hostMember);
+
+    meetingService.leaveMeeting(guest.getId(), meeting.getId());
+
+    Meeting reloaded = meetingRepository.findById(meeting.getId()).orElseThrow();
+    assertThat(reloaded.getStatus()).isEqualTo(MeetingStatus.COMPLETED);
+    assertThat(puzzleCollectionRepository.findAllByUserIdFetchMeeting(host.getId()))
+        .singleElement()
+        .satisfies(
+            collection -> assertThat(collection.getImageUrl()).isEqualTo(hostImage.getImageUrl()));
+    assertThat(puzzleCollectionRepository.findAllByUserIdFetchMeeting(guest.getId())).isEmpty();
+  }
+
+  @Test
   @DisplayName("탈퇴한 참여자는 약속 정원과 미도착 판정에서 빠진다")
   void excludesWithdrawnMemberFromCapacityAndArrivalChecks() {
     User host = userRepository.save(new User(10_008L, "효창", "https://img.example/host.png"));
