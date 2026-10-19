@@ -10,6 +10,7 @@ import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.ReactionMessageRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.ReactionPresetRepository;
 import com.dnd.puzzlemeet.domain.notification.event.QuickMessageSentEvent;
+import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
 import com.dnd.puzzlemeet.global.exception.ApiException;
 import com.dnd.puzzlemeet.global.response.ErrorCode;
 import lombok.RequiredArgsConstructor;
@@ -21,6 +22,7 @@ import org.springframework.transaction.annotation.Transactional;
 @RequiredArgsConstructor
 public class ReactionMessageService {
 
+  private final UserRepository userRepository;
   private final MeetingRepository meetingRepository;
   private final MeetingMemberRepository meetingMemberRepository;
   private final ReactionPresetRepository reactionPresetRepository;
@@ -29,6 +31,9 @@ public class ReactionMessageService {
 
   @Transactional
   public void sendReactionMessage(Long userId, Long meetingId, ReactionMessageSendRequest request) {
+    userRepository
+        .findActiveByIdForUpdate(userId)
+        .orElseThrow(() -> ApiException.of(ErrorCode.USER_NOT_FOUND));
     Meeting meeting =
         meetingRepository
             .findByIdForUpdate(meetingId)

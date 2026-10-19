@@ -4,13 +4,12 @@ import static org.assertj.core.api.Assertions.assertThat;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.mockito.ArgumentMatchers.any;
 import static org.mockito.BDDMockito.given;
-import static org.mockito.BDDMockito.willThrow;
-import static org.mockito.Mockito.inOrder;
 import static org.mockito.Mockito.never;
 import static org.mockito.Mockito.verify;
 import static org.mockito.Mockito.verifyNoInteractions;
 
 import com.dnd.puzzlemeet.domain.auth.repository.RefreshTokenRepository;
+import com.dnd.puzzlemeet.domain.meeting.entity.Meeting;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMemberRole;
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus;
@@ -19,29 +18,31 @@ import com.dnd.puzzlemeet.domain.meeting.entity.TravelMode;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingMemberRouteRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
+import com.dnd.puzzlemeet.domain.meeting.service.MeetingCompletionService;
 import com.dnd.puzzlemeet.domain.notification.repository.PushSubscriptionRepository;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
 import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzleCollectionRepository;
+import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzlePieceRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
 import com.dnd.puzzlemeet.domain.user.repository.FavoriteSearchRepository;
 import com.dnd.puzzlemeet.domain.user.repository.UserRepository;
 import com.dnd.puzzlemeet.global.exception.ApiException;
 import com.dnd.puzzlemeet.global.response.ErrorCode;
-import com.dnd.puzzlemeet.global.s3.AmazonS3Manager;
-import com.dnd.puzzlemeet.global.security.client.KakaoUnlinkClient;
-import jakarta.persistence.EntityManager;
 import java.math.BigDecimal;
+import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
+import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
-import org.mockito.InOrder;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.test.util.ReflectionTestUtils;
+import org.springframework.transaction.support.TransactionSynchronization;
+import org.springframework.transaction.support.TransactionSynchronizationManager;
 
 @ExtendWith(MockitoExtension.class)
 class UserWithdrawalServiceTest {
@@ -58,14 +59,15 @@ class UserWithdrawalServiceTest {
   @Mock private RefreshTokenRepository refreshTokenRepository;
   @Mock private FavoriteSearchRepository favoriteSearchRepository;
   @Mock private PushSubscriptionRepository pushSubscriptionRepository;
-  @Mock private KakaoUnlinkClient kakaoUnlinkClient;
-  @Mock private AmazonS3Manager amazonS3Manager;
-  @Mock private EntityManager entityManager;
 
+  @Mock private PuzzlePieceRepository puzzlePieceRepository;
+  @Mock private MeetingCompletionService meetingCompletionService;
+  @Mock private WithdrawalCleanupService withdrawalCleanupService;
   private UserWithdrawalService userWithdrawalService;
 
   @BeforeEach
   void setUp() {
+    TransactionSynchronizationManager.initSynchronization();
     userWithdrawalService =
         new UserWithdrawalService(
             userRepository,
@@ -77,13 +79,18 @@ class UserWithdrawalServiceTest {
             refreshTokenRepository,
             favoriteSearchRepository,
             pushSubscriptionRepository,
-            kakaoUnlinkClient,
-            amazonS3Manager,
-            entityManager);
+            puzzlePieceRepository,
+            meetingCompletionService,
+            withdrawalCleanupService);
+  }
+
+  @AfterEach
+  void tearDown() {
+    TransactionSynchronizationManager.clearSynchronization();
   }
 
   @Test
-  @DisplayName("회원 탈퇴에 성공하면 카카오 연결과 토큰을 제거하고 사용자 및 약속 참여 정보를 익명화한다")
+  @DisplayName("회원 탈퇴에서 토큰과 개인정보를 제거하고 커밋 후 외부 정리를 수행한다")
   void withdrawsAndAnonymizesUserData() {
     User user = user();
     MeetingMember meetingMember = meetingMember(user);
@@ -104,27 +111,18 @@ class UserWithdrawalServiceTest {
 
     userWithdrawalService.withdraw(1L);
 
-    InOrder inOrder =
-        inOrder(
-            meetingMemberRouteRepository,
-            favoriteSearchRepository,
-            pushSubscriptionRepository,
-            refreshTokenRepository,
-            entityManager,
-            kakaoUnlinkClient,
-            amazonS3Manager);
-    inOrder.verify(meetingMemberRouteRepository).deleteAllByMeetingMemberIdIn(List.of(10L));
-    inOrder.verify(favoriteSearchRepository).deleteAllByUserId(1L);
-    inOrder.verify(pushSubscriptionRepository).deleteAllByUserId(1L);
-    inOrder.verify(refreshTokenRepository).deleteAllByUserId(1L);
-    inOrder.verify(entityManager).flush();
-    inOrder.verify(kakaoUnlinkClient).unlink(100L);
-    inOrder
-        .verify(amazonS3Manager)
-        .deletePuzzleImage(
-            "https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/puzzles/uploaded.png");
-    verify(amazonS3Manager, never()).deletePuzzleImage(DEFAULT_MEMBER_IMAGE_URL);
-    assertThat(user.getKakaoId()).isNull();
+    verify(meetingMemberRouteRepository).deleteAllByMeetingMemberIdIn(List.of(10L));
+    verify(favoriteSearchRepository).deleteAllByUserId(1L);
+    verify(pushSubscriptionRepository).deleteAllByUserId(1L);
+    verify(refreshTokenRepository).deleteAllByUserId(1L);
+    verifyNoInteractions(withdrawalCleanupService);
+    TransactionSynchronizationManager.getSynchronizations()
+        .forEach(TransactionSynchronization::afterCommit);
+    verify(withdrawalCleanupService).unlinkKakao(1L);
+    verify(withdrawalCleanupService)
+        .deleteImages(
+            List.of("https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/puzzles/uploaded.png"));
+    assertThat(user.getKakaoId()).isEqualTo(100L);
     assertThat(user.getEmail()).isNull();
     assertThat(user.getNickname()).isEqualTo("탈퇴한 사용자");
     assertThat(user.getProfileImageUrl()).isNull();
@@ -196,36 +194,6 @@ class UserWithdrawalServiceTest {
   }
 
   @Test
-  @DisplayName("DB 변경을 flush하고 카카오 연결을 해제한 뒤 S3 이미지를 삭제한다")
-  void flushesLocalChangesBeforeS3ImageDeletionFails() {
-    User user = user();
-    MeetingMember meetingMember = meetingMember(user);
-    String uploadedImageUrl =
-        "https://puzzle-meet-s3.s3.ap-northeast-2.amazonaws.com/puzzles/uploaded.png";
-    MemberImage memberImage = new MemberImage(meetingMember, uploadedImageUrl, false);
-    given(userRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(user));
-    given(
-            meetingRepository.existsByHostUserIdAndStatusIn(
-                1L, List.of(MeetingStatus.WAITING, MeetingStatus.IN_PROGRESS)))
-        .willReturn(false);
-    given(meetingMemberRepository.findAllByUserId(1L)).willReturn(List.of(meetingMember));
-    given(memberImageRepository.findAllByMeetingMemberIdIn(List.of(10L)))
-        .willReturn(List.of(memberImage));
-    willThrow(ApiException.of(ErrorCode.S3_DELETE_FAILED))
-        .given(amazonS3Manager)
-        .deletePuzzleImage(uploadedImageUrl);
-
-    ApiException exception =
-        assertThrows(ApiException.class, () -> userWithdrawalService.withdraw(1L));
-
-    assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.S3_DELETE_FAILED);
-    InOrder inOrder = inOrder(entityManager, kakaoUnlinkClient, amazonS3Manager);
-    inOrder.verify(entityManager).flush();
-    inOrder.verify(kakaoUnlinkClient).unlink(100L);
-    inOrder.verify(amazonS3Manager).deletePuzzleImage(uploadedImageUrl);
-  }
-
-  @Test
   @DisplayName("활성 약속의 방장은 탈퇴할 수 없고 카카오 연결 및 로컬 데이터를 변경하지 않는다")
   void rejectsWithdrawalWhenUserHostsActiveMeeting() {
     User user = user();
@@ -240,40 +208,12 @@ class UserWithdrawalServiceTest {
 
     assertThat(exception.getErrorCode())
         .isEqualTo(ErrorCode.USER_WITHDRAWAL_BLOCKED_BY_HOSTED_MEETING);
-    verifyNoInteractions(kakaoUnlinkClient);
+    verifyNoInteractions(withdrawalCleanupService);
     verify(favoriteSearchRepository, never()).deleteAllByUserId(1L);
     verify(pushSubscriptionRepository, never()).deleteAllByUserId(1L);
     verify(refreshTokenRepository, never()).deleteAllByUserId(1L);
     assertThat(user.getKakaoId()).isEqualTo(100L);
     assertThat(user.getDeletedAt()).isNull();
-  }
-
-  @Test
-  @DisplayName("DB 변경을 flush한 뒤 카카오 연결 해제에 실패하면 예외를 전달하고 S3 삭제를 건너뛴다")
-  void propagatesKakaoUnlinkFailureAfterFlushingLocalChanges() {
-    User user = user();
-    given(userRepository.findActiveByIdForUpdate(1L)).willReturn(Optional.of(user));
-    given(
-            meetingRepository.existsByHostUserIdAndStatusIn(
-                1L, List.of(MeetingStatus.WAITING, MeetingStatus.IN_PROGRESS)))
-        .willReturn(false);
-    willThrow(new IllegalStateException("unlink failed")).given(kakaoUnlinkClient).unlink(100L);
-
-    assertThrows(IllegalStateException.class, () -> userWithdrawalService.withdraw(1L));
-
-    InOrder inOrder =
-        inOrder(
-            favoriteSearchRepository,
-            pushSubscriptionRepository,
-            refreshTokenRepository,
-            entityManager,
-            kakaoUnlinkClient);
-    inOrder.verify(favoriteSearchRepository).deleteAllByUserId(1L);
-    inOrder.verify(pushSubscriptionRepository).deleteAllByUserId(1L);
-    inOrder.verify(refreshTokenRepository).deleteAllByUserId(1L);
-    inOrder.verify(entityManager).flush();
-    inOrder.verify(kakaoUnlinkClient).unlink(100L);
-    verifyNoInteractions(amazonS3Manager);
   }
 
   @Test
@@ -286,7 +226,7 @@ class UserWithdrawalServiceTest {
 
     assertThat(exception.getErrorCode()).isEqualTo(ErrorCode.USER_NOT_FOUND);
     verifyNoInteractions(meetingRepository);
-    verifyNoInteractions(kakaoUnlinkClient);
+    verifyNoInteractions(withdrawalCleanupService);
   }
 
   private User user() {
@@ -296,9 +236,22 @@ class UserWithdrawalServiceTest {
   }
 
   private MeetingMember meetingMember(User user) {
+    Meeting meeting =
+        new Meeting(
+            user,
+            "약속",
+            LocalDateTime.now(),
+            "목적지",
+            null,
+            BigDecimal.ONE,
+            BigDecimal.ONE,
+            500,
+            4,
+            "ABCD1234",
+            null);
     MeetingMember meetingMember =
         new MeetingMember(
-            null, user, MeetingMemberRole.GUEST, "약속 닉네임", "https://img.kakao.com/profile.png");
+            meeting, user, MeetingMemberRole.GUEST, "약속 닉네임", "https://img.kakao.com/profile.png");
     ReflectionTestUtils.setField(meetingMember, "id", 10L);
     meetingMember.updateTransport(TransportType.SUBWAY, "2호선");
     meetingMember.depart();

@@ -1,7 +1,6 @@
 package com.dnd.puzzlemeet.domain.user.controller;
 
 import static org.assertj.core.api.Assertions.assertThat;
-import static org.mockito.BDDMockito.given;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.delete;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.get;
 import static org.springframework.test.web.servlet.request.MockMvcRequestBuilders.patch;
@@ -213,7 +212,7 @@ class UserControllerTest {
   }
 
   @Test
-  @DisplayName("회원 탈퇴하면 카카오 연결과 모든 refresh token을 제거하고 기존 access token을 차단한다")
+  @DisplayName("회원 탈퇴하면 모든 토큰을 차단하고 커밋 전에는 외부 정리를 호출하지 않는다")
   void withdrawsUserAndInvalidatesAllTokens() throws Exception {
     User user =
         userRepository.save(
@@ -230,7 +229,6 @@ class UserControllerTest {
             "p256dh",
             "auth"));
     String accessToken = jwtProvider.createAccessToken(user.getId());
-    given(kakaoUnlinkClient.unlink(100L)).willReturn(100L);
 
     mockMvc
         .perform(delete("/api/v1/users/me").header("Authorization", "Bearer " + accessToken))
@@ -253,7 +251,8 @@ class UserControllerTest {
     assertThat(refreshTokenRepository.findAll()).isEmpty();
     assertThat(pushSubscriptionRepository.findAll()).isEmpty();
     User withdrawnUser = userRepository.findById(user.getId()).orElseThrow();
-    assertThat(withdrawnUser.getKakaoId()).isNull();
+    assertThat(withdrawnUser.getKakaoId()).isEqualTo(100L);
+    org.mockito.Mockito.verifyNoInteractions(kakaoUnlinkClient);
     assertThat(withdrawnUser.getEmail()).isNull();
     assertThat(withdrawnUser.getNickname()).isEqualTo("탈퇴한 사용자");
     assertThat(withdrawnUser.getProfileImageUrl()).isNull();

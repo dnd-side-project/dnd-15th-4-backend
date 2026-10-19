@@ -34,6 +34,7 @@ import org.springframework.test.util.ReflectionTestUtils;
 @ExtendWith(MockitoExtension.class)
 class ReactionMessageServiceTest {
 
+  @Mock private com.dnd.puzzlemeet.domain.user.repository.UserRepository userRepository;
   @Mock private MeetingRepository meetingRepository;
   @Mock private MeetingMemberRepository meetingMemberRepository;
   @Mock private ReactionPresetRepository reactionPresetRepository;
@@ -46,6 +47,7 @@ class ReactionMessageServiceTest {
   void setUp() {
     reactionMessageService =
         new ReactionMessageService(
+            userRepository,
             meetingRepository,
             meetingMemberRepository,
             reactionPresetRepository,
@@ -57,6 +59,7 @@ class ReactionMessageServiceTest {
   @DisplayName("퀵메시지를 저장한 뒤 원문이 없는 발송 이벤트를 발행한다")
   void publishesQuickMessageEventWithoutContentAfterSave() {
     User user = new User(100L, "효창", "https://img.kakao.com/a.jpg");
+    given(userRepository.findActiveByIdForUpdate(100L)).willReturn(Optional.of(user));
     Meeting meeting = meeting(user);
     ReflectionTestUtils.setField(meeting, "id", 10L);
     MeetingMember sender =

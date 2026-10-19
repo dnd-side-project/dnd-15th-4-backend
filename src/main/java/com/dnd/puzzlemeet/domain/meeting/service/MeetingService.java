@@ -40,11 +40,9 @@ import com.dnd.puzzlemeet.domain.meeting.repository.MeetingRepository;
 import com.dnd.puzzlemeet.domain.meeting.repository.ReactionMessageRepository;
 import com.dnd.puzzlemeet.domain.notification.event.FriendArrivedEvent;
 import com.dnd.puzzlemeet.domain.puzzle.entity.MemberImage;
-import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzleCollection;
 import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzlePage;
 import com.dnd.puzzlemeet.domain.puzzle.entity.PuzzlePiece;
 import com.dnd.puzzlemeet.domain.puzzle.repository.MemberImageRepository;
-import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzleCollectionRepository;
 import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzlePageRepository;
 import com.dnd.puzzlemeet.domain.puzzle.repository.PuzzlePieceRepository;
 import com.dnd.puzzlemeet.domain.user.entity.User;
@@ -116,7 +114,7 @@ public class MeetingService {
   private final TmapPedestrianClient tmapPedestrianClient;
   private final PuzzlePageRepository puzzlePageRepository;
   private final PuzzlePieceRepository puzzlePieceRepository;
-  private final PuzzleCollectionRepository puzzleCollectionRepository;
+  private final MeetingCompletionService meetingCompletionService;
   private final ReactionMessageRepository reactionMessageRepository;
   private final ApplicationEventPublisher applicationEventPublisher;
 
@@ -306,40 +304,8 @@ public class MeetingService {
     startIfMeetingDay(meeting);
     member.arrive();
     applicationEventPublisher.publishEvent(new FriendArrivedEvent(meeting.getId(), member.getId()));
-    completeIfAllMembersArrived(meeting, member);
+    meetingCompletionService.completeIfAllActiveMembersArrived(meeting.getId());
     return MeetingMemberArrivalResponse.from(member);
-  }
-
-  private void completeIfAllMembersArrived(Meeting meeting, MeetingMember arrivedMember) {
-    if (meeting.getStatus() != MeetingStatus.IN_PROGRESS) {
-      return;
-    }
-    if (meetingMemberRepository.existsNotArrivedMemberExcluding(
-        meeting.getId(), arrivedMember.getId())) {
-      return;
-    }
-
-    completeArrivedMeeting(meeting);
-  }
-
-  private void completeIfRemainingMembersArrived(Meeting meeting) {
-    if (meeting.getStatus() != MeetingStatus.IN_PROGRESS) {
-      return;
-    }
-    if (meetingMemberRepository.countActiveByMeetingId(meeting.getId()) == 0) {
-      return;
-    }
-    if (meetingMemberRepository.existsNotArrivedMember(meeting.getId())) {
-      return;
-    }
-
-    completeArrivedMeeting(meeting);
-  }
-
-  private void completeArrivedMeeting(Meeting meeting) {
-    meeting.complete();
-    collectCompletedPuzzles(meeting);
-    log.info("[약속 전원 도착 종료] meetingId={}", meeting.getId());
   }
 
   @Transactional(readOnly = true)
@@ -415,16 +381,20 @@ public class MeetingService {
   @Transactional
   public void updateCurrentLocation(
       Long userId, Long meetingId, double latitude, double longitude) {
+    lockActiveUser(userId);
     meetingRepository
         .findById(meetingId)
         .orElseThrow(() -> ApiException.of(ErrorCode.MEETING_NOT_FOUND));
 
-    MeetingMember member =
-        meetingMemberRepository
-            .findByMeetingIdAndUserId(meetingId, userId)
-            .orElseThrow(() -> ApiException.of(ErrorCode.AUTH_FORBIDDEN));
-
-    member.updateCurrentLocation(BigDecimal.valueOf(latitude), BigDecimal.valueOf(longitude));
+    if (meetingMemberRepository.updateCurrentLocation(
+            meetingId,
+            userId,
+            BigDecimal.valueOf(latitude),
+            BigDecimal.valueOf(longitude),
+            LocalDateTime.now())
+        == 0) {
+      throw ApiException.of(ErrorCode.AUTH_FORBIDDEN);
+    }
   }
 
   @Transactional
@@ -652,7 +622,10 @@ public class MeetingService {
   }
 
   private void assignPuzzleGroups(Meeting meeting) {
-    List<MemberImage> memberImages = memberImageRepository.findAllByMeetingId(meeting.getId());
+    List<MemberImage> memberImages =
+        memberImageRepository.findAllByMeetingId(meeting.getId()).stream()
+            .filter(image -> !image.getMeetingMember().getUser().isWithdrawn())
+            .toList();
     if (memberImages.isEmpty()) {
       return;
     }
@@ -677,59 +650,11 @@ public class MeetingService {
     }
   }
 
-  @Transactional
   public void completeExpiredMeetings() {
-    List<Meeting> expiredMeetings =
-        meetingRepository.findAllExpired(LocalDate.now().atStartOfDay());
-    expiredMeetings.forEach(Meeting::complete);
-    expiredMeetings.forEach(this::collectCompletedPuzzles);
-
-    if (!expiredMeetings.isEmpty()) {
-      log.info("[약속 자동 종료] count={}", expiredMeetings.size());
-    }
-  }
-
-  private void collectCompletedPuzzles(Meeting meeting) {
-    List<PuzzlePage> puzzlePages =
-        puzzlePageRepository.findAllByMeetingIdOrderByPageNumberAsc(meeting.getId());
-    if (puzzlePages.isEmpty()) {
-      return;
-    }
-
-    List<Long> puzzlePageIds = puzzlePages.stream().map(PuzzlePage::getId).toList();
-    Map<Long, List<PuzzlePiece>> puzzlePiecesByPageId =
-        puzzlePieceRepository.findAllByPuzzlePageIdInFetchMember(puzzlePageIds).stream()
-            .collect(Collectors.groupingBy(piece -> piece.getPuzzlePage().getId()));
-
-    List<PuzzlePage> completedPages =
-        puzzlePages.stream()
-            .filter(
-                page ->
-                    isPuzzleCompleted(puzzlePiecesByPageId.getOrDefault(page.getId(), List.of())))
-            .filter(page -> page.getRepresentativeMemberImage() != null)
-            .toList();
-
-    if (completedPages.isEmpty()) {
-      return;
-    }
-
-    List<User> participants =
-        meetingMemberRepository.findAllByMeetingIdInFetchUser(List.of(meeting.getId())).stream()
-            .map(MeetingMember::getUser)
-            .toList();
-
-    List<PuzzleCollection> collections =
-        completedPages.stream()
-            .flatMap(
-                page ->
-                    participants.stream()
-                        .map(
-                            user ->
-                                new PuzzleCollection(
-                                    user, page, page.getRepresentativeMemberImage().getImageUrl())))
-            .toList();
-
-    puzzleCollectionRepository.saveAll(collections);
+    LocalDateTime threshold = LocalDate.now().atStartOfDay();
+    meetingRepository
+        .findExpiredIds(threshold)
+        .forEach(meetingId -> meetingCompletionService.completeIfExpired(meetingId, threshold));
   }
 
   @Transactional
@@ -777,7 +702,7 @@ public class MeetingService {
     meetingMemberRouteRepository.deleteAllByMeetingMemberId(member.getId());
     memberImageRepository.deleteAllByMeetingMemberId(member.getId());
     meetingMemberRepository.delete(member);
-    completeIfRemainingMembersArrived(meeting);
+    meetingCompletionService.completeIfAllActiveMembersArrived(meeting.getId());
     deletePuzzleImageAfterCommit(uploadedImageUrl);
   }
 
