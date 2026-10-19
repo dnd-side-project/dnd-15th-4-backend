@@ -94,7 +94,7 @@ class AuthServiceTest {
         .willReturn(KAKAO_ACCESS_TOKEN);
     given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
         .willReturn(kakaoUserResponse(100L, "효창", "https://img.kakao.com/a.jpg"));
-    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
+    given(userRepository.findByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
@@ -114,7 +114,7 @@ class AuthServiceTest {
         .willReturn(KAKAO_ACCESS_TOKEN);
     given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
         .willReturn(kakaoUserResponse(100L, "새닉네임", "https://img.kakao.com/new.jpg"));
-    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.of(existingUser));
+    given(userRepository.findByKakaoIdForUpdate(100L)).willReturn(Optional.of(existingUser));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
 
@@ -134,7 +134,7 @@ class AuthServiceTest {
         .willReturn(
             kakaoUserResponse(
                 100L, "효창", "https://img.kakao.com/new.jpg", KAKAO_EMAIL, true, true, true));
-    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.of(existingUser));
+    given(userRepository.findByKakaoIdForUpdate(100L)).willReturn(Optional.of(existingUser));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
 
@@ -150,7 +150,7 @@ class AuthServiceTest {
         .willReturn(
             kakaoUserResponse(
                 100L, "효창", "https://img.kakao.com/a.jpg", KAKAO_EMAIL, false, false, true));
-    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
+    given(userRepository.findByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
@@ -169,7 +169,7 @@ class AuthServiceTest {
         .willReturn(
             kakaoUserResponse(
                 100L, "효창", "https://img.kakao.com/a.jpg", KAKAO_EMAIL, null, true, true));
-    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
+    given(userRepository.findByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
@@ -188,7 +188,7 @@ class AuthServiceTest {
         .willReturn(
             kakaoUserResponse(
                 100L, "효창", "https://img.kakao.com/a.jpg", KAKAO_EMAIL, false, true, false));
-    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
+    given(userRepository.findByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
@@ -206,7 +206,7 @@ class AuthServiceTest {
     given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
         .willReturn(
             kakaoUserResponse(100L, "효창", "https://img.kakao.com/a.jpg", null, false, null, null));
-    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
+    given(userRepository.findByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);
@@ -253,7 +253,7 @@ class AuthServiceTest {
         .willReturn(KAKAO_ACCESS_TOKEN);
     given(kakaoUserClient.getUserInfo(KAKAO_ACCESS_TOKEN))
         .willReturn(kakaoUserResponse(100L, "효창", null));
-    given(userRepository.findActiveByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
+    given(userRepository.findByKakaoIdForUpdate(100L)).willReturn(Optional.empty());
     given(userRepository.save(any(User.class))).willAnswer(invocation -> invocation.getArgument(0));
 
     authService.loginWithKakao(AUTHORIZATION_CODE);

@@ -181,6 +181,8 @@ public class MeetingMember extends BaseTimeEntity {
   }
 
   public void anonymizeForUserWithdrawal() {
+    this.travelMode = null;
+    this.departureReminderAttemptedAt = null;
     this.transportType = null;
     this.transportLine = null;
     this.departedAt = null;

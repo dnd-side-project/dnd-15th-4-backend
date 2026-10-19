@@ -42,12 +42,12 @@ public interface MeetingRepository extends JpaRepository<Meeting, Long> {
 
   @Query(
       """
-      select m from Meeting m
+      select m.id from Meeting m
       where m.status <> com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus.CANCELED
         and m.status <> com.dnd.puzzlemeet.domain.meeting.entity.MeetingStatus.COMPLETED
         and m.meetingAt < :threshold
       """)
-  List<Meeting> findAllExpired(@Param("threshold") LocalDateTime threshold);
+  List<Long> findExpiredIds(@Param("threshold") LocalDateTime threshold);
 
   @Query(
       """

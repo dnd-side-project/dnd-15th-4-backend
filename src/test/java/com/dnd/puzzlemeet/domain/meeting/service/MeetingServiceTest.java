@@ -118,7 +118,12 @@ class MeetingServiceTest {
             tmapPedestrianClient,
             puzzlePageRepository,
             puzzlePieceRepository,
-            puzzleCollectionRepository,
+            new MeetingCompletionService(
+                meetingRepository,
+                meetingMemberRepository,
+                puzzlePageRepository,
+                puzzlePieceRepository,
+                puzzleCollectionRepository),
             reactionMessageRepository,
             applicationEventPublisher);
     lenient()
@@ -614,7 +619,8 @@ class MeetingServiceTest {
   void completesMeetingWhenLastMemberArrives() {
     MeetingMember member = arrivingMemberOfStartedMeeting("효창");
     givenActiveMember(member);
-    given(meetingMemberRepository.existsNotArrivedMemberExcluding(10L, 1L)).willReturn(false);
+    given(meetingMemberRepository.existsNotArrivedMember(10L)).willReturn(false);
+    given(meetingMemberRepository.countActiveByMeetingId(10L)).willReturn(1L);
 
     meetingService.markMemberArrived(100L, 10L);
 
@@ -626,7 +632,8 @@ class MeetingServiceTest {
   void keepsMeetingInProgressWhenAnyMemberHasNotArrived() {
     MeetingMember member = arrivingMemberOfStartedMeeting("효창");
     givenActiveMember(member);
-    given(meetingMemberRepository.existsNotArrivedMemberExcluding(10L, 1L)).willReturn(true);
+    given(meetingMemberRepository.existsNotArrivedMember(10L)).willReturn(true);
+    given(meetingMemberRepository.countActiveByMeetingId(10L)).willReturn(2L);
 
     meetingService.markMemberArrived(100L, 10L);
 
@@ -656,7 +663,8 @@ class MeetingServiceTest {
     MeetingMember member = activeMemberMeetingToday("효창");
     member.updateCurrentLocation(BigDecimal.valueOf(37.5283), BigDecimal.valueOf(126.9320));
     givenActiveMember(member);
-    given(meetingMemberRepository.existsNotArrivedMemberExcluding(10L, 1L)).willReturn(false);
+    given(meetingMemberRepository.existsNotArrivedMember(10L)).willReturn(false);
+    given(meetingMemberRepository.countActiveByMeetingId(10L)).willReturn(1L);
 
     meetingService.markMemberArrived(100L, 10L);
 
@@ -1539,12 +1547,14 @@ class MeetingServiceTest {
   void completesMeetingsBeforeTodayStart() {
     Meeting meeting = waitingMeeting();
     ReflectionTestUtils.setField(meeting, "meetingAt", LocalDate.now().minusDays(1).atTime(20, 0));
-    given(meetingRepository.findAllExpired(any())).willReturn(List.of(meeting));
+    ReflectionTestUtils.setField(meeting, "id", 10L);
+    given(meetingRepository.findExpiredIds(any())).willReturn(List.of(10L));
+    given(meetingRepository.findByIdForUpdate(10L)).willReturn(Optional.of(meeting));
 
     meetingService.completeExpiredMeetings();
 
     ArgumentCaptor<LocalDateTime> threshold = ArgumentCaptor.forClass(LocalDateTime.class);
-    verify(meetingRepository).findAllExpired(threshold.capture());
+    verify(meetingRepository).findExpiredIds(threshold.capture());
     assertThat(threshold.getValue()).isEqualTo(LocalDate.now().atStartOfDay());
     assertThat(meeting.getStatus()).isEqualTo(MeetingStatus.COMPLETED);
   }

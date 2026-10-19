@@ -17,8 +17,11 @@ public interface UserRepository extends JpaRepository<User, Long> {
   Optional<User> findActiveByIdForUpdate(@Param("userId") Long userId);
 
   @Lock(LockModeType.PESSIMISTIC_WRITE)
-  @Query("select u from User u where u.kakaoId = :kakaoId and u.deletedAt is null")
-  Optional<User> findActiveByKakaoIdForUpdate(@Param("kakaoId") Long kakaoId);
+  @Query("select u from User u where u.kakaoId = :kakaoId")
+  Optional<User> findByKakaoIdForUpdate(@Param("kakaoId") Long kakaoId);
+
+  @Query("select u.kakaoId from User u where u.id = :userId")
+  Optional<Long> findKakaoIdById(@Param("userId") Long userId);
 
   boolean existsByIdAndDeletedAtIsNull(Long userId);
 }

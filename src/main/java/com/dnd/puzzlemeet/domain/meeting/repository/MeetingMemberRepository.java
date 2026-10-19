@@ -1,6 +1,7 @@
 package com.dnd.puzzlemeet.domain.meeting.repository;
 
 import com.dnd.puzzlemeet.domain.meeting.entity.MeetingMember;
+import java.math.BigDecimal;
 import java.time.LocalDateTime;
 import java.util.List;
 import java.util.Optional;
@@ -16,6 +17,25 @@ public interface MeetingMemberRepository extends JpaRepository<MeetingMember, Lo
   Optional<MeetingMember> findByMeetingIdAndUserId(Long meetingId, Long userId);
 
   List<MeetingMember> findAllByUserId(Long userId);
+
+  @Query(
+      "select mm.meeting.id from MeetingMember mm where mm.user.id = :userId order by mm.meeting.id")
+  List<Long> findMeetingIdsByUserId(@Param("userId") Long userId);
+
+  @Modifying(flushAutomatically = true)
+  @Query(
+      """
+      update MeetingMember mm
+      set mm.currentLatitude = :latitude, mm.currentLongitude = :longitude,
+          mm.locationUpdatedAt = :updatedAt
+      where mm.meeting.id = :meetingId and mm.user.id = :userId
+      """)
+  int updateCurrentLocation(
+      @Param("meetingId") Long meetingId,
+      @Param("userId") Long userId,
+      @Param("latitude") BigDecimal latitude,
+      @Param("longitude") BigDecimal longitude,
+      @Param("updatedAt") LocalDateTime updatedAt);
 
   @Query(
       """

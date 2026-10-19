@@ -52,7 +52,7 @@ public record MeetingDetailResponse(
         meeting.getStatus(),
         meeting.getInviteCode(),
         meeting.getCapacity(),
-        members.size(),
+        (int) members.stream().filter(member -> !member.getUser().isWithdrawn()).count(),
         members.stream()
             .map(member -> Participant.from(member, imagesByMemberId.get(member.getId())))
             .toList());

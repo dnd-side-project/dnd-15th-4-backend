@@ -43,7 +43,7 @@ public record MeetingPreviewResponse(
         meeting.getDestinationLongitude().doubleValue(),
         meeting.getStatus(),
         meeting.getCapacity(),
-        members.size(),
+        (int) members.stream().filter(member -> !member.getUser().isWithdrawn()).count(),
         members.stream().map(Participant::from).toList());
   }
 

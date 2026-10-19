@@ -84,13 +84,12 @@ public class UserController {
 
   @Operation(
       summary = "회원 탈퇴",
-      description = "카카오 연결을 해제하고 개인정보를 익명화한다. 대기 또는 진행 중인 약속의 방장은 약속을 삭제하거나 완료한 뒤 탈퇴할 수 있다.")
+      description =
+          "개인정보 익명화와 토큰 삭제가 DB에 확정되면 탈퇴 성공을 응답한다. DB 확정 후 카카오 연결 해제와 이미지 삭제를 한 번 시도하며, 외부 정리 실패는 탈퇴 성공이나 재가입을 막지 않는다. 대기 또는 진행 중인 약속의 방장은 약속을 삭제하거나 완료한 뒤 탈퇴할 수 있다.")
   @ApiErrorCodeExamples({
     ErrorCode.AUTH_TOKEN_INVALID,
     ErrorCode.USER_NOT_FOUND,
-    ErrorCode.USER_WITHDRAWAL_BLOCKED_BY_HOSTED_MEETING,
-    ErrorCode.AUTH_KAKAO_UNLINK_FAILED,
-    ErrorCode.S3_DELETE_FAILED
+    ErrorCode.USER_WITHDRAWAL_BLOCKED_BY_HOSTED_MEETING
   })
   @DeleteMapping("/me")
   public ResponseEntity<ApiResult<Void>> withdraw(

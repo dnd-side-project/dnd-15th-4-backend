@@ -49,14 +49,13 @@ public class AmazonS3Manager {
   public void deletePuzzleImage(String imageUrl) {
     Optional<String> puzzleKey = extractPuzzleKey(imageUrl);
     if (puzzleKey.isEmpty()) {
-      log.warn("[S3 퍼즐 이미지 삭제 건너뜀] 관리 범위 밖의 URL입니다. url={}", imageUrl);
+      log.warn("[S3 퍼즐 이미지 삭제 건너뜀] 관리 범위 밖의 URL입니다.");
       return;
     }
 
     try {
       s3Template.deleteObject(amazonS3Properties.bucket(), puzzleKey.get());
     } catch (RuntimeException e) {
-      log.error("[S3 퍼즐 이미지 삭제 실패] key={}", puzzleKey.get(), e);
       throw ApiException.of(ErrorCode.S3_DELETE_FAILED);
     }
   }

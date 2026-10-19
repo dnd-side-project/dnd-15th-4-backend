@@ -82,18 +82,17 @@ public class AuthService {
     String nickname = profile.nickname();
     String profileImageUrl = profile.profileImageUrl();
 
-    User user =
-        userRepository
-            .findActiveByKakaoIdForUpdate(kakaoUser.id())
-            .map(
-                existing -> {
-                  existing.updateKakaoProfile(email, profileImageUrl);
-                  return existing;
-                })
-            .orElseGet(
-                () ->
-                    userRepository.save(
-                        new User(kakaoUser.id(), nickname, profileImageUrl, email)));
+    User user = userRepository.findByKakaoIdForUpdate(kakaoUser.id()).orElse(null);
+    if (user != null && user.isWithdrawn()) {
+      user.releaseKakaoIdentity();
+      userRepository.flush();
+      user = null;
+    }
+    if (user == null) {
+      user = userRepository.save(new User(kakaoUser.id(), nickname, profileImageUrl, email));
+    } else {
+      user.updateKakaoProfile(email, profileImageUrl);
+    }
 
     return issueTokenPair(user);
   }

@@ -85,7 +85,6 @@ public class User extends BaseTimeEntity {
   }
 
   public void withdraw() {
-    this.kakaoId = null;
     this.email = null;
     this.nickname = WITHDRAWN_NICKNAME;
     this.profileImageUrl = null;
@@ -93,6 +92,10 @@ public class User extends BaseTimeEntity {
     this.isFriendArrivalNotificationEnabled = false;
     this.isChatBubbleNotificationEnabled = false;
     this.deletedAt = LocalDateTime.now();
+  }
+
+  public void releaseKakaoIdentity() {
+    this.kakaoId = null;
   }
 
   public boolean isWithdrawn() {
